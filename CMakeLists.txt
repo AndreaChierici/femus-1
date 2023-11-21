@@ -139,9 +139,9 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 
 SET(EIGEN_SAFE_TO_USE_STANDARD_ASSERT_MACRO FALSE)
 
-find_package(Ceres NO_MODULE REQUIRED)
+#find_package(Ceres NO_MODULE REQUIRED)
 
-find_package(glog NO_MODULE REQUIRED)
+#find_package(glog NO_MODULE REQUIRED)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -220,6 +220,8 @@ OPTION(BUILD_NITSCHE "Build the Nitsche apps" OFF)
 OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" ON)
 
 OPTION(BUILD_TIME_OPTIMAL_CONTROL "Build Time Dependent Optimal Control apps" ON)
+
+OPTION(BUILD_NOM "Build Nonlocal Operator Method apps" ON)
 
 #############################################################################################
 ### Build documentation (Doxygen)
