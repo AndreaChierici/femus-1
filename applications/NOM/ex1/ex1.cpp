@@ -6,7 +6,6 @@
 #include "LinearImplicitSystem.hpp"
 
 #include "NumericVector.hpp"
-#include "adept.h"
 
 #include "CurrentElem.hpp"
 #include "ElemType_template.hpp"
@@ -15,17 +14,16 @@
 #include "petscmat.h"
 #include "PetscMatrix.hpp"
 
-#include "slepceps.h"
-
 #include "PetscMatrix.hpp"
 
-#include "Assemble_jacobian.hpp"
-
+#include "include/nom.hpp"
 
 using namespace femus;
 
-
 int main(int argc, char** argv)
 {
-    
+  Nom nom;
+  std::vector<double> lengths{1.,1.};
+  std::vector<unsigned> nPoints{2,2};
+//   nom.InitializeSimplestPointStructure(lengths,nPoints);  
 }
