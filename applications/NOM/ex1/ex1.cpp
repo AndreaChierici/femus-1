@@ -17,13 +17,15 @@
 #include "PetscMatrix.hpp"
 
 #include "include/nom.hpp"
+#include "include/nom.cpp"
 
 using namespace femus;
 
 int main(int argc, char** argv)
 {
   Nom nom;
-  std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{2,2};
-//   nom.InitializeSimplestPointStructure(lengths,nPoints);  
+  std::vector<double> lengths{1.,1.,1.};
+  std::vector<unsigned> nPoints{4,3,2};
+  nom.InitializeSimplestPointStructure(lengths,nPoints);
+  nom.PrintX();
 }
