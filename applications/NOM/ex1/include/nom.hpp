@@ -15,8 +15,8 @@ namespace femus {
       void SetDimension(const unsigned &dim);
       void xResize();
       void InitializeSimplestPointStructure(const std::vector<double> &lengths, const  std::vector<unsigned> &nPoints);
-      void doRecursion(int baseCondition, const std::vector<unsigned> &nPoints, std::vector<double> &h);
       void PrintX();
+      void comb(vector<vector<double> >& arr);
       
     private:
       unsigned _dim;  
@@ -24,7 +24,6 @@ namespace femus {
       unsigned _nNodes;
 
       unsigned _totCount;
-      std::vector<int> _count;
       
       
   };

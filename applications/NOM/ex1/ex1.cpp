@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 {
   Nom nom;
   std::vector<double> lengths{1.,1.,1.};
-  std::vector<unsigned> nPoints{4,3,2};
+  std::vector<unsigned> nPoints{4,4,4};
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.PrintX();
 }

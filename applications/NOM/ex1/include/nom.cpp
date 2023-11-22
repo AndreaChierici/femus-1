@@ -16,7 +16,7 @@ void Nom::SetDimension(const unsigned &dim) {_dim = dim;}
 
 void Nom::xResize() {_x.resize(_nNodes, vector<double>(_dim));}
 
-// This function initialized an Hyperrectangle domain with points
+// This function initialized an Hyperrectangle domain with nPoints per dimension
 void Nom::InitializeSimplestPointStructure(const std::vector<double> &lengths, //lenght of the side of the domain in any direction
                                       const  std::vector<unsigned> &nPoints //number of points per direction
                                      ){
@@ -37,44 +37,54 @@ void Nom::InitializeSimplestPointStructure(const std::vector<double> &lengths, /
     SetDimension(dim);
     xResize();
 
-    _count.resize(_dim,0);
-    _totCount = 0;
-
-//     TODO: all this function should be generalized with a recursive algorithm
-    if(_dim == 2){
-      for(unsigned j = 0; j < nPoints[1]; j++){
-        _count[0]=0;
-        doRecursion(_dim, nPoints, h);
-        _count[1]++;
+    std::vector<std::vector<double>> coord(_dim);
+    for(unsigned d = 0; d < _dim; d++) coord[d].resize(nPoints[d]);
+    for(unsigned d = 0; d < _dim; d++){
+      for(unsigned i = 0; i < nPoints[d]; i++){  
+      coord[d][i] = h[d] * i;  
       }
     }
-    else if(_dim == 3){
-      for(unsigned k = 0; k < nPoints[2]; k++){
-        _count[1]=0;
-        for(unsigned j = 0; j < nPoints[1]; j++){
-          _count[0]=0;
-          doRecursion(_dim, nPoints, h);
-          _count[1]++;
-        }
-        _count[2]++;
-      }
-    }
+    comb(coord);
   }
   return;
 }
 
-void Nom::doRecursion(int baseCondition, const std::vector<unsigned> &nPoints, std::vector<double> &h){
-  for(unsigned i = 0; i < nPoints[0]; i++){
-    for(unsigned d = 0; d < _dim; d++){
-      _x[_totCount][d] = h[d] * _count[d];
+void Nom::comb(std::vector<std::vector<double> >& arr){
+    // number of arrays
+    int n = arr.size();
+    _totCount = 0;
+    
+    // to keep track of next element in each of the n arrays
+    int* indices = new int[n];
+ 
+    // initialize with first element's index
+    for (int i = 0; i < n; i++)
+        indices[i] = 0;
+ 
+    while (1) {
+        // print current combination
+        for (int i = 0; i < n; i++)  _x[_totCount][i] = arr[i][indices[i]];
+        _totCount++;
+ 
+        // find the rightmost array that has more elements left after the current element in that array
+        int next = n - 1;
+        while (next >= 0 && 
+              (indices[next] + 1 >= arr[next].size()))
+            next--;
+ 
+        // no such array is found so no more 
+        // combinations left
+        if (next < 0)
+            return;
+ 
+        // if found move to next element in that array
+        indices[next]++;
+ 
+        // for all arrays to the right of this array current index again points to first element
+        for (int i = next + 1; i < n; i++)
+            indices[i] = 0;
     }
-    _totCount++;
-    _count[0]++;
-  }
 }
-
-
-
 
 void Nom::PrintX(){
   for(unsigned i = 0; i < _x.size(); i++){
@@ -84,5 +94,7 @@ void Nom::PrintX(){
     std::cout<<std::endl;
   }
 }
+
+
 
 } // end namespace femus
