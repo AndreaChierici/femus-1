@@ -95,6 +95,139 @@ void Nom::PrintX(){
   }
 }
 
+void Nom::InitializeMap(){
+  for(unsigned i = 0; i < _nNodes; i++) _suppNodes[i].resize(_nNodes);
+}
+
+void Nom::InitializeDistMap(){
+  for(unsigned i = 0; i < _nNodes; i++) {
+      _suppDist[i].resize(_nNodes, std::vector<double>(_dim));
+  }
+}
+
+void Nom::SetConstantSupport(double delta){ _delta = delta;}
+
+// This function fills the map that associate every node with the list of the neighbours
+// (a support with constant radius is considered)
+void Nom::PointsInConstantSupport(){
+  InitializeMap();
+  _count.resize(_nNodes, 0);  
+  for(unsigned i = 0; i < _nNodes; i++){
+    for(unsigned j = i+1; j < _nNodes; j++){
+      double dist = 0;
+      for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+      if(dist < _delta * _delta) {
+        _suppNodes[i][_count[i]] = j;
+        _suppNodes[j][_count[j]] = i;
+        _count[i]++;
+        _count[j]++;
+      }  
+    }
+  }
+  for(unsigned i = 0; i < _nNodes; i++) _suppNodes[i].resize(_count[i]);
+}
+
+// This function fills the map that associate every node with the distance vector
+// with the neighbours in the support (a support with constant radius is considered)
+void Nom::DistanceInConstantSupport(){
+  InitializeDistMap();
+  _count.resize(_nNodes, 0);  
+  for(unsigned i = 0; i < _nNodes; i++){
+    for(unsigned j = i+1; j < _nNodes; j++){
+      double dist = 0;
+      for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+      if(dist < _delta * _delta) {
+        for(unsigned d = 0; d < _dim; d++) {
+          _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
+          _suppDist[j][_count[j]][d] = _x[i][d] - _x[j][d];
+        }
+        _count[i]++;
+        _count[j]++;
+      }  
+    }
+  }
+  for(unsigned i = 0; i < _nNodes; i++) _suppDist[i].resize(_count[i]);
+}
+
+// This function fills BOTH the maps of the neighbours elements and of the distances
+void Nom::PointsAndDistInConstantSupport(){
+  InitializeMap();
+  InitializeDistMap();
+  _count.resize(_nNodes, 0);  
+  for(unsigned i = 0; i < _nNodes; i++){
+    for(unsigned j = i+1; j < _nNodes; j++){
+      double dist = 0;
+      for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+      if(dist < _delta * _delta) {
+        _suppNodes[i][_count[i]] = j;
+        _suppNodes[j][_count[j]] = i;  
+        for(unsigned d = 0; d < _dim; d++) {
+          _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
+          _suppDist[j][_count[j]][d] = _x[i][d] - _x[j][d];
+        }
+        _count[i]++;
+        _count[j]++;
+      }  
+    }
+  }
+  for(unsigned i = 0; i < _nNodes; i++) {
+    _suppNodes[i].resize(_count[i]);
+    _suppDist[i].resize(_count[i]);
+  }
+}
+
+
+std::map<int, std::vector<int>> Nom::GetMap(){
+  return _suppNodes;  
+}
+
+std::map<int, std::vector<std::vector<double>>> Nom::GetDist(){
+  return _suppDist;    
+}
+
+std::vector<std::vector<double>> Nom::GetK(){
+  return _K;    
+}
+
+// This function computes the operator K on a node i in NOM theory when weight_i = 1 / V_i
+void Nom::ComputeOperatorK(unsigned i){
+  _K.resize(_dim, std::vector<double>(_dim, 0.));  
+  for(unsigned j = 0; j < _suppNodes.size(); j++) {
+    for(unsigned d1 = 0; d1 < _dim; d1++){
+      for(unsigned d2 = 0; d2 < _dim; d2++){
+        _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2];
+      }
+    }
+  }  
+}
+
+// This function computes the operator K on a node i in NOM theory when weight_i != 1 / V_i
+void Nom::ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight){
+  InitializeVolumesAndWeights(vol, weight);
+  _K.resize(_dim, std::vector<double>(_dim, 0.));  
+  for(unsigned j = 0; j < _suppNodes.size(); j++) {
+    for(unsigned d1 = 0; d1 < _dim; d1++){
+      for(unsigned d2 = 0; d2 < _dim; d2++){
+        _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2] * _weight[i][j] * _vol[i];
+      }
+    }
+  }  
+}
+
+void Nom::InitializeVolumesAndWeights(std::vector<double> vol, std::map<int, std::vector<double>> weight){
+  if(vol.size() != _nNodes || weight.size() != _nNodes){
+    std::cerr<<"Not consinstent number of weights or volumes in function InitializeVolumesAndWeights\n";
+    abort();
+  } 
+  _vol = vol;  
+  _weight = weight;
+  for(unsigned i = 0; i < vol.size(); i++){
+    if(vol[i] * vol[i] < 1e-20){
+      std::cerr<<"Volume = 0 in function InitializeVolumesAndWeights\n";  
+      abort();
+    }   
+  }
+}
 
 
 } // end namespace femus
