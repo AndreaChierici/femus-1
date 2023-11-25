@@ -21,6 +21,8 @@ namespace femus {
       void adjoint();
       bool inverse();
       void printInv();
+      std::vector<std::vector<double>> getInv();
+      std::vector<double> vecMult(std::vector<double> vec);
     
       
       private:

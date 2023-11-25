@@ -134,6 +134,26 @@ void SimpleMatrix::printInv()
     }
 }
 
+std::vector<std::vector<double>> SimpleMatrix::getInv(){
+  return _inv;  
+}
+
+std::vector<double> SimpleMatrix::vecMult(std::vector<double> vec){
+  std::vector<double> result(_sz, 0.);  
+  if(vec.size() != _sz){
+    std::cerr << "vecMult: Size of the vector not consinstent with size of the matrix\n";
+    abort();
+  }
+  else{
+    for(unsigned i = 0; i < _sz; i++){
+      for(unsigned j = 0; j < _sz; j++){
+         result[i] +=  _M[i][j] * vec[j];    
+      }  
+    }
+  }
+  return result;
+}
+
 
 
 

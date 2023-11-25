@@ -86,6 +86,15 @@ void Nom::comb(std::vector<std::vector<double> >& arr){
     }
 }
 
+void Nom::GetCoords(std::vector<std::vector<double>> &x){
+  x.resize(_x.size(), std::vector<double>(_x[0].size()));  
+  for(unsigned i = 0; i < _x.size(); i++){
+    for(unsigned k = 0; k < _x[0].size(); k++){
+      x[i][k] =  _x[i][k];
+    }
+  }
+}
+
 void Nom::PrintX(){
   for(unsigned i = 0; i < _x.size(); i++){
     for(unsigned k = 0; k < _x[0].size(); k++){
@@ -189,10 +198,15 @@ std::vector<std::vector<double>> Nom::GetK(){
   return _K;    
 }
 
+std::vector<std::vector<double>> Nom::GetKinv(){
+  return _Kinv;    
+}
+
 // This function computes the operator K on a node i in NOM theory when weight_i = 1 / V_i
 void Nom::ComputeOperatorK(unsigned i){
-  _K.resize(_dim, std::vector<double>(_dim, 0.));  
-  for(unsigned j = 0; j < _suppNodes.size(); j++) {
+  _K.resize(_dim, std::vector<double>(_dim));  
+  for(int i=0; i< _K.size(); i++) std::fill(_K[i].begin(),_K[i].end(),0.);
+  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
     for(unsigned d1 = 0; d1 < _dim; d1++){
       for(unsigned d2 = 0; d2 < _dim; d2++){
         _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2];
@@ -205,13 +219,19 @@ void Nom::ComputeOperatorK(unsigned i){
 void Nom::ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight){
   InitializeVolumesAndWeights(vol, weight);
   _K.resize(_dim, std::vector<double>(_dim, 0.));  
-  for(unsigned j = 0; j < _suppNodes.size(); j++) {
+  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
     for(unsigned d1 = 0; d1 < _dim; d1++){
       for(unsigned d2 = 0; d2 < _dim; d2++){
         _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2] * _weight[i][j] * _vol[i];
       }
     }
   }  
+}
+
+void Nom::ComputeInvK(){
+  SimpleMatrix _SM(_K);  
+  _SM.inverse();
+  _Kinv = _SM.getInv();    
 }
 
 void Nom::InitializeVolumesAndWeights(std::vector<double> vol, std::map<int, std::vector<double>> weight){
@@ -226,6 +246,27 @@ void Nom::InitializeVolumesAndWeights(std::vector<double> vol, std::map<int, std
       std::cerr<<"Volume = 0 in function InitializeVolumesAndWeights\n";  
       abort();
     }   
+  }
+}
+
+double Nom::ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i){
+  double div = 0;  
+  if(_dim != vec[0].size()){
+    std::cerr << "In function ComputeNOMDivergence: dimension of vec not consinstent with _dim";
+    abort();    
+  }
+  else{
+      if(i == 0 || i == 15){
+          int a = 1;
+    }
+    ComputeOperatorK(i);
+    ComputeInvK();
+    SimpleMatrix _SM(_Kinv); 
+    std::vector<double> Km1r(_dim, 0.);
+    for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+      Km1r = _SM.vecMult(_suppDist[i][j]);
+      for(unsigned d = 0; d < _dim; d++) div += (vec[j][d] - vec[i][d]) * (Km1r[d]);
+    }
   }
 }
 
