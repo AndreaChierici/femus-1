@@ -105,18 +105,42 @@ int main(int argc, char** argv)
   field.resize(coords.size(), std::vector<double>(coords[0].size(), 0.));
   for(unsigned i = 0; i < coords.size(); i++){
     for(unsigned d = 0; d < coords[0].size(); d++) {
-      field[i][d] = coords[i][d] * coords[i][d];    
+      field[i][d] = coords[i][d] * coords[i][d] * coords[i][d];    
     } 
   }
    double div = 0;
+   double err = 0;
   for(unsigned i = 0; i < coords.size(); i++){
     div = nom.ComputeNOMDivergence(field, i);
     std::cout << i << " coords: ";
     for(unsigned d = 0; d < coords[0].size(); d++) std::cout << coords[i][d] << " ";
     std::cout<< " div = " << div << " ";
-    std::cout << " Local value (valid for 2d quadratic): " << 2 * (coords[i][0] + coords[i][1]);
+    std::cout << " Local value (valid for 2d cubic): " << 3 * (coords[i][0] * coords[i][0] + coords[i][1] * coords[i][1] );
     std::cout<<std::endl;
+    double tmp = 0;
+    for(unsigned d = 0; d < coords[0].size(); d++) tmp += 3 * coords[i][d] * coords[i][d];
+    err += (div - tmp) * (div - tmp);
   }
+//   std::cout<<"____________REF________________________\n";
+//   for(unsigned i = 0; i < 11; i++){
+//    std::cout << 0.1*i << " " << 3 * 0.5 * 0.5 + 3 * 0.1 * i<< "\n";   
+//   }
+//   std::cout<<"_______________________________________\n";
+//   for(unsigned i = 0; i < coords.size(); i++){
+//     div = nom.ComputeNOMDivergence(field, i);    
+//     if(coords[i][1] < 0.5001 && coords[i][1] > 0.4999){
+//       std::cout << coords[i][0] << " " << div << "\n";
+//     }
+//   }
+//   std::cout<<"___________ERR________________________\n";
+//     for(unsigned i = 0; i < coords.size(); i++){
+//     div = nom.ComputeNOMDivergence(field, i);    
+//     if(coords[i][1] < 0.5001 && coords[i][1] > 0.4999){
+//       std::cout << coords[i][0] << " " << div  - 3 * 0.5 * 0.5 - 3 * coords[i][0] * coords[i][0]<< "\n";
+//     }
+//   }
+  std::cout<<"ERR = " << err << "\n";
+  
   
   
   

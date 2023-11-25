@@ -265,7 +265,7 @@ double Nom::ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned 
     std::vector<double> Km1r(_dim, 0.);
     for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
       Km1r = _SM.vecMult(_suppDist[i][j]);
-      for(unsigned d = 0; d < _dim; d++) div += (vec[j][d] - vec[i][d]) * (Km1r[d]);
+      for(unsigned d = 0; d < _dim; d++) div += (vec[_suppNodes[i][j]][d] - vec[i][d]) * (Km1r[d]); //TODO Mistake: vec[j][d] non ha senso
     }
   }
 }
