@@ -13,8 +13,7 @@
 #include "petsc.h"
 #include "petscmat.h"
 #include "PetscMatrix.hpp"
-
-#include "PetscMatrix.hpp"
+#include "FemusInit.hpp"
 
 #include "include/simpleMatrix.hpp"
 #include "include/simpleMatrix.cpp"
@@ -25,17 +24,19 @@ using namespace femus;
 
 int main(int argc, char** argv)
 {
+  FemusInit mpinit(argc, argv, MPI_COMM_WORLD);  
+    
   // Testing the class Nom - initialization
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{11,11};
+  std::vector<unsigned> nPoints{3,3};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.PrintX();
   
   // Testing the class Nom - creating the maps of neighbours and distances
-  nom.SetConstantSupport(0.11);
+  nom.SetConstantSupport(0.55);
   nom.PointsAndDistInConstantSupport();
   std::map<int, std::vector<int>> map = nom.GetMap();
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
@@ -78,7 +79,7 @@ int main(int argc, char** argv)
 //   mat.printInv();
   
 // Testing the class Nom - compuiting inverse of the operator K
-  nom.ComputeInvK();
+  nom.ComputeInvK(0);
   std::vector<std::vector<double>> Kinv = nom.GetKinv();
   std::cout<<"_______________________________________\n";
   std::cout<<"K inverse = \n";
@@ -140,6 +141,8 @@ int main(int argc, char** argv)
 //     }
 //   }
   std::cout<<"ERR = " << err << "\n";
+  
+//   nom.CreateGlobalMatrix();
   
   
   

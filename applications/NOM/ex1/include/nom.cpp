@@ -228,7 +228,8 @@ void Nom::ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<i
   }  
 }
 
-void Nom::ComputeInvK(){
+void Nom::ComputeInvK(unsigned i){
+  ComputeOperatorK(i);  
   SimpleMatrix _SM(_K);  
   _SM.inverse();
   _Kinv = _SM.getInv();    
@@ -256,19 +257,39 @@ double Nom::ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned 
     abort();    
   }
   else{
-      if(i == 0 || i == 15){
-          int a = 1;
-    }
-    ComputeOperatorK(i);
-    ComputeInvK();
+    ComputeInvK(i);
     SimpleMatrix _SM(_Kinv); 
     std::vector<double> Km1r(_dim, 0.);
     for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
-      Km1r = _SM.vecMult(_suppDist[i][j]);
-      for(unsigned d = 0; d < _dim; d++) div += (vec[_suppNodes[i][j]][d] - vec[i][d]) * (Km1r[d]); //TODO Mistake: vec[j][d] non ha senso
+      Km1r = _SM.matVecMult(_suppDist[i][j]);
+      for(unsigned d = 0; d < _dim; d++) div += (vec[_suppNodes[i][j]][d] - vec[i][d]) * (Km1r[d]); 
     }
   }
 }
+
+std::vector<double> Nom::ComputeNOMScalarGradient(std::vector<double> sol, unsigned i){ //TODO!
+ std::vector<double> grad(_dim, 0.);  
+      ComputeInvK(i);
+    SimpleMatrix _SM(_Kinv); 
+    std::vector<double> sum(_dim, 0.);
+    for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+      for(unsigned d = 0; j < _dim; d++){  
+        sum[d] += sol[j] * _suppDist[i][j][d]; 
+      }
+    }
+    grad = _SM.vecMatMult(sum);   
+  return grad;
+}
+
+void Nom::CreateGlobalMatrix(){
+  PetscInt m = _nNodes;
+  PetscInt n = _nNodes;
+  PetscInt nz = _nNodes;
+  PetscInt nnz[_nNodes];
+  for(unsigned i = 0; i < _nNodes; i++) nnz[i] = _suppNodes[i].size(); 
+  MatCreateSeqAIJ(MPI_COMM_WORLD, m, n, nz, nnz, &_A);
+}
+
 
 
 } // end namespace femus

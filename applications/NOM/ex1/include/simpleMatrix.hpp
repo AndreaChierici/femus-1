@@ -22,7 +22,8 @@ namespace femus {
       bool inverse();
       void printInv();
       std::vector<std::vector<double>> getInv();
-      std::vector<double> vecMult(std::vector<double> vec);
+      std::vector<double> matVecMult(std::vector<double> vec);
+      std::vector<double> vecMatMult(std::vector<double> vec);
     
       
       private:

@@ -5,6 +5,8 @@
 #include <sstream>      // std::ostringstream
 
 #include "simpleMatrix.hpp"
+// #include "SparseMatrix.hpp"
+#include "petscmat.h"  
 
 namespace femus {
     
@@ -31,7 +33,7 @@ namespace femus {
       
       void ComputeOperatorK(unsigned i);
       void ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight);
-      void ComputeInvK();
+      void ComputeInvK(unsigned i);
       void InitializeVolumesAndWeights(std::vector<double> vol, std::map<int, std::vector<double>> weight);
       
       std::map<int, std::vector<int>> GetMap();
@@ -40,6 +42,9 @@ namespace femus {
       std::vector<std::vector<double>> GetKinv();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
+      std::vector<double> ComputeNOMScalarGradient(std::vector<double> sol, unsigned i);
+      
+      void CreateGlobalMatrix();
       
       
     private:
@@ -63,6 +68,8 @@ namespace femus {
       
       std::vector<double> _sol;
       std::vector<std::vector<double>> _vecSol;
+      
+      Mat _A;
       
       
   };
