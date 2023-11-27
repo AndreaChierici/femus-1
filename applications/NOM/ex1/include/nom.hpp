@@ -40,9 +40,15 @@ namespace femus {
       std::map<int, std::vector<std::vector<double>>> GetDist();
       std::vector<std::vector<double>> GetK();
       std::vector<std::vector<double>> GetKinv();
+      std::vector<std::vector<int>> GetMultiIndexList();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
       std::vector<double> ComputeNOMScalarGradient(std::vector<double> sol, unsigned i);
+      
+      void SetOrder(unsigned n);
+      void MultiIndexList(unsigned n);
+      unsigned factorial(unsigned n);
+      void combinationUtil(int arr[], int data[], int index, int r);
       
       void CreateGlobalMatrix();
       
@@ -68,6 +74,10 @@ namespace femus {
       
       std::vector<double> _sol;
       std::vector<std::vector<double>> _vecSol;
+      
+      std::vector<std::vector<int>> _multiIndexList;
+      unsigned _n;
+      unsigned _cnt;
       
       Mat _A;
       

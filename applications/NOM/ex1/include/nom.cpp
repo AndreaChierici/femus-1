@@ -281,6 +281,66 @@ std::vector<double> Nom::ComputeNOMScalarGradient(std::vector<double> sol, unsig
   return grad;
 }
 
+void Nom::SetOrder(unsigned n){
+  _n = n;  
+}
+
+// This function generates all the combinations indices for derivatives with
+// order less or equal then n
+void Nom::combinationUtil(int arr[], int data[],
+                    int index, int r) {
+    if (index == r) { 
+        unsigned sum = 0;
+        for (int j = 0; j < r; j++) sum += data[j];
+        if(sum != 0 && sum <= _n ) {
+          for (int j = 0; j < r; j++) _multiIndexList[_cnt][j] = data[j];
+          _cnt++;
+        }
+
+        return; 
+    } 
+    for (int i = 0; i <= _n; i++) { 
+        data[index] = arr[i]; 
+        combinationUtil(arr, data, index+1, r); 
+    } 
+} 
+
+
+void Nom::MultiIndexList(unsigned n){
+  SetOrder(n);  
+  unsigned indxDim = factorial(_n + _dim) / (factorial(_n) * factorial(_dim)) - 1;
+  
+  _multiIndexList.resize(indxDim, std::vector<int>(_dim));
+  _cnt = 0;
+  
+  int arr[_n + 1];
+  for(unsigned nn = 0; nn <= _n; nn++) arr[nn] = nn;
+  
+  int data[_dim]; 
+ 
+  combinationUtil(arr, data, 0, _dim); 
+}
+
+unsigned Nom::factorial(unsigned n) {
+    if (n == 0 || n == 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+
+std::vector<std::vector<int>> Nom::GetMultiIndexList(){
+  return _multiIndexList;
+}
+
+
+
+
+
+
+
+
 void Nom::CreateGlobalMatrix(){
   PetscInt m = _nNodes;
   PetscInt n = _nNodes;

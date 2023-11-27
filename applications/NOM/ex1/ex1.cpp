@@ -142,7 +142,20 @@ int main(int argc, char** argv)
 //   }
   std::cout<<"ERR = " << err << "\n";
   
+  std::cout<<"_______________________________________\n";
+  nom.MultiIndexList(2);
+  std::vector<std::vector<int>> list = nom.GetMultiIndexList();
+  
+  for(unsigned i = 0; i < list.size();i++){
+    std::cout << "(";  
+    for(unsigned j = 0; j < list[i].size(); j++){
+      std::cout<< list[i][j] << ",";
+    }
+    std::cout << "),";
+  }
 //   nom.CreateGlobalMatrix();
+
+
   
   
   
