@@ -24,7 +24,7 @@ using namespace femus;
 
 int main(int argc, char** argv)
 {
-  FemusInit mpinit(argc, argv, MPI_COMM_WORLD);  
+  FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
     
   // Testing the class Nom - initialization
 
@@ -36,17 +36,17 @@ int main(int argc, char** argv)
   nom.PrintX();
   
   // Testing the class Nom - creating the maps of neighbours and distances
-  nom.SetConstantSupport(0.55);
-  nom.PointsAndDistInConstantSupport();
+  nom.SetConstantSupport(0.8);
+  nom.PointsAndDistInConstantSupportWithInv();
   std::map<int, std::vector<int>> map = nom.GetMap();
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
-  
+
   for(unsigned i = 0; i < map.size(); i++){
       std::cout<< i << " | ";
       for(unsigned j = 0; j < map[i].size(); j++) std::cout << map[i][j] << " ";
       std::cout<<std::endl;
   }
-  std::cout<<"_______________________________________\n";
+  std::cout<<"___________DIST______________________\n";
   for(unsigned i = 0; i < dist.size(); i++){
       std::cout<< i << " | ";
       for(unsigned j = 0; j < dist[i].size(); j++) {
@@ -74,7 +74,7 @@ int main(int argc, char** argv)
   
 //   // Testing the class SimpleMatrix
 //   std::vector<std::vector<double>> M = {{6,-2,1,5,6},{-4,1,-1,7,8},{1,0,1,-1,2},{1,0,4,-1,1},{0,0,0,0,2}} ;
-//   SimpleMatrix mat(M); 
+//   SimpleMatrix mat(M);
 //   bool inv = mat.inverse();
 //   mat.printInv();
   
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
   for(unsigned d1 = 0; d1 < dim; d1++){
     std::cout<<"{ ";
     for(unsigned d2 = 0; d2 < dim; d2++){
-      std::cout << Kinv[d1][d2];     
+      std::cout << Kinv[d1][d2];
       if(d2 < dim-1) std::cout << ", ";
     }
     std::cout<<" }";
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
   }
   
 //   // Testing matrix-vector multiplication in the class SimpleMatrix
-//   SimpleMatrix mat(Kinv); 
+//   SimpleMatrix mat(Kinv);
 //   std::vector<double> res = mat.vecMult({1,2,-4});
 //   std::cout<<"_______________________________________\n";
 //   for(unsigned i = 0; i < res.size(); i++) std::cout << res[i]<< " \n";
@@ -106,8 +106,8 @@ int main(int argc, char** argv)
   field.resize(coords.size(), std::vector<double>(coords[0].size(), 0.));
   for(unsigned i = 0; i < coords.size(); i++){
     for(unsigned d = 0; d < coords[0].size(); d++) {
-      field[i][d] = coords[i][d] * coords[i][d] * coords[i][d];    
-    } 
+      field[i][d] = coords[i][d] * coords[i][d] * coords[i][d];
+    }
   }
    double div = 0;
    double err = 0;
@@ -124,18 +124,18 @@ int main(int argc, char** argv)
   }
 //   std::cout<<"____________REF________________________\n";
 //   for(unsigned i = 0; i < 11; i++){
-//    std::cout << 0.1*i << " " << 3 * 0.5 * 0.5 + 3 * 0.1 * i<< "\n";   
+//    std::cout << 0.1*i << " " << 3 * 0.5 * 0.5 + 3 * 0.1 * i<< "\n";
 //   }
 //   std::cout<<"_______________________________________\n";
 //   for(unsigned i = 0; i < coords.size(); i++){
-//     div = nom.ComputeNOMDivergence(field, i);    
+//     div = nom.ComputeNOMDivergence(field, i);
 //     if(coords[i][1] < 0.5001 && coords[i][1] > 0.4999){
 //       std::cout << coords[i][0] << " " << div << "\n";
 //     }
 //   }
 //   std::cout<<"___________ERR________________________\n";
 //     for(unsigned i = 0; i < coords.size(); i++){
-//     div = nom.ComputeNOMDivergence(field, i);    
+//     div = nom.ComputeNOMDivergence(field, i);
 //     if(coords[i][1] < 0.5001 && coords[i][1] > 0.4999){
 //       std::cout << coords[i][0] << " " << div  - 3 * 0.5 * 0.5 - 3 * coords[i][0] * coords[i][0]<< "\n";
 //     }
@@ -145,16 +145,21 @@ int main(int argc, char** argv)
   std::cout<<"_______________________________________\n";
   nom.MultiIndexList(2);
   std::vector<std::vector<int>> list = nom.GetMultiIndexList();
-  
+
   for(unsigned i = 0; i < list.size();i++){
-    std::cout << "(";  
+    std::cout << "(";
     for(unsigned j = 0; j < list[i].size(); j++){
       std::cout<< list[i][j] << ",";
     }
     std::cout << "),";
   }
-//   nom.CreateGlobalMatrix();
 
+  std::cout<<"_______________________________________\n";
+  std::vector<double> polyIndex;
+  polyIndex = nom.PolyMultiIndex(8,2,0.5);
+  for(unsigned i = 0; i < polyIndex.size(); i++) std::cout << polyIndex[i] << " ";
+
+//   nom.CreateGlobalMatrix();
 
   
   

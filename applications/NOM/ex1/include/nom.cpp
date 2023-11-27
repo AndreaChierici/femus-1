@@ -105,7 +105,9 @@ void Nom::PrintX(){
 }
 
 void Nom::InitializeMap(){
-  for(unsigned i = 0; i < _nNodes; i++) _suppNodes[i].resize(_nNodes);
+  for(unsigned i = 0; i < _nNodes; i++) {
+    _suppNodes[i].resize(_nNodes);
+  }
 }
 
 void Nom::InitializeDistMap(){
@@ -130,10 +132,12 @@ void Nom::PointsInConstantSupport(){
         _suppNodes[j][_count[j]] = i;
         _count[i]++;
         _count[j]++;
-      }  
+      }
     }
   }
-  for(unsigned i = 0; i < _nNodes; i++) _suppNodes[i].resize(_count[i]);
+  for(unsigned i = 0; i < _nNodes; i++) {
+    _suppNodes[i].resize(_count[i]);
+  }
 }
 
 // This function fills the map that associate every node with the distance vector
@@ -169,14 +173,14 @@ void Nom::PointsAndDistInConstantSupport(){
       for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
       if(dist < _delta * _delta) {
         _suppNodes[i][_count[i]] = j;
-        _suppNodes[j][_count[j]] = i;  
+        _suppNodes[j][_count[j]] = i;
         for(unsigned d = 0; d < _dim; d++) {
           _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
           _suppDist[j][_count[j]][d] = _x[i][d] - _x[j][d];
         }
         _count[i]++;
         _count[j]++;
-      }  
+      }
     }
   }
   for(unsigned i = 0; i < _nNodes; i++) {
@@ -184,6 +188,63 @@ void Nom::PointsAndDistInConstantSupport(){
     _suppDist[i].resize(_count[i]);
   }
 }
+
+// This function fills the map that associate every node with the list of the neighbours
+// (a support with constant radius is considered)
+void Nom::PointsInConstantSupportWithInv(){
+  InitializeMap();
+  _count.resize(_nNodes, 0);
+  for(unsigned i = 0; i < _nNodes; i++){
+    std::map<int, int> innerMap;
+    for(unsigned j = 0 /*i+1*/; j < _nNodes; j++){
+      if(i != j){
+        double dist = 0;
+        for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+        if(dist < _delta * _delta) {
+          _suppNodes[i][_count[i]] = j;
+          innerMap[j] = _count[i];
+          _count[i]++;
+        }
+      }
+    }
+    _suppNodesInv[i] = innerMap;
+  }
+
+  for(unsigned i = 0; i < _nNodes; i++) {
+    _suppNodes[i].resize(_count[i]);
+  }
+}
+
+// This function fills BOTH the maps of the neighbours elements and of the distances
+void Nom::PointsAndDistInConstantSupportWithInv(){
+  InitializeMap();
+  InitializeDistMap();
+  _count.resize(_nNodes, 0);
+  for(unsigned i = 0; i < _nNodes; i++){
+    std::map<int, int> innerMap;
+    for(unsigned j = 0/*i+1*/; j < _nNodes; j++){
+      if(i != j){
+        double dist = 0;
+        for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+        if(dist < _delta * _delta) {
+          _suppNodes[i][_count[i]] = j;
+          innerMap[j] = _count[i];
+          for(unsigned d = 0; d < _dim; d++) {
+            _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
+          }
+          _count[i]++;
+        }
+      }
+    }
+    _suppNodesInv[i] = innerMap;
+  }
+
+  for(unsigned i = 0; i < _nNodes; i++) {
+    _suppNodes[i].resize(_count[i]);
+    _suppDist[i].resize(_count[i]);
+  }
+}
+
 
 
 std::map<int, std::vector<int>> Nom::GetMap(){
@@ -308,9 +369,9 @@ void Nom::combinationUtil(int arr[], int data[],
 
 void Nom::MultiIndexList(unsigned n){
   SetOrder(n);  
-  unsigned indxDim = factorial(_n + _dim) / (factorial(_n) * factorial(_dim)) - 1;
+  _indxDim = factorial(_n + _dim) / (factorial(_n) * factorial(_dim)) - 1;
   
-  _multiIndexList.resize(indxDim, std::vector<int>(_dim));
+  _multiIndexList.resize(_indxDim, std::vector<int>(_dim));
   _cnt = 0;
   
   int arr[_n + 1];
@@ -333,6 +394,60 @@ unsigned Nom::factorial(unsigned n) {
 std::vector<std::vector<int>> Nom::GetMultiIndexList(){
   return _multiIndexList;
 }
+
+// j = 0,1,2,.. indicates the second index of _suppNodes (is NOT the actual value of the node)
+std::vector<double> Nom::PolyMultiIndex(unsigned i, unsigned j, double h){
+  std::vector<double> poly(_indxDim,1.);
+
+  for(unsigned indx = 0; indx < _indxDim; indx++){
+    for(unsigned d = 0; d < _dim; d++){
+     if(_multiIndexList[indx][d] > 0){
+       poly[indx] *=  pow(_suppDist[i][j][d] / h, _multiIndexList[indx][d]);
+     }
+    }
+  }
+  return poly;
+}
+
+// Computation of the inverse of diagonal of the matrix H composed by the permutations of the
+// powers of the lengths
+std::vector<double> Nom::DiagLengthHInv(double h){
+  std::vector<double> Hinv(_indxDim,1.);
+
+  for(unsigned indx = 0; indx < _indxDim; indx++){
+    for(unsigned d = 0; d < _dim; d++){
+     if(_multiIndexList[indx][d] > 0){
+       double num = pow(h, _multiIndexList[indx][d]);
+       double den = factorial(_multiIndexList[indx][d]);
+       Hinv[indx] *= den / num;
+     }
+    }
+  }
+  return Hinv;
+}
+
+std::vector<std::vector<double>> Nom::SelfTensProd(std::vector<double> vec){
+  unsigned sz = vec.size();
+  std::vector<std::vector<double>> sol(sz, std::vector<double>(sz, 0.));
+  for(unsigned i = 0; i < sz; i++){
+    for(unsigned j = 0; j < sz; j++){
+      sol[i][j] += vec[i] * vec[j];
+    }
+  }
+  return sol;
+}
+
+// void Nom::ComputeHighOrdOperatorK(unsigned i, double h){
+//   std::vector<double> polyIndx;
+//   std::vector<std::vector<double>> tensProd;
+//   for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+//     polyIndx = PolyMultiIndex(i, j, h);
+//     tensProd = SelfTensProd(polyIndx);
+// //     TODO
+// //     TODO
+//   }
+//
+// }
 
 
 

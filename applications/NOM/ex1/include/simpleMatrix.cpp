@@ -170,6 +170,10 @@ std::vector<double> SimpleMatrix::vecMatMult(std::vector<double> vec){
   return result;
 }
 
+// std::vector<std::vector<double>> SimpleMatrix::Sum(std::vector<std::vector<double>> mat){
+// //   TODO Build a sum of matrices function
+// }
+
 
 
 } // end namespace femus

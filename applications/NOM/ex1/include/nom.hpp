@@ -30,6 +30,8 @@ namespace femus {
       void PointsInConstantSupport();
       void DistanceInConstantSupport();
       void PointsAndDistInConstantSupport();
+      void PointsInConstantSupportWithInv();
+      void PointsAndDistInConstantSupportWithInv();
       
       void ComputeOperatorK(unsigned i);
       void ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight);
@@ -49,6 +51,10 @@ namespace femus {
       void MultiIndexList(unsigned n);
       unsigned factorial(unsigned n);
       void combinationUtil(int arr[], int data[], int index, int r);
+      std::vector<double> PolyMultiIndex(unsigned i, unsigned j, double h);
+      std::vector<double> DiagLengthHInv(double h);
+      std::vector<std::vector<double>> SelfTensProd(std::vector<double> vec);
+      void ComputeHighOrdOperatorK(unsigned i);
       
       void CreateGlobalMatrix();
       
@@ -63,6 +69,7 @@ namespace femus {
       double _delta;
       std::vector<int> _count;
       std::map<int, std::vector<int>> _suppNodes;
+      std::map<int, std::map<int,int>> _suppNodesInv;
       std::map<int, std::vector<std::vector<double>>> _suppDist;
       
       std::vector<std::vector<double>> _K;
@@ -76,8 +83,11 @@ namespace femus {
       std::vector<std::vector<double>> _vecSol;
       
       std::vector<std::vector<int>> _multiIndexList;
+      unsigned _indxDim;
       unsigned _n;
       unsigned _cnt;
+      std::vector<std::vector<double>> _KHO;
+
       
       Mat _A;
       
