@@ -20,6 +20,8 @@
 #include "include/nom.hpp"
 #include "include/nom.cpp"
 
+#include <Eigen/Dense>
+
 using namespace femus;
 
 int main(int argc, char** argv)
@@ -29,21 +31,33 @@ int main(int argc, char** argv)
   // Testing the class Nom - initialization
 
   Nom nom;
-  std::vector<double> lengths{1.};
-  std::vector<unsigned> nPoints{5};
+  std::vector<double> lengths{1.,1.};
+  std::vector<unsigned> nPoints{5,5};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
+  std::cout<<"___________PRINT_X__________________\n";
   nom.PrintX();
   
   // Testing the class Nom - creating the maps of neighbours and distances
-  nom.SetConstantSupport(0.6);
-  nom.PointsAndDistInConstantSupportWithInv();
-  std::map<int, std::vector<int>> map = nom.GetMap();
-  std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
 
-  for(unsigned i = 0; i < map.size(); i++){
+  // nom.SetConstantSupport(1);
+  // nom.PointsAndDistInConstantSupport();
+  nom.PointsAndDistNPtsSupport(10);
+
+  // std::map<int, std::vector<int>> map = nom.GetMap();
+  std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
+  std::map<int, std::vector<std::pair<int,double>>> mapN = nom.GetMapN();
+
+  // std::cout<<"___________MAP______________________\n";
+  // for(unsigned i = 0; i < map.size(); i++){
+  //     std::cout<< i << " | ";
+  //     for(unsigned j = 0; j < map[i].size(); j++) std::cout << map[i][j] << " ";
+  //     std::cout<<std::endl;
+  // }
+  std::cout<<"___________MAP_N____________________\n";
+  for(unsigned i = 0; i < mapN.size(); i++){
       std::cout<< i << " | ";
-      for(unsigned j = 0; j < map[i].size(); j++) std::cout << map[i][j] << " ";
+      for(unsigned j = 0; j < mapN[i].size(); j++) std::cout << mapN[i][j].first << " ";
       std::cout<<std::endl;
   }
   std::cout<<"___________DIST______________________\n";
@@ -143,7 +157,7 @@ int main(int argc, char** argv)
   std::cout<<"ERR = " << err << "\n";
   
   std::cout<<"_______________________________________\n";
-  nom.MultiIndexList(2);
+  nom.MultiIndexList(3);
   std::vector<std::vector<int>> list = nom.GetMultiIndexList();
 
   for(unsigned i = 0; i < list.size();i++){
@@ -161,16 +175,36 @@ int main(int argc, char** argv)
 //   for(unsigned i = 0; i < polyIndex.size(); i++) std::cout << polyIndex[i] << " ";
 //   std::cout<< std::endl;
   
-  std::cout<<"________TEST_ComputeHighOrdOperatorK____________\n";
-  nom.MultiIndexList(2);
-  nom.ComputeHighOrdOperatorK(0,1);
-  std::vector<std::vector<double>> KHO=nom.GetKHO();
-  for (unsigned i = 0; i < KHO.size(); i++){
-    for (unsigned j = 0; j < KHO[0].size(); j++){
-      std::cout<< KHO[i][j] << " ";
-    }
-    std::cout<<std::endl;
-  }
+  // std::cout<<"________TEST_ComputeHighOrdOperatorK____________\n";
+  // nom.ComputeHighOrdOperatorK(0);
+  // std::vector<std::vector<double>> KHO=nom.GetKHO();
+  // for (unsigned i = 0; i < KHO.size(); i++){
+  //   for (unsigned j = 0; j < KHO[0].size(); j++){
+  //     std::cout<< KHO[i][j] << " ";
+  //   }
+  //   std::cout<<std::endl;
+  // }
+
+  std::cout<<"________TEST_ComputeHighOrdOperatorK__Eigen______\n";
+  nom.ComputeHighOrdOperatorK(0);
+  Eigen::MatrixXd KHOE = nom.GetKHOE();
+  std::cout << KHOE << std::endl;
+
+//   Eigen::MatrixXd m(2,2);
+//   m(0,0) = 1;
+//   m(1,0) = 0;
+//   m(0,1) = 0;
+//   m(1,1) = 2;
+//   m=m.inverse();
+//    for(unsigned i = 0; i < 2; i++) for(unsigned j = 0; j < 2; j++) std::cout << m(i,j) << " ";
+//
+// //   double data[2][2];
+// //   for(unsigned i = 0; i < 2; i++) for(unsigned j = 0; j < 2; j++) data[i][j]=i+j;
+// // Map<Matrix<double,2,2,RowMajor> > mat(data[0]);
+// // cout << "Row-major:\n" << Map<Matrix<double,2,2,RowMajor> >(data[0]) << endl;
+// // mat = mat.inverse();
+
+
 
 //   nom.CreateGlobalMatrix();
 

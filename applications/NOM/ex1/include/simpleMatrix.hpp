@@ -5,6 +5,8 @@
 #include <sstream>      // std::ostringstream
 
 #include <bits/stdc++.h>
+
+// #include "petscmat.h"
 using namespace std;
 // #define N 4
 
@@ -28,11 +30,14 @@ namespace femus {
       std::vector<double> vecMatMult(std::vector<double> vec);
       void Sum(std::vector<std::vector<double>> mat);
       void DiagMatProd(std::vector<double> diag);
+
+      // void GeneratePETSCMatrix();
     
       
       private:
         unsigned _sz;  
         std::vector<std::vector<double>> _M;
+        // Mat _MPetsc;
         std::vector<std::vector<double>> _adj;
         std::vector<std::vector<double>> _temp;
         std::vector<std::vector<double>> _inv;

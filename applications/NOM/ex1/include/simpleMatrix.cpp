@@ -216,5 +216,14 @@ void SimpleMatrix::DiagMatProd(std::vector<double> diag){
 }
 
 
+// void SimpleMatrix::GeneratePETSCMatrix(){
+//   PetscInt M = _M.size();
+//   PetscInt N = _M[0].size();
+//   // MatCreateDense(MPI_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, M, N, NULL,&_MPetsc);
+//   MatCreateSeqAIJ(PETSC_COMM_SELF,M,N,0,NULL,&_MPetsc);
+//   MatSetValues(&_MPetsc, M, const PetscInt idxm[], PetscInt n, const PetscInt idxn[], const PetscScalar v[], InsertMode addv)
+// }
+
+
 
 } // end namespace femus

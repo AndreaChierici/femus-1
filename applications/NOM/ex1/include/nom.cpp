@@ -1,4 +1,5 @@
 #include "nom.hpp"
+#include <Eigen/Dense>
 
 namespace femus {
 
@@ -107,6 +108,8 @@ void Nom::PrintX(){
 void Nom::InitializeMap(){
   for(unsigned i = 0; i < _nNodes; i++) {
     _suppNodes[i].resize(_nNodes);
+    _suppNodesN[i].resize(_nNodes);
+    _h.resize(_nNodes,0.);
   }
 }
 
@@ -130,6 +133,8 @@ void Nom::PointsInConstantSupport(){
       if(dist < _delta * _delta) {
         _suppNodes[i][_count[i]] = j;
         _suppNodes[j][_count[j]] = i;
+        _suppNodesN[i][_count[i]] = {j,_delta};
+        _suppNodesN[j][_count[j]] = {i,_delta};
         _count[i]++;
         _count[j]++;
       }
@@ -137,6 +142,8 @@ void Nom::PointsInConstantSupport(){
   }
   for(unsigned i = 0; i < _nNodes; i++) {
     _suppNodes[i].resize(_count[i]);
+    _suppNodesN[i].resize(_count[i]);
+    _h[i]=_delta;
   }
 }
 
@@ -163,6 +170,7 @@ void Nom::DistanceInConstantSupport(){
 }
 
 // This function fills BOTH the maps of the neighbours elements and of the distances
+// given a constant support delta
 void Nom::PointsAndDistInConstantSupport(){
   InitializeMap();
   InitializeDistMap();
@@ -174,6 +182,8 @@ void Nom::PointsAndDistInConstantSupport(){
       if(dist < _delta * _delta) {
         _suppNodes[i][_count[i]] = j;
         _suppNodes[j][_count[j]] = i;
+        _suppNodesN[i][_count[i]] = {j,_delta};
+        _suppNodesN[j][_count[j]] = {i,_delta};
         for(unsigned d = 0; d < _dim; d++) {
           _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
           _suppDist[j][_count[j]][d] = _x[i][d] - _x[j][d];
@@ -185,7 +195,44 @@ void Nom::PointsAndDistInConstantSupport(){
   }
   for(unsigned i = 0; i < _nNodes; i++) {
     _suppNodes[i].resize(_count[i]);
+    _suppNodesN[i].resize(_count[i]);
     _suppDist[i].resize(_count[i]);
+    _h[i]=_delta;
+  }
+}
+
+// This function fills BOTH the maps of the neighbours elements and of the distances
+// given an assigned number of points in the support
+void Nom::PointsAndDistNPtsSupport(unsigned npt){
+  InitializeMap();
+  InitializeDistMap();
+  for(unsigned i = 0; i < _nNodes; i++){
+    // _suppNodesN[i].resize(_nNodes, {1.e5, 1.e5});
+    for(unsigned j = 0; j < _nNodes; j++){
+      if(i != j){
+        double dist = 0;
+        for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
+          _suppNodesN[i][j] = {j, dist};
+      }
+      else{
+        _suppNodesN[i][j] = {j, 1e5};
+      }
+    }
+  }
+
+  for(unsigned i = 0; i < _nNodes; i++){
+    std::sort( _suppNodesN[i].begin(),  _suppNodesN[i].end(), [=](std::pair<int, double>& a, std::pair<int, double>& b){return a.second < b.second;});
+    _suppNodesN[i].resize(npt);
+  }
+
+  for(unsigned i = 0; i < _nNodes; i++){
+    _suppDist[i].resize(npt);
+    for(unsigned j = 0; j < npt; j++){
+      for(unsigned d = 0; d < _dim; d++) _suppDist[i][j][d] = _x[_suppNodesN[i][j].first][d] - _x[i][d];
+    }
+    double dist = 0;
+    for(unsigned d = 0; d < _dim; d++) dist += _suppDist[i][npt-1][d] * _suppDist[i][npt-1][d];
+    _h[i] += sqrt(dist);
   }
 }
 
@@ -251,6 +298,10 @@ std::map<int, std::vector<int>> Nom::GetMap(){
   return _suppNodes;  
 }
 
+std::map<int, std::vector<std::pair<int,double>>> Nom::GetMapN(){
+  return _suppNodesN;
+}
+
 std::map<int, std::vector<std::vector<double>>> Nom::GetDist(){
   return _suppDist;    
 }
@@ -267,11 +318,15 @@ std::vector<std::vector<double>> Nom::GetKHO(){
   return _KHO;    
 }
 
+Eigen::MatrixXd Nom::GetKHOE(){
+  return _KHOE;
+}
+
 // This function computes the operator K on a node i in NOM theory when weight_i = 1 / V_i
 void Nom::ComputeOperatorK(unsigned i){
   _K.resize(_dim, std::vector<double>(_dim));  
   for(int i=0; i< _K.size(); i++) std::fill(_K[i].begin(),_K[i].end(),0.);
-  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+  for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
     for(unsigned d1 = 0; d1 < _dim; d1++){
       for(unsigned d2 = 0; d2 < _dim; d2++){
         _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2];
@@ -284,7 +339,7 @@ void Nom::ComputeOperatorK(unsigned i){
 void Nom::ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight){
   InitializeVolumesAndWeights(vol, weight);
   _K.resize(_dim, std::vector<double>(_dim, 0.));  
-  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+  for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
     for(unsigned d1 = 0; d1 < _dim; d1++){
       for(unsigned d2 = 0; d2 < _dim; d2++){
         _K[d1][d2] += _suppDist[i][j][d1] * _suppDist[i][j][d2] * _weight[i][j] * _vol[i];
@@ -325,9 +380,9 @@ double Nom::ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned 
     ComputeInvK(i);
     SimpleMatrix _SM(_Kinv); 
     std::vector<double> Km1r(_dim, 0.);
-    for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
       Km1r = _SM.matVecMult(_suppDist[i][j]);
-      for(unsigned d = 0; d < _dim; d++) div += (vec[_suppNodes[i][j]][d] - vec[i][d]) * (Km1r[d]); 
+      for(unsigned d = 0; d < _dim; d++) div += (vec[_suppNodesN[i][j].first][d] - vec[i][d]) * (Km1r[d]);
     }
   }
 }
@@ -337,7 +392,7 @@ std::vector<double> Nom::ComputeNOMScalarGradient(std::vector<double> sol, unsig
       ComputeInvK(i);
     SimpleMatrix _SM(_Kinv); 
     std::vector<double> sum(_dim, 0.);
-    for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
       for(unsigned d = 0; j < _dim; d++){  
         sum[d] += sol[j] * _suppDist[i][j][d]; 
       }
@@ -370,7 +425,8 @@ void Nom::combinationUtil(int arr[], int data[],
     } 
 } 
 
-
+// This function creates the list _multiIndexList (alpha on the paper) of all
+// the possible derivatives, depending on the oder n and the dimension _dim
 void Nom::MultiIndexList(unsigned n){
   SetOrder(n);  
   _indxDim = factorial(_n + _dim) / (factorial(_n) * factorial(_dim)) - 1;
@@ -400,13 +456,13 @@ std::vector<std::vector<int>> Nom::GetMultiIndexList(){
 }
 
 // j = 0,1,2,.. indicates the second index of _suppNodes (is NOT the actual value of the node)
-std::vector<double> Nom::PolyMultiIndex(unsigned i, unsigned j, double h){
+std::vector<double> Nom::PolyMultiIndex(unsigned i, unsigned j){
   std::vector<double> poly(_indxDim,1.);
 
   for(unsigned indx = 0; indx < _indxDim; indx++){
     for(unsigned d = 0; d < _dim; d++){
      if(_multiIndexList[indx][d] > 0){
-       poly[indx] *=  pow(_suppDist[i][j][d] / h, _multiIndexList[indx][d]);
+       poly[indx] *=  pow(_suppDist[i][j][d] / _h[i], _multiIndexList[indx][d]);
      }
     }
   }
@@ -415,48 +471,76 @@ std::vector<double> Nom::PolyMultiIndex(unsigned i, unsigned j, double h){
 
 // Computation of the inverse of diagonal of the matrix H composed by the permutations of the
 // powers of the lengths
-std::vector<double> Nom::DiagLengthHInv(double h){
-  std::vector<double> Hinv(_indxDim,1.);
+Eigen::MatrixXd Nom::DiagLengthHInv(unsigned i){
+  Eigen::MatrixXd Hinv;
+  Hinv.resize(_indxDim,_indxDim);
+  Hinv.setZero();
 
   for(unsigned indx = 0; indx < _indxDim; indx++){
+    double prod = 1.;
     for(unsigned d = 0; d < _dim; d++){
      if(_multiIndexList[indx][d] > 0){
-       double num = pow(h, _multiIndexList[indx][d]);
+       double num = pow(_h[i], _multiIndexList[indx][d]);
        double den = factorial(_multiIndexList[indx][d]);
-       Hinv[indx] *= den / num;
+       prod *= den / num;
      }
     }
+    Hinv(indx,indx) = prod;
   }
   return Hinv;
 }
 
-std::vector<std::vector<double>> Nom::SelfTensProd(std::vector<double> vec){
+ Eigen::MatrixXd Nom::SelfTensProd(std::vector<double> vec){
   unsigned sz = vec.size();
-  std::vector<std::vector<double>> sol(sz, std::vector<double>(sz, 0.));
+   Eigen::MatrixXd sol;
+   sol.resize(sz,sz);
+   sol.setZero();
   for(unsigned i = 0; i < sz; i++){
     for(unsigned j = 0; j < sz; j++){
-      sol[i][j] += vec[i] * vec[j];
+      sol(i,j) += vec[i] * vec[j];
     }
   }
   return sol;
 }
 
-void Nom::ComputeHighOrdOperatorK(unsigned i, double h){
-  std::vector<double> polyIndx;
-  std::vector<double> Hinv = DiagLengthHInv(h);
-  std::vector<std::vector<double>> SumTens(_indxDim, std::vector<double>(_indxDim, 0.));
-  SimpleMatrix mat(SumTens);
-  std::vector<std::vector<double>> tensProd;
-  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
-    polyIndx = PolyMultiIndex(i, j, h);
-    tensProd = SelfTensProd(polyIndx);
-    mat.Sum(tensProd);
+void Nom::ComputeHighOrdOperatorK(unsigned i){
+  if(_suppNodesN[i].size() < _indxDim){
+    std::cerr<< "In function ComputeHighOrdOperatorK: not enough nodes in the support\n";
+    abort();
   }
-  mat.inverse();
-  mat.setMatrix(mat.getInv());
-  mat.DiagMatProd(Hinv);
-  _KHO = mat.getMatrix();
+  else{
+    _KHOE.resize(_indxDim,_indxDim);
+    _KHOE.setZero();
+    std::vector<double> polyIndx;
+    _HinvE = DiagLengthHInv(i);
+    // std::vector<std::vector<double>> SumTens(_indxDim, std::vector<double>(_indxDim, 0.));
+    // SimpleMatrix mat(SumTens);
+    Eigen::MatrixXd tensProd;
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+      polyIndx = PolyMultiIndex(i, j);
+      tensProd = SelfTensProd(polyIndx);
+      _KHOE = _KHOE + tensProd;
+      // mat.Sum(tensProd);
+    }
+
+    _KHOE=_KHOE.inverse();
+    _KHOE=_HinvE*_KHOE;
+
+    // mat.inverse();
+    // mat.setMatrix(mat.getInv());
+    // mat.DiagMatProd(Hinv);
+    // _KHO = mat.getMatrix();
+  }
 }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -470,7 +554,7 @@ void Nom::CreateGlobalMatrix(){
   PetscInt n = _nNodes;
   PetscInt nz = _nNodes;
   PetscInt nnz[_nNodes];
-  for(unsigned i = 0; i < _nNodes; i++) nnz[i] = _suppNodes[i].size(); 
+  for(unsigned i = 0; i < _nNodes; i++) nnz[i] = _suppNodesN[i].size();
   MatCreateSeqAIJ(MPI_COMM_WORLD, m, n, nz, nnz, &_A);
 }
 

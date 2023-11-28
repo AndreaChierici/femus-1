@@ -3,10 +3,17 @@
 #include <fstream>
 #include <iostream>     // std::cout, std::ios
 #include <sstream>      // std::ostringstream
+#include <algorithm>
+// #include <iterator>
+// #include <set>
 
 #include "simpleMatrix.hpp"
 // #include "SparseMatrix.hpp"
-#include "petscmat.h"  
+#include "petscmat.h"
+#include <Eigen/Dense>
+
+// using namespace Eigen;
+
 
 namespace femus {
     
@@ -32,6 +39,8 @@ namespace femus {
       void PointsAndDistInConstantSupport();
       void PointsInConstantSupportWithInv();
       void PointsAndDistInConstantSupportWithInv();
+
+      void PointsAndDistNPtsSupport(unsigned npt);
       
       void ComputeOperatorK(unsigned i);
       void ComputeNotHomOperatorK(unsigned i, std::vector<double> vol, std::map<int, std::vector<double>> weight);
@@ -39,10 +48,12 @@ namespace femus {
       void InitializeVolumesAndWeights(std::vector<double> vol, std::map<int, std::vector<double>> weight);
       
       std::map<int, std::vector<int>> GetMap();
+      std::map<int, std::vector<std::pair<int,double>>> GetMapN();
       std::map<int, std::vector<std::vector<double>>> GetDist();
       std::vector<std::vector<double>> GetK();
       std::vector<std::vector<double>> GetKinv();
       std::vector<std::vector<double>> GetKHO();
+      Eigen::MatrixXd GetKHOE();
       std::vector<std::vector<int>> GetMultiIndexList();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
@@ -52,10 +63,10 @@ namespace femus {
       void MultiIndexList(unsigned n);
       unsigned factorial(unsigned n);
       void combinationUtil(int arr[], int data[], int index, int r);
-      std::vector<double> PolyMultiIndex(unsigned i, unsigned j, double h);
-      std::vector<double> DiagLengthHInv(double h);
-      std::vector<std::vector<double>> SelfTensProd(std::vector<double> vec);
-      void ComputeHighOrdOperatorK(unsigned i, double h);
+      std::vector<double> PolyMultiIndex(unsigned i, unsigned j);
+      Eigen::MatrixXd DiagLengthHInv(unsigned i);
+      Eigen::MatrixXd SelfTensProd(std::vector<double> vec);
+      void ComputeHighOrdOperatorK(unsigned i);
       
       void CreateGlobalMatrix();
       
@@ -72,6 +83,9 @@ namespace femus {
       std::map<int, std::vector<int>> _suppNodes;
       std::map<int, std::map<int,int>> _suppNodesInv;
       std::map<int, std::vector<std::vector<double>>> _suppDist;
+
+      std::map<int, std::vector<std::pair<int,double>>> _suppNodesN;
+      std::vector<double> _h;
       
       std::vector<std::vector<double>> _K;
       std::vector<std::vector<double>> _Kinv;
@@ -88,6 +102,8 @@ namespace femus {
       unsigned _n;
       unsigned _cnt;
       std::vector<std::vector<double>> _KHO;
+      Eigen::MatrixXd _HinvE;
+      Eigen::MatrixXd _KHOE;
 
       
       Mat _A;
