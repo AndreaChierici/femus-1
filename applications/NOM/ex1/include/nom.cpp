@@ -263,6 +263,10 @@ std::vector<std::vector<double>> Nom::GetKinv(){
   return _Kinv;    
 }
 
+std::vector<std::vector<double>> Nom::GetKHO(){
+  return _KHO;    
+}
+
 // This function computes the operator K on a node i in NOM theory when weight_i = 1 / V_i
 void Nom::ComputeOperatorK(unsigned i){
   _K.resize(_dim, std::vector<double>(_dim));  
@@ -328,7 +332,7 @@ double Nom::ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned 
   }
 }
 
-std::vector<double> Nom::ComputeNOMScalarGradient(std::vector<double> sol, unsigned i){ //TODO!
+std::vector<double> Nom::ComputeNOMScalarGradient(std::vector<double> sol, unsigned i){ 
  std::vector<double> grad(_dim, 0.);  
       ComputeInvK(i);
     SimpleMatrix _SM(_Kinv); 
@@ -437,17 +441,22 @@ std::vector<std::vector<double>> Nom::SelfTensProd(std::vector<double> vec){
   return sol;
 }
 
-// void Nom::ComputeHighOrdOperatorK(unsigned i, double h){
-//   std::vector<double> polyIndx;
-//   std::vector<std::vector<double>> tensProd;
-//   for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
-//     polyIndx = PolyMultiIndex(i, j, h);
-//     tensProd = SelfTensProd(polyIndx);
-// //     TODO
-// //     TODO
-//   }
-//
-// }
+void Nom::ComputeHighOrdOperatorK(unsigned i, double h){
+  std::vector<double> polyIndx;
+  std::vector<double> Hinv = DiagLengthHInv(h);
+  std::vector<std::vector<double>> SumTens(_indxDim, std::vector<double>(_indxDim, 0.));
+  SimpleMatrix mat(SumTens);
+  std::vector<std::vector<double>> tensProd;
+  for(unsigned j = 0; j < _suppNodes[i].size(); j++) {
+    polyIndx = PolyMultiIndex(i, j, h);
+    tensProd = SelfTensProd(polyIndx);
+    mat.Sum(tensProd);
+  }
+  mat.inverse();
+  mat.setMatrix(mat.getInv());
+  mat.DiagMatProd(Hinv);
+  _KHO = mat.getMatrix();
+}
 
 
 

@@ -42,6 +42,7 @@ namespace femus {
       std::map<int, std::vector<std::vector<double>>> GetDist();
       std::vector<std::vector<double>> GetK();
       std::vector<std::vector<double>> GetKinv();
+      std::vector<std::vector<double>> GetKHO();
       std::vector<std::vector<int>> GetMultiIndexList();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
@@ -54,7 +55,7 @@ namespace femus {
       std::vector<double> PolyMultiIndex(unsigned i, unsigned j, double h);
       std::vector<double> DiagLengthHInv(double h);
       std::vector<std::vector<double>> SelfTensProd(std::vector<double> vec);
-      void ComputeHighOrdOperatorK(unsigned i);
+      void ComputeHighOrdOperatorK(unsigned i, double h);
       
       void CreateGlobalMatrix();
       

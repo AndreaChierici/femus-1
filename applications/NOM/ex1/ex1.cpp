@@ -29,14 +29,14 @@ int main(int argc, char** argv)
   // Testing the class Nom - initialization
 
   Nom nom;
-  std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{3,3};
+  std::vector<double> lengths{1.};
+  std::vector<unsigned> nPoints{5};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.PrintX();
   
   // Testing the class Nom - creating the maps of neighbours and distances
-  nom.SetConstantSupport(0.8);
+  nom.SetConstantSupport(0.6);
   nom.PointsAndDistInConstantSupportWithInv();
   std::map<int, std::vector<int>> map = nom.GetMap();
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
@@ -153,11 +153,24 @@ int main(int argc, char** argv)
     }
     std::cout << "),";
   }
+  std::cout<<std::endl;
 
-  std::cout<<"_______________________________________\n";
-  std::vector<double> polyIndex;
-  polyIndex = nom.PolyMultiIndex(8,2,0.5);
-  for(unsigned i = 0; i < polyIndex.size(); i++) std::cout << polyIndex[i] << " ";
+//   std::cout<<"_______________________________________\n";
+//   std::vector<double> polyIndex;
+//   polyIndex = nom.PolyMultiIndex(8,2,0.5);
+//   for(unsigned i = 0; i < polyIndex.size(); i++) std::cout << polyIndex[i] << " ";
+//   std::cout<< std::endl;
+  
+  std::cout<<"________TEST_ComputeHighOrdOperatorK____________\n";
+  nom.MultiIndexList(2);
+  nom.ComputeHighOrdOperatorK(0,1);
+  std::vector<std::vector<double>> KHO=nom.GetKHO();
+  for (unsigned i = 0; i < KHO.size(); i++){
+    for (unsigned j = 0; j < KHO[0].size(); j++){
+      std::cout<< KHO[i][j] << " ";
+    }
+    std::cout<<std::endl;
+  }
 
 //   nom.CreateGlobalMatrix();
 

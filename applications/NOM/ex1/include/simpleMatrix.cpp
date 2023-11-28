@@ -18,6 +18,19 @@ SimpleMatrix::SimpleMatrix(std::vector<std::vector<double>> M){
   _sz = M.size();
   _M = M; 
 }
+
+void SimpleMatrix::setMatrix(std::vector<std::vector<double>> M){
+  if(M.size() != M[0].size()){
+    std::cerr<<"Not squared Matrix initialized in class SimpleMatrix\n";
+    abort();
+  }
+  _sz = M.size();
+  _M = M;   
+}
+
+std::vector<std::vector<double>> SimpleMatrix::getMatrix(){
+  return _M;  
+}
  
  
 // Function to get cofactor of _M[p][q] in temp[][]. n is current dimension of _M
@@ -170,9 +183,37 @@ std::vector<double> SimpleMatrix::vecMatMult(std::vector<double> vec){
   return result;
 }
 
-// std::vector<std::vector<double>> SimpleMatrix::Sum(std::vector<std::vector<double>> mat){
-// //   TODO Build a sum of matrices function
-// }
+void SimpleMatrix::Sum(std::vector<std::vector<double>> mat){
+  if(mat.size() != _M.size() || mat[0].size() != _M[0].size()){
+    std::cerr << "Error in SimpleMatrix::Sum: sum of matrices with different shapes\n";
+    abort();
+  }
+  else{
+    for(unsigned i = 0; i < _M.size(); i++){
+        for(unsigned j = 0; j < _M[0].size(); j++){
+          _M[i][j] += mat[i][j];
+      }
+    }
+  }
+  return;
+}
+
+// This function computes the product between the diagonal matrix identified by the diagonal diag
+// and _M
+void SimpleMatrix::DiagMatProd(std::vector<double> diag){
+  if(_M.size() != diag.size()){
+    std::cerr << "Error in SimpleMatrix::DiagMatProd: product of matrices with different shapes\n" ;
+    abort();
+  }
+  else{
+    for(unsigned i = 0; i < _M.size(); i++){
+        for(unsigned j = 0; j < _M[0].size(); j++){
+          _M[i][j] *= diag[i];
+      }
+    }  
+  }
+  return;
+}
 
 
 
