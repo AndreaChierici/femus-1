@@ -32,9 +32,14 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{5,5};
+  std::vector<unsigned> nPoints{11,11};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
+  unsigned order = 3;
+  unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
+  unsigned nNeigh = 5 * order + np;
+  std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
+
   std::cout<<"___________PRINT_X__________________\n";
   nom.PrintX();
   
@@ -42,7 +47,7 @@ int main(int argc, char** argv)
 
   // nom.SetConstantSupport(1);
   // nom.PointsAndDistInConstantSupport();
-  nom.PointsAndDistNPtsSupport(10);
+  nom.PointsAndDistNPtsSupport(nNeigh);
 
   // std::map<int, std::vector<int>> map = nom.GetMap();
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
@@ -114,28 +119,28 @@ int main(int argc, char** argv)
 //   std::cout<<"_______________________________________\n";
 //   for(unsigned i = 0; i < res.size(); i++) std::cout << res[i]<< " \n";
 
-  std::vector<std::vector<double>> field;
-  std::vector<std::vector<double>> coords;
-  nom.GetCoords(coords);
-  field.resize(coords.size(), std::vector<double>(coords[0].size(), 0.));
-  for(unsigned i = 0; i < coords.size(); i++){
-    for(unsigned d = 0; d < coords[0].size(); d++) {
-      field[i][d] = coords[i][d] * coords[i][d] * coords[i][d];
-    }
-  }
-   double div = 0;
-   double err = 0;
-  for(unsigned i = 0; i < coords.size(); i++){
-    div = nom.ComputeNOMDivergence(field, i);
-    std::cout << i << " coords: ";
-    for(unsigned d = 0; d < coords[0].size(); d++) std::cout << coords[i][d] << " ";
-    std::cout<< " div = " << div << " ";
-    std::cout << " Local value (valid for 2d cubic): " << 3 * (coords[i][0] * coords[i][0] + coords[i][1] * coords[i][1] );
-    std::cout<<std::endl;
-    double tmp = 0;
-    for(unsigned d = 0; d < coords[0].size(); d++) tmp += 3 * coords[i][d] * coords[i][d];
-    err += (div - tmp) * (div - tmp);
-  }
+  // std::vector<std::vector<double>> field;
+  // std::vector<std::vector<double>> coords;
+  // nom.GetCoords(coords);
+  // field.resize(coords.size(), std::vector<double>(coords[0].size(), 0.));
+  // for(unsigned i = 0; i < coords.size(); i++){
+  //   for(unsigned d = 0; d < coords[0].size(); d++) {
+  //     field[i][d] = coords[i][d] * coords[i][d] * coords[i][d];
+  //   }
+  // }
+  //  double div = 0;
+  //  double err = 0;
+  // for(unsigned i = 0; i < coords.size(); i++){
+  //   div = nom.ComputeNOMDivergence(field, i);
+  //   std::cout << i << " coords: ";
+  //   for(unsigned d = 0; d < coords[0].size(); d++) std::cout << coords[i][d] << " ";
+  //   std::cout<< " div = " << div << " ";
+  //   std::cout << " Local value (valid for 2d cubic): " << 3 * (coords[i][0] * coords[i][0] + coords[i][1] * coords[i][1] );
+  //   std::cout<<std::endl;
+  //   double tmp = 0;
+  //   for(unsigned d = 0; d < coords[0].size(); d++) tmp += 3 * coords[i][d] * coords[i][d];
+  //   err += (div - tmp) * (div - tmp);
+  // }
 //   std::cout<<"____________REF________________________\n";
 //   for(unsigned i = 0; i < 11; i++){
 //    std::cout << 0.1*i << " " << 3 * 0.5 * 0.5 + 3 * 0.1 * i<< "\n";
@@ -154,10 +159,10 @@ int main(int argc, char** argv)
 //       std::cout << coords[i][0] << " " << div  - 3 * 0.5 * 0.5 - 3 * coords[i][0] * coords[i][0]<< "\n";
 //     }
 //   }
-  std::cout<<"ERR = " << err << "\n";
-  
+//   std::cout<<"ERR = " << err << "\n";
+//
   std::cout<<"_______________________________________\n";
-  nom.MultiIndexList(3);
+  nom.MultiIndexList(order);
   std::vector<std::vector<int>> list = nom.GetMultiIndexList();
 
   for(unsigned i = 0; i < list.size();i++){
@@ -185,25 +190,26 @@ int main(int argc, char** argv)
   //   std::cout<<std::endl;
   // }
 
-  std::cout<<"________TEST_ComputeHighOrdOperatorK__Eigen______\n";
-  nom.ComputeHighOrdOperatorK(0);
+  std::cout<<"________TEST_ComputeOperatorB__Eigen______\n";
+  nom.ComputeOperatorB(0);
   Eigen::MatrixXd KHOE = nom.GetKHOE();
-  std::cout << KHOE << std::endl;
+  std::cout << "Operator K: \n"<< KHOE << std::endl;
 
-//   Eigen::MatrixXd m(2,2);
-//   m(0,0) = 1;
-//   m(1,0) = 0;
-//   m(0,1) = 0;
-//   m(1,1) = 2;
-//   m=m.inverse();
-//    for(unsigned i = 0; i < 2; i++) for(unsigned j = 0; j < 2; j++) std::cout << m(i,j) << " ";
-//
-// //   double data[2][2];
-// //   for(unsigned i = 0; i < 2; i++) for(unsigned j = 0; j < 2; j++) data[i][j]=i+j;
-// // Map<Matrix<double,2,2,RowMajor> > mat(data[0]);
-// // cout << "Row-major:\n" << Map<Matrix<double,2,2,RowMajor> >(data[0]) << endl;
-// // mat = mat.inverse();
+  Eigen::MatrixXd B = nom.GetB();
+  std::cout << "Operator B: \n"<< B << std::endl;
 
+  std::vector<double> field;
+  std::vector<std::vector<double>> coords;
+  nom.GetCoords(coords);
+  field.resize(coords.size(), 0.);
+  for(unsigned i = 0; i < coords.size(); i++){
+    for(unsigned d = 0; d < coords[0].size(); d++) {
+      field[i] += coords[i][d] * coords[i][d] * coords[i][d];
+    }
+  }
+  nom.SetField(field);
+  Eigen::VectorXd der=nom.ComputeHighOrdDer(60);
+  std::cout << "DERIVATIVES: \n"<< der << std::endl;
 
 
 //   nom.CreateGlobalMatrix();

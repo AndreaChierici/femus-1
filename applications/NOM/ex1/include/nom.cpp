@@ -87,6 +87,11 @@ void Nom::comb(std::vector<std::vector<double> >& arr){
     }
 }
 
+// TODO This function sets a field with the same node numbering of the mesh
+void Nom::SetField(std::vector<double> field){
+  _field = field;
+}
+
 void Nom::GetCoords(std::vector<std::vector<double>> &x){
   x.resize(_x.size(), std::vector<double>(_x[0].size()));  
   for(unsigned i = 0; i < _x.size(); i++){
@@ -322,6 +327,10 @@ Eigen::MatrixXd Nom::GetKHOE(){
   return _KHOE;
 }
 
+Eigen::MatrixXd Nom::GetB(){
+  return _BE;
+}
+
 // This function computes the operator K on a node i in NOM theory when weight_i = 1 / V_i
 void Nom::ComputeOperatorK(unsigned i){
   _K.resize(_dim, std::vector<double>(_dim));  
@@ -513,30 +522,90 @@ void Nom::ComputeHighOrdOperatorK(unsigned i){
     _KHOE.setZero();
     std::vector<double> polyIndx;
     _HinvE = DiagLengthHInv(i);
-    // std::vector<std::vector<double>> SumTens(_indxDim, std::vector<double>(_indxDim, 0.));
-    // SimpleMatrix mat(SumTens);
     Eigen::MatrixXd tensProd;
     for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
       polyIndx = PolyMultiIndex(i, j);
       tensProd = SelfTensProd(polyIndx);
       _KHOE = _KHOE + tensProd;
-      // mat.Sum(tensProd);
     }
 
     _KHOE=_KHOE.inverse();
     _KHOE=_HinvE*_KHOE;
-
-    // mat.inverse();
-    // mat.setMatrix(mat.getInv());
-    // mat.DiagMatProd(Hinv);
-    // _KHO = mat.getMatrix();
   }
 }
 
+void Nom::ComputePolyOperator(unsigned i){
+  if(_suppNodesN[i].size() < _indxDim){
+    std::cerr<< "In function PolyOperator: not enough nodes in the support\n";
+    abort();
+  }
+  else{
+    _PolyE.resize(_indxDim,_suppNodesN[i].size());
+    _PolyE.setZero();
+    std::vector<double> polyIndx;
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+      polyIndx = PolyMultiIndex(i, j);
+      for(unsigned jj = 0; jj < _indxDim; jj++){
+        _PolyE(jj, j) = polyIndx[jj];
+      }
+    }
+  }
+}
+
+// This function computes both the operators K_i and p^h_{wi}
+void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
+  if(_suppNodesN[i].size() < _indxDim){
+    std::cerr<< "In function ComputeHighOrdKAndPolyOperators: not enough nodes in the support\n";
+    abort();
+  }
+  else{
+    _KHOE.resize(_indxDim,_indxDim);
+    _KHOE.setZero();
+    _PolyE.resize(_indxDim,_suppNodesN[i].size());
+    _PolyE.setZero();
+    std::vector<double> polyIndx;
+    _HinvE = DiagLengthHInv(i);
+    Eigen::MatrixXd tensProd;
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+      polyIndx = PolyMultiIndex(i, j);
+      for(unsigned jj = 0; jj < _indxDim; jj++){
+        _PolyE(jj, j) = polyIndx[jj];
+      }
+      tensProd = SelfTensProd(polyIndx);
+      _KHOE = _KHOE + tensProd;
+    }
+    _KHOE=_KHOE.inverse();
+    _KHOE=_HinvE*_KHOE;
+  }
+}
+
+void Nom::ComputeOperatorB(unsigned i){
+  _BE.resize(_indxDim,_suppNodesN[i].size() + 1);
+  _BE.setZero();
+  Eigen::VectorXd colSum(_indxDim);
+  colSum.setZero();
+  Eigen::MatrixXd prodKP;
 
 
+  ComputeHighOrdKAndPolyOperators(i);
+  prodKP = _KHOE * _PolyE;
+  for(unsigned j = 0; j < prodKP.cols(); j++){
+    for(unsigned i = 0; i < prodKP.rows(); i++){
+      colSum(i) -= prodKP(i,j);
+    }
+  }
+  _BE << colSum,prodKP;
+}
 
-
+Eigen::VectorXd Nom::ComputeHighOrdDer(unsigned i){
+  ComputeOperatorB(i);
+  Eigen::VectorXd neighVal(_suppNodesN[i].size()+1);
+  neighVal(0) = _field[i];
+  for(unsigned j = 0; j < _suppNodesN[i].size(); j++){
+    neighVal(j+1) = _field[_suppNodesN[i][j].first];
+  }
+  return _BE*neighVal;
+}
 
 
 

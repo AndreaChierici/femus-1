@@ -32,6 +32,7 @@ namespace femus {
       void PrintX();
       void GetCoords(std::vector<std::vector<double>> &x);
       void comb(vector<vector<double> >& arr);
+      void SetField(std::vector<double> field);
       
       void SetConstantSupport(double delta);
       void PointsInConstantSupport();
@@ -55,6 +56,7 @@ namespace femus {
       std::vector<std::vector<double>> GetKHO();
       Eigen::MatrixXd GetKHOE();
       std::vector<std::vector<int>> GetMultiIndexList();
+      Eigen::MatrixXd GetB();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
       std::vector<double> ComputeNOMScalarGradient(std::vector<double> sol, unsigned i);
@@ -67,6 +69,11 @@ namespace femus {
       Eigen::MatrixXd DiagLengthHInv(unsigned i);
       Eigen::MatrixXd SelfTensProd(std::vector<double> vec);
       void ComputeHighOrdOperatorK(unsigned i);
+      void ComputePolyOperator(unsigned i);
+      void ComputeHighOrdKAndPolyOperators(unsigned i);
+      void ComputeOperatorB(unsigned i);
+
+      Eigen::VectorXd ComputeHighOrdDer(unsigned i);
       
       void CreateGlobalMatrix();
       
@@ -75,6 +82,7 @@ namespace femus {
       unsigned _dim;  
       std::vector<std::vector<double>> _x;
       unsigned _nNodes;
+      std::vector<double> _field;
 
       unsigned _totCount;
       
@@ -104,6 +112,8 @@ namespace femus {
       std::vector<std::vector<double>> _KHO;
       Eigen::MatrixXd _HinvE;
       Eigen::MatrixXd _KHOE;
+      Eigen::MatrixXd _PolyE;
+      Eigen::MatrixXd _BE;
 
       
       Mat _A;
