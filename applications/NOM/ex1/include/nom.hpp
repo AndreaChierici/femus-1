@@ -33,6 +33,8 @@ namespace femus {
       void GetCoords(std::vector<std::vector<double>> &x);
       void comb(vector<vector<double> >& arr);
       void SetField(std::vector<double> field);
+      void SetConstDeltaV(std::vector<double> dimensions);
+      void SetBC(std::vector<unsigned> dirNodes);
       
       void SetConstantSupport(double delta);
       void PointsInConstantSupport();
@@ -74,7 +76,20 @@ namespace femus {
       void ComputeOperatorB(unsigned i);
 
       Eigen::VectorXd ComputeHighOrdDer(unsigned i);
+      void AssembleLaplacianNode(unsigned i);
+      void AssembleLaplacian();
+      void SetEigenRhs(std::vector<double> rhs);
       
+      void CreateGlobalEigenMatrix();
+      void CreateGlobalEigenRhs();
+      void PrintGlobalEigenMatrix();
+      void PrintGlobalEigenRhs();
+      void PrintGlobalEigenSolution();
+
+      void SetAnalyticSol(std::vector<double> sol);
+      void SolveEigen();
+      double L2Error();
+
       void CreateGlobalMatrix();
       
       
@@ -82,7 +97,10 @@ namespace femus {
       unsigned _dim;  
       std::vector<std::vector<double>> _x;
       unsigned _nNodes;
+      std::vector<double> _deltaV;
       std::vector<double> _field;
+      std::vector<unsigned> _dirBC;
+      double _penalty = 1e5;
 
       unsigned _totCount;
       
@@ -115,7 +133,13 @@ namespace femus {
       Eigen::MatrixXd _PolyE;
       Eigen::MatrixXd _BE;
 
-      
+      Eigen::MatrixXd  _ME;
+      Eigen::VectorXd _rhsE;
+      Eigen::VectorXd _solE;
+
+      std::vector<double> _anSol;
+
+
       Mat _A;
       
       

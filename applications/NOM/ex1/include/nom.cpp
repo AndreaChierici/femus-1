@@ -87,9 +87,27 @@ void Nom::comb(std::vector<std::vector<double> >& arr){
     }
 }
 
+void Nom::SetConstDeltaV(std::vector<double> dimensions){
+  if(dimensions.size() != _dim){
+    std::cerr << "In function SetConstDeltaV: wrong dimensions\n";
+    abort();
+  }
+  double volume = 1.;
+  for(unsigned d = 0; d < dimensions.size(); d++) volume *= dimensions[d];
+  _deltaV.resize(_nNodes, volume/_nNodes);
+}
+
 // TODO This function sets a field with the same node numbering of the mesh
 void Nom::SetField(std::vector<double> field){
   _field = field;
+}
+
+// This function sets all the nodes recorded in dirNodes with a Dirichlet BC (_dirBC=1)
+void Nom::SetBC(std::vector<unsigned> dirNodes){
+  _dirBC.resize(_nNodes, 0);
+  for(unsigned i = 0; i < dirNodes.size(); i++){
+    _dirBC[dirNodes[i]] = 1;
+  }
 }
 
 void Nom::GetCoords(std::vector<std::vector<double>> &x){
@@ -555,7 +573,7 @@ void Nom::ComputePolyOperator(unsigned i){
 // This function computes both the operators K_i and p^h_{wi}
 void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
   if(_suppNodesN[i].size() < _indxDim){
-    std::cerr<< "In function ComputeHighOrdKAndPolyOperators: not enough nodes in the support\n";
+    std::cerr<< "In function ComputeHighOrdKAndPolyOperators: not enough nodes in the support | supp Nodes = " << _suppNodesN[i].size() << " _indxDim = " << _indxDim <<"\n";
     abort();
   }
   else{
@@ -607,7 +625,116 @@ Eigen::VectorXd Nom::ComputeHighOrdDer(unsigned i){
   return _BE*neighVal;
 }
 
+void Nom::AssembleLaplacianNode(unsigned i){
+  std::vector<unsigned> coeff(_indxDim, 0);
+  std::vector<int> secDer(_dim, 0);
+  unsigned cnt = 0;
+  for(unsigned indx = 0; indx < _indxDim; indx++){
+    for(unsigned d = 0; d < _dim; d++){
+      secDer[d] = 2;
+      if(secDer == _multiIndexList[indx]) {
+        coeff[cnt] = indx;
+        cnt++;
+      }
+      secDer[d] = 0;
+    }
+  }
+  coeff.resize(cnt);
+  if(cnt != _dim){
+    std::cerr << "Not consinstent numer of derivatives found in function AssembleLaplacian\n";
+    abort();
+  }
+  else{
+    ComputeOperatorB(i);
+    for(unsigned rowB = 0; rowB < coeff.size(); rowB++){
+      _ME(i,i) += _BE(coeff[rowB],0);
+      for(unsigned j = 1; j < _BE.cols(); j++){
+        _ME(i,_suppNodesN[i][j-1].first) += _BE(coeff[rowB],j);
+      }
+    }
+  }
+}
 
+void Nom::AssembleLaplacian(){
+  for(unsigned i = 0; i < _nNodes; i++){
+    if(_dirBC[i] == 0){
+      AssembleLaplacianNode(i);
+    }
+    else{
+      _ME(i,i) = _penalty;
+    }
+  }
+}
+
+void Nom::CreateGlobalEigenMatrix(){
+  _ME.resize(_nNodes,_nNodes);
+  _ME.setZero();
+}
+
+void Nom::CreateGlobalEigenRhs(){
+  _rhsE.resize(_nNodes);
+  _rhsE.setZero();
+}
+
+void Nom::SetEigenRhs(std::vector<double> rhs){
+  if(rhs.size() != _nNodes){
+    std::cerr << "In function SetEigenRhs: the vector rhs size is wrong\n";
+    abort();
+  }
+  else{
+    for(unsigned i = 0; i < _nNodes; i++){
+      if(_dirBC[i] == 0){
+        _rhsE(i) = rhs[i];
+      }
+      else{
+        _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented
+      }
+    }
+  }
+}
+
+void Nom::SolveEigen(){
+  _solE = _ME.inverse() * _rhsE;
+}
+
+
+void Nom::PrintGlobalEigenMatrix(){
+  std::cout<< std::endl <<"Global Matrix: \n" << _ME << std::endl;
+}
+
+void Nom::PrintGlobalEigenRhs(){
+  std::cout<< std::endl <<"RHS: \n" << _rhsE << std::endl;
+}
+
+void Nom::PrintGlobalEigenSolution(){
+  std::cout<< std::endl <<"Solution: (coords | solution)\n";
+  for(unsigned i = 0; i < _nNodes; i++){
+    for(unsigned d = 0; d < _dim; d++) std::cout << _x[i][d] << "    |    ";
+    std::cout << _solE(i) << "  |  " << _anSol[i] <<"\n";
+  }
+}
+
+void Nom::SetAnalyticSol(std::vector<double> sol){
+  _anSol = sol;
+}
+
+double Nom::L2Error(){
+  double norm = 0.;
+  if(_anSol.size() != _solE.size()){
+    std::cerr << "In L2Error: the solution and the analytic solution don't have the same size \n";
+    abort();
+  }
+  else{
+    double num = 0.;
+    double den = 0.;
+    for(unsigned i = 0; i < _solE.size(); i++){
+      num += (_solE(i) - _anSol[i]) * (_solE(i) - _anSol[i]) * _deltaV[i];
+      den += _anSol[i] * _anSol[i] * _deltaV[i];
+    }
+    norm = sqrt(num / den);
+  }
+  return norm;
+}
 
 
 

@@ -24,6 +24,29 @@
 
 using namespace femus;
 
+std::vector<double> SetRhs(const std::vector<std::vector < double >>& x) {
+  std::vector<double> value(x.size(), 0.);
+  for(unsigned i = 0; i < x.size(); i++) {
+    for(unsigned k = 0; k < x[0].size(); k++) {
+      // value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
+    }
+    value[i] = 2 * x[i][0] *(x[i][1] - 1) * (x[i][1] - 2 * x[i][0] + x[i][0] * x[i][1] + 2) * exp(x[i][0] - x[i][1]); //2D POISSON
+  }
+  return value;
+}
+
+std::vector<double> SetAnSol(const std::vector<std::vector < double >>& x) {
+  std::vector<double> value(x.size(), 0.);
+  for(unsigned i = 0; i < x.size(); i++) {
+    for(unsigned k = 0; k < x[0].size(); k++) {
+      // value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
+    }
+    value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]);
+
+  }
+  return value;
+}
+
 int main(int argc, char** argv)
 {
   FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
@@ -32,16 +55,40 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{11,11};
+  std::vector<unsigned> nPoints{21,21};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
-  unsigned order = 3;
+  nom.SetConstDeltaV(lengths);
+  unsigned order = 2;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
-  unsigned nNeigh = 5 * order + np;
+  unsigned nNeigh = /*5 * order +*/ np;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
 
   std::cout<<"___________PRINT_X__________________\n";
   nom.PrintX();
+
+//   Settig Dirichlet conditions
+  std::vector<std::vector<double>> coords;
+  nom.GetCoords(coords);
+  std::vector<unsigned> dirCond(coords.size());
+  bool isDir = false;
+  unsigned cnt = 0;
+  for(unsigned i = 0; i < coords.size(); i++){
+    for(unsigned d = 0; d < coords[0].size(); d++) if(coords[i][d] == 0 || coords[i][d] == 1) isDir = true;
+    if(isDir){
+      dirCond[cnt] = i;
+      cnt++;
+    }
+    isDir = false;
+  }
+  dirCond.resize(cnt);
+  nom.SetBC(dirCond);
+
+  std::cout<<"___________DIRICHLET_BC______________\n";
+  for(unsigned i = 0; i < dirCond.size(); i++){
+    for(unsigned d = 0; d < coords[0].size(); d++) std::cout << coords[dirCond[i]][d] << " ";
+    std::cout << std::endl;
+  }
   
   // Testing the class Nom - creating the maps of neighbours and distances
 
@@ -199,8 +246,6 @@ int main(int argc, char** argv)
   std::cout << "Operator B: \n"<< B << std::endl;
 
   std::vector<double> field;
-  std::vector<std::vector<double>> coords;
-  nom.GetCoords(coords);
   field.resize(coords.size(), 0.);
   for(unsigned i = 0; i < coords.size(); i++){
     for(unsigned d = 0; d < coords[0].size(); d++) {
@@ -208,8 +253,32 @@ int main(int argc, char** argv)
     }
   }
   nom.SetField(field);
-  Eigen::VectorXd der=nom.ComputeHighOrdDer(60);
+  Eigen::VectorXd der=nom.ComputeHighOrdDer(0);
   std::cout << "DERIVATIVES: \n"<< der << std::endl;
+
+//   Matrix and rhs creation
+  nom.CreateGlobalEigenMatrix();
+  nom.CreateGlobalEigenRhs();
+//   Setting the rhs and analytic solution
+  std::vector<double> rhs = SetRhs(coords);
+  std::vector<double> anSol = SetAnSol(coords);
+  nom.SetEigenRhs(rhs);
+  nom.SetAnalyticSol(anSol);
+//   Assembling the matrix
+  nom.AssembleLaplacian();
+//   Solve the system
+  nom.SolveEigen();
+
+// //   Printing matrix, rhs and solution
+  // nom.PrintGlobalEigenMatrix();
+  // nom.PrintGlobalEigenRhs();
+  nom.PrintGlobalEigenSolution();
+
+  std::cout<<"____________ERROR_____________\n";
+  std::cout << "L2 error = " << nom.L2Error();
+
+
+
 
 
 //   nom.CreateGlobalMatrix();
