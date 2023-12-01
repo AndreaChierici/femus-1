@@ -584,12 +584,23 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
     std::vector<double> polyIndx;
     _HinvE = DiagLengthHInv(i);
     Eigen::MatrixXd tensProd;
+
+    std::vector<double> weights(_suppNodesN[i].size());
+    double sumWeight = 0.;
+    double dist = 0.;
+    for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+      for(unsigned d = 0; d < _dim; d++) dist += (_suppDist[i][j][d] * _suppDist[i][j][d]);
+      dist = sqrt(dist);
+      weights[j] = (1. / pow(dist,_dim));
+      sumWeight += weights[j];
+    }
+
     for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
       polyIndx = PolyMultiIndex(i, j);
       for(unsigned jj = 0; jj < _indxDim; jj++){
-        _PolyE(jj, j) = polyIndx[jj];
+        _PolyE(jj, j) = (weights[j] / sumWeight) * polyIndx[jj] * _deltaV[_suppNodesN[i][j].first];
       }
-      tensProd = SelfTensProd(polyIndx);
+      tensProd =  (weights[j] / sumWeight) * SelfTensProd(polyIndx) * _deltaV[_suppNodesN[i][j].first];
       _KHOE = _KHOE + tensProd;
     }
     _KHOE=_KHOE.inverse();
