@@ -57,6 +57,7 @@ namespace femus {
       std::vector<std::vector<double>> GetKinv();
       std::vector<std::vector<double>> GetKHO();
       Eigen::MatrixXd GetKHOE();
+      Eigen::MatrixXd GetPolyE();
       std::vector<std::vector<int>> GetMultiIndexList();
       Eigen::MatrixXd GetB();
       

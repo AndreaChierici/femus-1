@@ -28,7 +28,7 @@ std::vector<double> SetRhs(const std::vector<std::vector < double >>& x) {
   std::vector<double> value(x.size(), 0.);
   for(unsigned i = 0; i < x.size(); i++) {
     for(unsigned k = 0; k < x[0].size(); k++) {
-      // value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
+//       value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
     }
     value[i] = 2 * x[i][0] *(x[i][1] - 1) * (x[i][1] - 2 * x[i][0] + x[i][0] * x[i][1] + 2) * exp(x[i][0] - x[i][1]); //2D POISSON
   }
@@ -39,7 +39,7 @@ std::vector<double> SetAnSol(const std::vector<std::vector < double >>& x) {
   std::vector<double> value(x.size(), 0.);
   for(unsigned i = 0; i < x.size(); i++) {
     for(unsigned k = 0; k < x[0].size(); k++) {
-      // value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
+//       value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
     }
     value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]);
 
@@ -61,8 +61,12 @@ int main(int argc, char** argv)
   nom.SetConstDeltaV(lengths);
   unsigned order = 5;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
-  unsigned nNeigh = 5 * order + np;
+  unsigned nNeigh = /*5 * order +*/ np + 3 * order;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
+  
+  unsigned midPoint = 1;
+  for(unsigned d = 0; d < dim; d++) midPoint *= nPoints[d];
+  midPoint = (midPoint - (midPoint % 2)) / 2;
 
   std::cout<<"___________PRINT_X__________________\n";
   nom.PrintX();
@@ -237,45 +241,53 @@ int main(int argc, char** argv)
   //   std::cout<<std::endl;
   // }
 
-  std::cout<<"________TEST_ComputeOperatorB__Eigen______\n";
-  nom.ComputeOperatorB(0);
-  Eigen::MatrixXd KHOE = nom.GetKHOE();
-  std::cout << "Operator K: \n"<< KHOE << std::endl;
-
-  Eigen::MatrixXd B = nom.GetB();
-  std::cout << "Operator B: \n"<< B << std::endl;
+//   std::cout<<"________TEST_ComputeOperatorB__Eigen______\n";
+//   nom.ComputeOperatorB(midPoint);
+//   Eigen::MatrixXd KHOE = nom.GetKHOE();
+//   std::cout << "Operator K: \n"<< KHOE << std::endl;
+// 
+//   Eigen::MatrixXd B = nom.GetB();
+//   std::cout << "Operator B: \n"<< B << std::endl;
 
   std::vector<double> field;
   field.resize(coords.size(), 0.);
   for(unsigned i = 0; i < coords.size(); i++){
-    for(unsigned d = 0; d < coords[0].size(); d++) {
-      field[i] += coords[i][d] * coords[i][d] * coords[i][d];
-    }
+//     for(unsigned d = 0; d < coords[0].size(); d++) {
+//       field[i] += coords[i][d] * coords[i][d] * coords[i][d];
+//     }
+    field[i] += coords[i][0] * coords[i][0] * coords[i][1] * coords[i][1];
   }
   nom.SetField(field);
-  Eigen::VectorXd der=nom.ComputeHighOrdDer(0);
+  Eigen::VectorXd der=nom.ComputeHighOrdDer(midPoint+4);
+  
+  Eigen::MatrixXd KHOE = nom.GetKHOE();
+  Eigen::MatrixXd poly = nom.GetPolyE();
+  Eigen::MatrixXd B = nom.GetB();
+//   std::cout << "Operator K: \n"<< KHOE << std::endl;
+//   std::cout << "Operator Poly: \n"<< poly << std::endl;
+//   std::cout << "Operator B: \n"<< B << std::endl;
   std::cout << "DERIVATIVES: \n"<< der << std::endl;
 
-//   Matrix and rhs creation
-  nom.CreateGlobalEigenMatrix();
-  nom.CreateGlobalEigenRhs();
-//   Setting the rhs and analytic solution
-  std::vector<double> rhs = SetRhs(coords);
-  std::vector<double> anSol = SetAnSol(coords);
-  nom.SetEigenRhs(rhs);
-  nom.SetAnalyticSol(anSol);
-//   Assembling the matrix
-  nom.AssembleLaplacian();
-//   Solve the system
-  nom.SolveEigen();
-
-// //   Printing matrix, rhs and solution
-  // nom.PrintGlobalEigenMatrix();
-  // nom.PrintGlobalEigenRhs();
-  nom.PrintGlobalEigenSolution();
-
-  std::cout<<"____________ERROR_____________\n";
-  std::cout << "L2 error = " << nom.L2Error();
+// //   Matrix and rhs creation
+//   nom.CreateGlobalEigenMatrix();
+//   nom.CreateGlobalEigenRhs();
+// //   Setting the rhs and analytic solution
+//   std::vector<double> rhs = SetRhs(coords);
+//   std::vector<double> anSol = SetAnSol(coords);
+//   nom.SetEigenRhs(rhs);
+//   nom.SetAnalyticSol(anSol);
+// //   Assembling the matrix
+//   nom.AssembleLaplacian();
+// //   Solve the system
+//   nom.SolveEigen();
+// 
+// // //   Printing matrix, rhs and solution
+// //   nom.PrintGlobalEigenMatrix();
+//   // nom.PrintGlobalEigenRhs();
+//   nom.PrintGlobalEigenSolution();
+// 
+//   std::cout<<"____________ERROR_____________\n";
+//   std::cout << "L2 error = " << nom.L2Error();
 
 
 

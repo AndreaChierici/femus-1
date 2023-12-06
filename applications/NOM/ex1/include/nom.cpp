@@ -235,14 +235,14 @@ void Nom::PointsAndDistNPtsSupport(unsigned npt){
       if(i != j){
         double dist = 0;
         for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-          _suppNodesN[i][j] = {j, dist};
+          _suppNodesN[i][j] = {j, sqrt(dist)};
       }
       else{
         _suppNodesN[i][j] = {j, 1e5};
       }
     }
   }
-
+  
   for(unsigned i = 0; i < _nNodes; i++){
     std::sort( _suppNodesN[i].begin(),  _suppNodesN[i].end(), [=](std::pair<int, double>& a, std::pair<int, double>& b){return a.second < b.second;});
     _suppNodesN[i].resize(npt);
@@ -253,9 +253,14 @@ void Nom::PointsAndDistNPtsSupport(unsigned npt){
     for(unsigned j = 0; j < npt; j++){
       for(unsigned d = 0; d < _dim; d++) _suppDist[i][j][d] = _x[_suppNodesN[i][j].first][d] - _x[i][d];
     }
-    double dist = 0;
-    for(unsigned d = 0; d < _dim; d++) dist += _suppDist[i][npt-1][d] * _suppDist[i][npt-1][d];
-    _h[i] += sqrt(dist);
+    double distMax = 0;
+    double distMin = 0;
+    for(unsigned d = 0; d < _dim; d++) {
+      distMax += _suppDist[i][npt-1][d] * _suppDist[i][npt-1][d];
+      distMin += _suppDist[i][0][d] * _suppDist[i][0][d];
+    }
+//     _h[i] = (sqrt(distMax) + sqrt(distMin)) / 2.;
+    _h[i] = sqrt(distMax);
   }
 }
 
@@ -343,6 +348,10 @@ std::vector<std::vector<double>> Nom::GetKHO(){
 
 Eigen::MatrixXd Nom::GetKHOE(){
   return _KHOE;
+}
+
+Eigen::MatrixXd Nom::GetPolyE(){
+  return _PolyE;
 }
 
 Eigen::MatrixXd Nom::GetB(){
@@ -587,8 +596,8 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
 
     std::vector<double> weights(_suppNodesN[i].size());
     double sumWeight = 0.;
-    double dist = 0.;
     for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+      double dist = 0.;
       for(unsigned d = 0; d < _dim; d++) dist += (_suppDist[i][j][d] * _suppDist[i][j][d]);
       dist = sqrt(dist);
       weights[j] = (1. / pow(dist,_dim));
@@ -598,11 +607,12 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
     for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
       polyIndx = PolyMultiIndex(i, j);
       for(unsigned jj = 0; jj < _indxDim; jj++){
-        _PolyE(jj, j) = (weights[j] / sumWeight) * polyIndx[jj] * _deltaV[_suppNodesN[i][j].first];
+        _PolyE(jj, j) = (weights[j] / sumWeight) * polyIndx[jj] /** _deltaV[_suppNodesN[i][j].first]*/;
       }
-      tensProd =  (weights[j] / sumWeight) * SelfTensProd(polyIndx) * _deltaV[_suppNodesN[i][j].first];
+      tensProd =  (weights[j] / sumWeight) * SelfTensProd(polyIndx) /** _deltaV[_suppNodesN[i][j].first]*/;
       _KHOE = _KHOE + tensProd;
     }
+    std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
     _KHOE=_KHOE.inverse();
     _KHOE=_HinvE*_KHOE;
   }
