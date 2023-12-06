@@ -260,7 +260,7 @@ void Nom::PointsAndDistNPtsSupport(unsigned npt){
       distMin += _suppDist[i][0][d] * _suppDist[i][0][d];
     }
 //     _h[i] = (sqrt(distMax) + sqrt(distMin)) / 2.;
-    _h[i] = sqrt(distMax);
+    _h[i] = sqrt(distMin);
   }
 }
 
@@ -612,9 +612,17 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
       tensProd =  (weights[j] / sumWeight) * SelfTensProd(polyIndx) /** _deltaV[_suppNodesN[i][j].first]*/;
       _KHOE = _KHOE + tensProd;
     }
-    std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
-    _KHOE=_KHOE.inverse();
-    _KHOE=_HinvE*_KHOE;
+
+    double scaleK =  1. / pow(_KHOE.determinant(), 1./ _KHOE.rows());
+    double scaleHinv =  1. / pow(_HinvE.determinant(), 1./ _HinvE.rows());
+    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
+    _KHOE=(scaleK*_KHOE).inverse();
+    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
+    _KHOE=scaleHinv*_HinvE*_KHOE;
+    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
+
+    _scale[i] = (1. / scaleK) * scaleHinv;
+
   }
 }
 
@@ -624,7 +632,6 @@ void Nom::ComputeOperatorB(unsigned i){
   Eigen::VectorXd colSum(_indxDim);
   colSum.setZero();
   Eigen::MatrixXd prodKP;
-
 
   ComputeHighOrdKAndPolyOperators(i);
   prodKP = _KHOE * _PolyE;
@@ -677,6 +684,7 @@ void Nom::AssembleLaplacianNode(unsigned i){
 }
 
 void Nom::AssembleLaplacian(){
+  _scale.resize(_nNodes, 1.);
   for(unsigned i = 0; i < _nNodes; i++){
     if(_dirBC[i] == 0){
       AssembleLaplacianNode(i);
@@ -705,7 +713,7 @@ void Nom::SetEigenRhs(std::vector<double> rhs){
   else{
     for(unsigned i = 0; i < _nNodes; i++){
       if(_dirBC[i] == 0){
-        _rhsE(i) = rhs[i];
+        _rhsE(i) = _scale[i] * rhs[i];
       }
       else{
         _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented

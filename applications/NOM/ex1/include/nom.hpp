@@ -102,6 +102,7 @@ namespace femus {
       std::vector<double> _field;
       std::vector<unsigned> _dirBC;
       double _penalty = 1e5;
+      std::vector<double> _scale;
 
       unsigned _totCount;
       
