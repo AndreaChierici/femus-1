@@ -1,5 +1,6 @@
 #include "nom.hpp"
 #include <Eigen/Dense>
+#include <Eigen/SVD>
 
 namespace femus {
 
@@ -617,11 +618,14 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
 
     double scaleK =  1. / pow(_KHOE.determinant(), 1./ _KHOE.rows());
     double scaleHinv =  1. / pow(_HinvE.determinant(), 1./ _HinvE.rows());
-    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
+
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(_KHOE);
+    double cond = svd.singularValues()(0) / svd.singularValues()(svd.singularValues().size()-1);
+
+    std::cout  << "i and Cond: " << i << " " <<cond<<std::endl;
+
     _KHOE=(scaleK*_KHOE).inverse();
-    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
     _KHOE=scaleHinv*_HinvE*_KHOE;
-    // std::cout << i << " DET = " <<_KHOE.determinant() << " " << _h[i]<<"\n";
 
     _scale[i] = (1. / scaleK) * scaleHinv;
 

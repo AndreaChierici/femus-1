@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{50,50};
+  std::vector<unsigned> nPoints{20,20};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.SetConstDeltaV(lengths);
