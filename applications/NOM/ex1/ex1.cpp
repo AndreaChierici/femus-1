@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{40,40};
+  std::vector<unsigned> nPoints{50,50};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.SetConstDeltaV(lengths);
@@ -78,7 +78,7 @@ int main(int argc, char** argv)
   bool isDir = false;
   unsigned cnt = 0;
   for(unsigned i = 0; i < coords.size(); i++){
-    for(unsigned d = 0; d < coords[0].size(); d++) if(coords[i][d] == 0 || coords[i][d] == 1) isDir = true;
+    for(unsigned d = 0; d < coords[0].size(); d++) if(coords[i][d] < 1e-6 || coords[i][d] > 1 - 1e-6) isDir = true;
     if(isDir){
       dirCond[cnt] = i;
       cnt++;
