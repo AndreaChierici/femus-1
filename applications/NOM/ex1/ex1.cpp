@@ -55,13 +55,13 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{11,11};
+  std::vector<unsigned> nPoints{40,40};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.SetConstDeltaV(lengths);
-  unsigned order = 4;
+  unsigned order = 5;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
-  unsigned nNeigh = /*5 * order +*/ np + (order - 1) * order;
+  unsigned nNeigh = /*5 * order +*/ np + 5 * order;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
   
   unsigned midPoint = 1;

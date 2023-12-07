@@ -260,7 +260,7 @@ void Nom::PointsAndDistNPtsSupport(unsigned npt){
       distMin += _suppDist[i][0][d] * _suppDist[i][0][d];
     }
 //     _h[i] = (sqrt(distMax) + sqrt(distMin)) / 2.;
-    _h[i] = sqrt(distMin);
+    _h[i] = 1.1 * sqrt(distMax);
   }
 }
 
@@ -600,7 +600,9 @@ void Nom::ComputeHighOrdKAndPolyOperators(unsigned i){
       double dist = 0.;
       for(unsigned d = 0; d < _dim; d++) dist += (_suppDist[i][j][d] * _suppDist[i][j][d]);
       dist = sqrt(dist);
-      weights[j] = (1. / pow(dist,_dim));
+      double r = dist / _h[i];
+      weights[j] = ((r<1)?pow(1-r, 5) : 0)- 6 * ((r<2./3.)? pow(2./3. - r,5) : 0) + 15 * ((r<1./3.)? pow(1./3. - r,5) : 0);
+//       weights[j] = (1. / pow(dist,_dim));
       sumWeight += weights[j];
     }
 
