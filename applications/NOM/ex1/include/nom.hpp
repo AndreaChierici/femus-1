@@ -29,6 +29,7 @@ namespace femus {
       void InitializeDistMap();
       
       void InitializeSimplestPointStructure(const std::vector<double> &lengths, const  std::vector<unsigned> &nPoints);
+      void InitPointStructureNLBC(const std::vector<double> &lengths, const  std::vector<unsigned> &nPoints, const int &pointsD);
       void PrintX();
       void GetCoords(std::vector<std::vector<double>> &x);
       void comb(vector<vector<double> >& arr);
@@ -37,10 +38,7 @@ namespace femus {
       void SetBC(std::vector<unsigned> dirNodes);
       
       void SetConstantSupport(double delta);
-      void PointsInConstantSupport();
-      void DistanceInConstantSupport();
       void PointsAndDistInConstantSupport();
-      void PointsInConstantSupportWithInv();
       void PointsAndDistInConstantSupportWithInv();
 
       void PointsAndDistNPtsSupport(unsigned npt);

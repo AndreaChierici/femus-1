@@ -28,7 +28,7 @@ std::vector<double> SetRhs(const std::vector<std::vector < double >>& x) {
   std::vector<double> value(x.size(), 0.);
   for(unsigned i = 0; i < x.size(); i++) {
     for(unsigned k = 0; k < x[0].size(); k++) {
-//       value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
+      // value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
     }
     value[i] = 2 * x[i][0] *(x[i][1] - 1) * (x[i][1] - 2 * x[i][0] + x[i][0] * x[i][1] + 2) * exp(x[i][0] - x[i][1]); //2D POISSON
   }
@@ -37,12 +37,17 @@ std::vector<double> SetRhs(const std::vector<std::vector < double >>& x) {
 
 std::vector<double> SetAnSol(const std::vector<std::vector < double >>& x) {
   std::vector<double> value(x.size(), 0.);
+  bool isDir = false;
   for(unsigned i = 0; i < x.size(); i++) {
-    for(unsigned k = 0; k < x[0].size(); k++) {
-//       value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
+    for(unsigned k = 0; k < x[0].size(); k++) if(x[i][k] < 1e-8 || x[i][k] > 1 - 1e-8) isDir = true;
+    if(isDir) value[i] = 0;
+    else{
+      for(unsigned k = 0; k < x[0].size(); k++) {
+        // value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
+      }
+      value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]);
     }
-    value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]);
-
+    isDir = false;
   }
   return value;
 }
@@ -55,11 +60,11 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{20,20};
+  std::vector<unsigned> nPoints{41,41};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   nom.SetConstDeltaV(lengths);
-  unsigned order = 5;
+  unsigned order = 6;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
   unsigned nNeigh = /*5 * order +*/ np + 5 * order;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
@@ -94,11 +99,11 @@ int main(int argc, char** argv)
     std::cout << std::endl;
   }
   
-  // Testing the class Nom - creating the maps of neighbours and distances
+  // // Testing the class Nom - creating the maps of neighbours and distances
 
-  // nom.SetConstantSupport(1);
-  // nom.PointsAndDistInConstantSupport();
   nom.PointsAndDistNPtsSupport(nNeigh);
+  // nom.SetConstantSupport(0.5);
+  // nom.PointsAndDistInConstantSupport();
 
   // std::map<int, std::vector<int>> map = nom.GetMap();
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();

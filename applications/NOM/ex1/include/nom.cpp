@@ -51,6 +51,42 @@ void Nom::InitializeSimplestPointStructure(const std::vector<double> &lengths, /
   return;
 }
 
+// This function initialized an Hyperrectangle domain with nPoints per dimension
+void Nom::InitPointStructureNLBC(const std::vector<double> &lengths, //lenght of the side of the domain in any direction
+                                 const  std::vector<unsigned> &nPoints, //number of points per direction
+                                 const int  &pointsD // number of mesh points over the external Dirichlet BC area in every direction
+                                     ){
+  if(lengths.size() != nPoints.size()){
+    std::cerr<<"InitPointStructureNLBC: lengths and nPoints vectors sizes not matching";
+    abort();
+  }
+  else{
+    unsigned dim = nPoints.size();
+    unsigned totNodes = 1;
+    std::vector<double> h(lengths.size());
+    std::vector<double> nPointsWithBC(lengths.size());
+    for(unsigned k = 0; k < dim; k++) {
+      nPointsWithBC[k] = nPoints[k] + 2 * pointsD;
+      totNodes *= (nPointsWithBC[k]);
+      if(nPoints[k] == 0 || nPoints[k] == 1) {std::cerr<< "InitializeSimplestPointStructure: zero or one point along a direction initialized";}
+      h[k] = lengths[k] / (nPoints[k] - 1);
+    }
+    SetNumberOfNodes(totNodes);
+    SetDimension(dim);
+    xResize();
+
+    std::vector<std::vector<double>> coord(_dim);
+    for(unsigned d = 0; d < _dim; d++) coord[d].resize(nPointsWithBC[d]);
+    for(unsigned d = 0; d < _dim; d++){
+      for(int i = 0; i < nPointsWithBC[d]; i++){
+        coord[d][i] = h[d] * (i - pointsD);
+      }
+    }
+    comb(coord);
+  }
+  return;
+}
+
 void Nom::comb(std::vector<std::vector<double> >& arr){
     // number of arrays
     int n = arr.size();
@@ -143,55 +179,8 @@ void Nom::InitializeDistMap(){
   }
 }
 
+// TODO
 void Nom::SetConstantSupport(double delta){ _delta = delta;}
-
-// This function fills the map that associate every node with the list of the neighbours
-// (a support with constant radius is considered)
-void Nom::PointsInConstantSupport(){
-  InitializeMap();
-  _count.resize(_nNodes, 0);  
-  for(unsigned i = 0; i < _nNodes; i++){
-    for(unsigned j = i+1; j < _nNodes; j++){
-      double dist = 0;
-      for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-      if(dist < _delta * _delta) {
-        _suppNodes[i][_count[i]] = j;
-        _suppNodes[j][_count[j]] = i;
-        _suppNodesN[i][_count[i]] = {j,_delta};
-        _suppNodesN[j][_count[j]] = {i,_delta};
-        _count[i]++;
-        _count[j]++;
-      }
-    }
-  }
-  for(unsigned i = 0; i < _nNodes; i++) {
-    _suppNodes[i].resize(_count[i]);
-    _suppNodesN[i].resize(_count[i]);
-    _h[i]=_delta;
-  }
-}
-
-// This function fills the map that associate every node with the distance vector
-// with the neighbours in the support (a support with constant radius is considered)
-void Nom::DistanceInConstantSupport(){
-  InitializeDistMap();
-  _count.resize(_nNodes, 0);  
-  for(unsigned i = 0; i < _nNodes; i++){
-    for(unsigned j = i+1; j < _nNodes; j++){
-      double dist = 0;
-      for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-      if(dist < _delta * _delta) {
-        for(unsigned d = 0; d < _dim; d++) {
-          _suppDist[i][_count[i]][d] = _x[j][d] - _x[i][d];
-          _suppDist[j][_count[j]][d] = _x[i][d] - _x[j][d];
-        }
-        _count[i]++;
-        _count[j]++;
-      }  
-    }
-  }
-  for(unsigned i = 0; i < _nNodes; i++) _suppDist[i].resize(_count[i]);
-}
 
 // This function fills BOTH the maps of the neighbours elements and of the distances
 // given a constant support delta
@@ -265,32 +254,6 @@ void Nom::PointsAndDistNPtsSupport(unsigned npt){
   }
 }
 
-// This function fills the map that associate every node with the list of the neighbours
-// (a support with constant radius is considered)
-void Nom::PointsInConstantSupportWithInv(){
-  InitializeMap();
-  _count.resize(_nNodes, 0);
-  for(unsigned i = 0; i < _nNodes; i++){
-    std::map<int, int> innerMap;
-    for(unsigned j = 0 /*i+1*/; j < _nNodes; j++){
-      if(i != j){
-        double dist = 0;
-        for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-        if(dist < _delta * _delta) {
-          _suppNodes[i][_count[i]] = j;
-          innerMap[j] = _count[i];
-          _count[i]++;
-        }
-      }
-    }
-    _suppNodesInv[i] = innerMap;
-  }
-
-  for(unsigned i = 0; i < _nNodes; i++) {
-    _suppNodes[i].resize(_count[i]);
-  }
-}
-
 // This function fills BOTH the maps of the neighbours elements and of the distances
 void Nom::PointsAndDistInConstantSupportWithInv(){
   InitializeMap();
@@ -320,8 +283,6 @@ void Nom::PointsAndDistInConstantSupportWithInv(){
     _suppDist[i].resize(_count[i]);
   }
 }
-
-
 
 std::map<int, std::vector<int>> Nom::GetMap(){
   return _suppNodes;  
@@ -487,7 +448,6 @@ unsigned Nom::factorial(unsigned n) {
     }
 }
 
-
 std::vector<std::vector<int>> Nom::GetMultiIndexList(){
   return _multiIndexList;
 }
@@ -527,11 +487,11 @@ Eigen::MatrixXd Nom::DiagLengthHInv(unsigned i){
   return Hinv;
 }
 
- Eigen::MatrixXd Nom::SelfTensProd(std::vector<double> vec){
+Eigen::MatrixXd Nom::SelfTensProd(std::vector<double> vec){
   unsigned sz = vec.size();
-   Eigen::MatrixXd sol;
-   sol.resize(sz,sz);
-   sol.setZero();
+  Eigen::MatrixXd sol;
+  sol.resize(sz,sz);
+  sol.setZero();
   for(unsigned i = 0; i < sz; i++){
     for(unsigned j = 0; j < sz; j++){
       sol(i,j) += vec[i] * vec[j];
@@ -699,6 +659,7 @@ void Nom::AssembleLaplacian(){
       _ME(i,i) = _penalty;
     }
   }
+  std::cout<<"\n --- END ASSEMBLY --- \n";
 }
 
 void Nom::CreateGlobalEigenMatrix(){
