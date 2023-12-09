@@ -88,6 +88,10 @@ namespace femus {
       void SetAnalyticSol(std::vector<double> sol);
       void SolveEigen();
       double L2Error();
+      
+      double GetKernel(unsigned i, unsigned j, double s);
+      void AssembleNonLocalKernelNode(unsigned i, double s);
+      void AssembleNonLocalKernelEigen(double s);
 
       void CreateGlobalMatrix();
       

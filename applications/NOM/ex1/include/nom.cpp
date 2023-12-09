@@ -733,6 +733,34 @@ double Nom::L2Error(){
 }
 
 
+double Nom::GetKernel(unsigned i, unsigned j, double s){
+  double dist = _suppNodesN[i][j].second;
+  double kernel = 1. / (pow(dist, _dim + 2 * s));
+  return kernel;
+}
+
+void Nom::AssembleNonLocalKernelNode(unsigned i, double s){
+  for(unsigned j = 0; j < _suppNodesN[i].size(); j++) {
+    double kernel = GetKernel(i,j,s);
+    _ME(i,_suppNodesN[i][j].first) += 2. * kernel; 
+    _ME(i,i) -= 2. * kernel;
+  }
+}
+
+void Nom::AssembleNonLocalKernelEigen(double s){
+    _scale.resize(_nNodes, 1.);
+  for(unsigned i = 0; i < _nNodes; i++){
+    if(_dirBC[i] == 0){
+      AssembleNonLocalKernelNode(i, s);
+    }
+    else{
+      _ME(i,i) = _penalty;
+    }
+  }
+  std::cout<<"\n --- END ASSEMBLY NONLOCAL KERNEL--- \n";
+  
+}
+
 
 
 
