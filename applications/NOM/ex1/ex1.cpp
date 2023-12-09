@@ -281,6 +281,7 @@ int main(int argc, char** argv)
   std::vector<double> anSol = SetAnSol(coords);
   nom.SetAnalyticSol(anSol);
 //   Assembling the matrix
+//   nom.AssembleNonLocalKernelEigen(0.5);
   nom.AssembleLaplacian();
   nom.SetEigenRhs(rhs);
 //   Solve the system

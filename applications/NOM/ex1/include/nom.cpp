@@ -735,7 +735,8 @@ double Nom::L2Error(){
 
 double Nom::GetKernel(unsigned i, unsigned j, double s){
   double dist = _suppNodesN[i][j].second;
-  double kernel = 1. / (pow(dist, _dim + 2 * s));
+  double Cns = s * pow(2.,2.*s) * tgamma ((_dim + 2. * s) / 2.) / (pow(M_PI, 0.5*_dim) * tgamma(1 - s));
+  double kernel = Cns / (2. * pow(dist, _dim + 2 * s)); // fractional laplacian kernel
   return kernel;
 }
 
