@@ -194,56 +194,6 @@ public:
 
 
 
-template <class type = double>
-class Function_NonZero_on_boundary_2 : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-// // //         double xx = x[0];
-// // //         double yy = x[1];
-
-        return x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1]);
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-
-// // //         double xx = x[0];
-// // //         double yy = x[1];
-
-        solGrad[0] = x[1] * cos(x[0] * x[0] + x[1] * x[1]) - 2. * x[0] * x[0] * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
-        solGrad[1] = x[0] * cos(x[0] * x[0] + x[1] * x[1]) - 2. * x[0] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
-
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-
-        return -8. * x[0] * x[1] * x[1] * x[1] * cos( x[0] * x[0]+ x[1] * x[1]) - 12. * x[0]*x[1]*sin(x[0] * x[0] + x[1] * x[1]);
-    }
-};
-
-template <class type = double>
-class Function_NonZero_on_boundary_2_Laplacian : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-        return -8. * x[0] * x[1] * x[1] * x[1] * cos( x[0] * x[0]+ x[1] * x[1]) - 12. * x[0]*x[1]*sin(x[0] * x[0] + x[1] * x[1]);
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-
-        solGrad[0] = 16. * x[0] * x[0] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 8. * x[1] * x[1] * x[1] * cos(x[0] * x[0] + x[1] * x[1]) - 24. * x[0] * x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1])- 12. * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
-        solGrad[1] = 16. * x[0] * x[1] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 48. * x[0] * x[1] * x[1] * cos(x[0] * x[0] + x[1] * x[1])- 12. * x[0] * sin(x[0] * x[0] + x[1] * x[1]);
-
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        return 64. * x[0] * x[1] * x[1] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) + 320. * x[0] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 240. * x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1]);
-    }
-};
 
 
 
@@ -343,6 +293,7 @@ int main(int argc, char** args) {
   system_specifics app_square_m05p05_2;
 
   system_specifics quarter_circle;
+
   system_specifics quarter_circle_Nzero;
 
 
@@ -364,9 +315,9 @@ int main(int argc, char** args) {
 
 
    Domains::square_m05p05::Function_Zero_on_boundary_4<>   app_square_function_zero_on_boundary_4_1;
-   Domains::square_m05p05::Function_Zero_on_boundary_4_Laplacian<>   app_square_function_zero_laplacian_1;
+   Domains::square_m05p05::Function_Zero_on_boundary_4_Laplacian<>   app_square_function_zero_on_boundary_4_1_laplacian;
 
-   app_square_m05p05_1._assemble_function_for_rhs        = & app_square_function_zero_laplacian_1;
+   app_square_m05p05_1._assemble_function_for_rhs        = & app_square_function_zero_on_boundary_4_1_laplacian;
    app_square_m05p05_1._true_solution_function           = & app_square_function_zero_on_boundary_4_1;
 
     // ======= square 1 - END  ==================
@@ -383,9 +334,9 @@ int main(int argc, char** args) {
    app_square_m05p05_2._boundary_conditions_types_and_values         = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
    Domains::square_m05p05::Function_NonZero_on_boundary_4<>   app_square_function_zero_on_boundary_4_2;
-   Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   app_square_function_nonzero_laplacian_2;
+   Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   app_square_function_zero_on_boundary_4_2_laplacian;
 
-   app_square_m05p05_2._assemble_function_for_rhs        = & app_square_function_nonzero_laplacian_2;
+   app_square_m05p05_2._assemble_function_for_rhs        = & app_square_function_zero_on_boundary_4_2_laplacian;
    app_square_m05p05_2._true_solution_function           = & app_square_function_zero_on_boundary_4_2;
 
     // ======= square 2 - END  ==================
@@ -420,8 +371,8 @@ int main(int argc, char** args) {
 
    quarter_circle_Nzero._boundary_conditions_types_and_values         = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
-   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_2<>     app_quarter_circle_function_nonzero_on_boundary_1;
-   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_2_Laplacian<>   app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
+   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_1<>     app_quarter_circle_function_nonzero_on_boundary_1;
+   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_1_Laplacian<>   app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
 
    quarter_circle_Nzero._assemble_function_for_rhs        = & app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
    quarter_circle_Nzero._true_solution_function           = & app_quarter_circle_function_nonzero_on_boundary_1;
