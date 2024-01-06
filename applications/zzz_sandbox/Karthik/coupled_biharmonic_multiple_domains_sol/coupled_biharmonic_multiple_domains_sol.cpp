@@ -83,8 +83,9 @@ public:
 };
 
 
-
 }
+
+
 
 namespace  quarter_circle_centered_at_0_by_0  {
 template < class type = double >
@@ -128,10 +129,8 @@ public:
 
     // for a quarter-circle in Quadrant 1
 
-    double xx = x[0];
-    double yy = x[1];
 
-    return  xx * yy * (1.0 + (xx*xx + yy*yy) ); // forced to be zero on the x and y axis, and the circle edge
+    return  x[0] * x[1] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ); // forced to be zero on the x and y axis, and the circle edge
     }
 
 
@@ -139,11 +138,9 @@ public:
 
         std::vector < type > solGrad(x.size(), 0.);
 
-    double xx = x[0];
-    double yy = x[1];
 
-        solGrad[0]  = yy * (1.0 + (xx*xx + yy*yy) ) + xx * yy * (2. * xx);
-        solGrad[1]  = xx * (1.0 + (xx*xx + yy*yy) ) + yy * xx * (2. * yy);
+        solGrad[0]  = x[1] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ) + x[0] * x[1] * (2. * x[0]);
+        solGrad[1]  = x[0] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ) + x[1] * x[0] * (2. * x[1]);
 
         return solGrad;
     }
@@ -151,10 +148,7 @@ public:
 
     type laplacian(const std::vector < type >& x) const {
 
-    double xx = x[0];
-    double yy = x[1];
-
-    return  12. * xx * yy;
+    return  12. * x[0] * x[1];
     }
 
 
