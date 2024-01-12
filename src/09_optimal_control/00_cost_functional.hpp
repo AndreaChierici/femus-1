@@ -77,7 +77,7 @@ static void compute_cost_functional_regularization_bdry(const MultiLevelProblem 
   
   
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);
@@ -215,7 +215,7 @@ static void compute_cost_functional_regularization_bdry(const MultiLevelProblem 
   
   
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);
         
@@ -291,7 +291,7 @@ static void compute_cost_functional_regularization_bdry(const MultiLevelProblem 
        geom_element_iel.set_elem_center_bdry_3d();
 // ----------
 
-          std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->el, iel, iface);
+          std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->GetMeshElements(), iel, iface);
 
           const int  iface_is_a_boundary_control  = pair_control_iface.first;
 
@@ -545,7 +545,7 @@ double u_x_gss = 0.;
   
     
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
  
     geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);
         
@@ -783,7 +783,7 @@ static void compute_cost_functional_regularization_lifting_external(const MultiL
 
 
     // element loop: each process loops only on the elements that owns
-    for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
         int group_flag         = msh->GetElementGroup(iel);      // element group flag (Exterior = GROUP_EXTERNAL, Interior = GROUP_INTERNAL)
         short unsigned ielGeom = msh->GetElementType(iel);       // element geometry type
@@ -940,7 +940,7 @@ static void compute_cost_functional_regularization_bdry_vec(const MultiLevelProb
   
   
   const Mesh*          msh          	= ml_prob._ml_msh->GetLevel(level); 
-  elem*          el         	= msh->el;
+  elem*          el         	= msh->GetMeshElements();
 
   MultiLevelSolution*  ml_sol    = ml_prob._ml_sol;
   Solution*    sol        	= ml_prob._ml_sol->GetSolutionLevel(level);
@@ -1099,7 +1099,7 @@ double integral_g_dot_n = 0.;
   
   
 
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
    // geometry *****************************
       geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);
@@ -1183,7 +1183,7 @@ double integral_g_dot_n = 0.;
  
        geom_element_iel.set_elem_center_bdry_3d();
 
-       std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->el, iel, iface);
+       std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->GetMeshElements(), iel, iface);
 
           const int iface_is_a_boundary_control  = pair_control_iface.first;
 
@@ -1329,7 +1329,7 @@ static void compute_cost_functional_regularization_lifting_internal_vec(
 
   
   Mesh*          msh          	= ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         	= msh->el;  // pointer to the elem object in msh (level)
+  elem*          el         	= msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  ml_sol    = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        	= ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -1449,7 +1449,7 @@ double  integral_div_ctrl = 0.;
 //*************************************************** 
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
    // geometry *****************************
       geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);

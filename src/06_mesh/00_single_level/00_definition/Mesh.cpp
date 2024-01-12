@@ -50,8 +50,6 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     
   bool Mesh::_IsUserRefinementFunctionDefined = false;
 
-  unsigned Mesh::_dimension = 2;                                    ///@todo I don't like the default dimension to be 2
-
 
 // === Constructors / Destructor - BEGIN =================
 
@@ -222,30 +220,14 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 
   void Mesh::ReadCoarseMeshBeforePartitioning(const std::string& name, const double Lref, std::vector<bool> & type_elem_flag, const bool read_groups, const bool read_boundary_groups) {
 
-//==== Level - BEGIN ==============================
-    SetLevel(0);
-//==== Level - END ==============================
 
-//==== AMR - BEGIN ==============================
-    SetIfHomogeneous(true);
-//==== AMR - END ==============================
+    Initialize_Level_AMR_Coords();
 
-//==== Coords, coarse, then to topology - BEGIN ==============================
-    _coords.resize(3);
-//==== Coords, coarse, then to topology - END ==============================
-
-    
 
     ReadCoarseMeshFile(name, Lref, type_elem_flag, read_groups, read_boundary_groups);
 
 
-
-//==== Only in Coarse generations - BEGIN ==============================
-    AddBiquadraticNodesNotInMeshFile();
-
-    el->ShrinkToFitElementDof();
-    el->ShrinkToFitElementNearFace();
-//==== Only in Coarse generations - END ==============================
+    AddNodes_in_CoarseGen();
 
 
   }  
@@ -263,11 +245,6 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 
     BuildElementAndNodeStructures();
    
-//====  CharacteristicLength ======== 
-    ComputeCharacteristicLength();  //doesn't need dofmap
-
-//====  Print Info ======== 
-    PrintInfo();  //needs dofmap
     
     
   }
@@ -305,6 +282,17 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 
 
     InitializeAndPossiblyFillAmrRestriction(false);       /** @todo is it really needed here? */
+
+
+//=========
+
+
+//====  CharacteristicLength ========
+    ComputeCharacteristicLength();  //doesn't need dofmap
+
+//====  Print Info ========
+    PrintInfo();  //needs dofmap
+
     
   }
 
@@ -391,7 +379,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
   
   void Mesh::ComputeCharacteristicLength() {
       
-    //compute max and min coords -----------
+    //compute max and min coords - BEGIN -----------
     std::vector < double > xMax(3, 0.);
     std::vector < double > xMin(3, 0.);
     for(unsigned i = 0; i < _coords[0].size(); i++) {
@@ -400,7 +388,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         if(xMin[k] > _coords[k][i]) xMin[k] = _coords[k][i];
       }
     }
-    //compute max and min coords - end -----------
+    //compute max and min coords - END -----------
     
     _cLength = sqrt(pow(xMax[0] - xMin[0], 2) + pow(xMax[1] - xMin[1], 2) + pow(xMax[2] - xMin[2], 2));
     
@@ -417,7 +405,25 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     const double ymin, const double ymax,
     const double zmin, const double zmax,
     const ElemType elemType, std::vector<bool>& type_elem_flag) {
+
+
+    GenerateCoarseBoxMeshBeforePartitioning(nx, ny, nz,
+    xmin, xmax,
+    ymin, ymax,
+    zmin, zmax,
+    elemType, type_elem_flag);
+
+
+
+    PartitionElements_and_FillDofMapAllFEFamilies();
+
+    BuildElementAndNodeStructures();
     
+  }
+
+
+
+  void Mesh::Initialize_Level_AMR_Coords() {
 
 //==== Level - BEGIN ==============================
     SetLevel(0);
@@ -430,13 +436,34 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 //==== Coords, coarse, then to topology - BEGIN ==============================
     _coords.resize(3);
 //==== Coords, coarse, then to topology - END ==============================
-    
 
-    
+  }
+
+
+
+  void Mesh::GenerateCoarseBoxMeshBeforePartitioning(
+    const unsigned int nx, const unsigned int ny, const unsigned int nz,
+    const double xmin, const double xmax,
+    const double ymin, const double ymax,
+    const double zmin, const double zmax,
+    const ElemType elemType, std::vector<bool>& type_elem_flag) {
+
+
+    Initialize_Level_AMR_Coords();
+
+
     MeshTools::Generation::BuildBox(*this, _coords, nx, ny, nz, xmin, xmax, ymin, ymax, zmin, zmax, elemType, type_elem_flag);
 
 
-    
+    AddNodes_in_CoarseGen();
+
+
+  }
+
+
+
+  void Mesh::AddNodes_in_CoarseGen() {
+
 //==== Only in Coarse generations - BEGIN ==============================
     AddBiquadraticNodesNotInMeshFile();
 
@@ -444,18 +471,8 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     el->ShrinkToFitElementNearFace();
 //==== Only in Coarse generations - END ==============================
 
-
-    PartitionElements_and_FillDofMapAllFEFamilies();
-
-    BuildElementAndNodeStructures();
-    
-//====  CharacteristicLength ======== 
-    ComputeCharacteristicLength();  //doesn't need dofmap
-
-//====  Print Info ======== 
-    PrintInfo();  //needs dofmap
-    
   }
+
 
 
   void Mesh::Topology_FillSolidNodeFlag() {
@@ -465,7 +482,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 
     NodeMaterial.zero();
 
-    for(int iel = _elementOffset[_iproc]; iel < _elementOffset[_iproc + 1]; iel++) {
+    for(int iel = GetElementOffset(_iproc); iel < GetElementOffset(_iproc + 1); iel++) {
       int flag_mat = GetElementMaterial(iel);
 
       if(flag_mat == 4) { ///@todo Where on Earth do we say that 4 is a special flag for the solid
@@ -513,7 +530,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     for(int isdom = 0; isdom < _nprocs; isdom++) {
         
       for(unsigned k = 0; k < NFE_FAMS_C_ZERO_LAGRANGE; k++) {
-        for(unsigned iel = _elementOffset[isdom]; iel < _elementOffset[isdom + 1]; iel++) {
+        for(unsigned iel = GetElementOffset(isdom); iel < GetElementOffset(isdom + 1); iel++) {
           unsigned nodeStart = (k == 0) ? 0 : el->GetElementDofNumber(iel, k - 1);
           unsigned nodeEnd = el->GetElementDofNumber(iel, k);
 
@@ -616,11 +633,11 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     for(int isdom = 0; isdom < _nprocs; isdom++) {
 
 // Old, much slower (while below is better) **********
-//       for (unsigned i = _elementOffset[isdom]; i < _elementOffset[isdom + 1] - 1; i++) {
+//       for (unsigned i = GetElementOffset(isdom); i < GetElementOffset(isdom + 1) - 1; i++) {
 //         unsigned iel = inverse_element_mapping[i];
 //         unsigned ielMat = el->GetElementMaterial (iel);
 //         unsigned ielGroup = el->GetElementGroup (iel);
-//         for (unsigned j = i + 1; j < _elementOffset[isdom + 1]; j++) {
+//         for (unsigned j = i + 1; j < GetElementOffset(isdom + 1); j++) {
 //           unsigned jel = inverse_element_mapping[j];
 //           unsigned jelMat = el->GetElementMaterial (jel);
 //           unsigned jelGroup = el->GetElementGroup (jel);
@@ -637,11 +654,11 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
       unsigned jel, iel;
       short unsigned jelMat, jelGroup, ielMat, ielGroup;
 
-      unsigned n = _elementOffset[isdom + 1u] - _elementOffset[isdom];
+      unsigned n = _elementOffset[isdom + 1u] - GetElementOffset(isdom);
       
       while(n > 1) {
         unsigned newN = 0u;
-        for(unsigned j = _elementOffset[isdom] + 1u; j < _elementOffset[isdom] + n ; j++) {
+        for(unsigned j = GetElementOffset(isdom) + 1u; j < GetElementOffset(isdom) + n ; j++) {
           jel = inverse_element_mapping[j];
           jelMat = el->GetElementMaterial(jel);
           jelGroup = el->GetElementGroup(jel);
@@ -653,7 +670,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
           if( jelMat < ielMat || (jelMat == ielMat && (jelGroup < ielGroup || (jelGroup == ielGroup && jel < iel) ) ) ) {
             inverse_element_mapping[j - 1] = jel;
             inverse_element_mapping[j] = iel;
-            newN = j - _elementOffset[isdom];
+            newN = j - GetElementOffset(isdom);
           }
         }
         n = newN;
@@ -696,8 +713,8 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     }
 
     for(int isdom = 0; isdom < _nprocs; isdom++) {
-      _ownSize[3][isdom] = _elementOffset[isdom + 1] - _elementOffset[isdom];
-      _ownSize[4][isdom] = (_elementOffset[isdom + 1] - _elementOffset[isdom]) * (_dimension + 1);
+      _ownSize[3][isdom] = GetElementOffset(isdom + 1) - GetElementOffset(isdom);
+      _ownSize[4][isdom] = (GetElementOffset(isdom + 1) - GetElementOffset(isdom)) * (_dimension + 1);
     }
 
     for(int k = NFE_FAMS_C_ZERO_LAGRANGE; k < NFE_FAMS; k++) {
@@ -755,7 +772,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
       for(int isdom = 0; isdom < _nprocs; isdom++) {
         std::map < unsigned, bool > ghostMap;
 
-        for(unsigned iel = _elementOffset[isdom]; iel < _elementOffset[isdom + 1]; iel++) {
+        for(unsigned iel = GetElementOffset(isdom); iel < GetElementOffset(isdom + 1); iel++) {
           for(unsigned inode = 0; inode < el->GetElementDofNumber(iel, k); inode++) {
             unsigned ii = el->GetElementDofIndex(iel, inode);
 
@@ -862,12 +879,6 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
        
            BuildElementAndNodeStructures();
 
-//====  CharacteristicLength ======== 
-           ComputeCharacteristicLength();  //doesn't need dofmap
-
-//====  Print Info ======== 
-           PrintInfo();  //needs dofmap
-    
   }
 
   
@@ -1014,8 +1025,8 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     switch(solType) {
         
       case CONTINUOUS_LINEAR: { // linear Lagrange
-        unsigned iNode = el->GetElementDofIndex(iel, i);  //GetMeshDof(iel, i, solType);
-        unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
+        const unsigned iNode = el->GetElementDofIndex(iel, i);  //GetMeshDof(iel, i, solType);
+        const unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
 
         if(iNode < _dofOffset[CONTINUOUS_BIQUADRATIC][isdom] + _originalOwnSize[CONTINUOUS_LINEAR][isdom]) {
           dof = (iNode - _dofOffset[CONTINUOUS_BIQUADRATIC][isdom]) + _dofOffset[CONTINUOUS_LINEAR][isdom];
@@ -1027,8 +1038,8 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
       break;
 
       case CONTINUOUS_SERENDIPITY: { // quadratic Lagrange
-        unsigned iNode = el->GetElementDofIndex(iel, i);  //GetMeshDof(iel, i, solType);
-        unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
+        const unsigned iNode = el->GetElementDofIndex(iel, i);  //GetMeshDof(iel, i, solType);
+        const unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
 
         if(iNode < _dofOffset[CONTINUOUS_BIQUADRATIC][isdom] + _originalOwnSize[CONTINUOUS_SERENDIPITY][isdom]) {
           dof = (iNode - _dofOffset[CONTINUOUS_BIQUADRATIC][isdom]) + _dofOffset[CONTINUOUS_SERENDIPITY][isdom];
@@ -1049,12 +1060,12 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         break;
 
       case DISCONTINUOUS_LINEAR: // piecewise linear discontinuous
-        unsigned isdom = BisectionSearch_find_processor_of_dof(iel, DISCONTINUOUS_CONSTANT);
-        unsigned offset = _elementOffset[isdom];
-        unsigned offsetp1 = _elementOffset[isdom + 1];
-        unsigned ownSize = offsetp1 - offset;
-        unsigned offsetPWLD = offset * (_dimension + 1);
-        unsigned locIel = iel - offset;
+        const unsigned isdom = BisectionSearch_find_processor_of_dof(iel, DISCONTINUOUS_CONSTANT);
+        const unsigned offset = GetElementOffset(isdom);
+        const unsigned offsetp1 = GetElementOffset(isdom + 1);
+        const unsigned ownSize = offsetp1 - offset;
+        const unsigned offsetPWLD = offset * (_dimension + 1);
+        const unsigned locIel = iel - offset;
         dof = offsetPWLD + (i * ownSize) + locIel;
         break;
     }
@@ -1071,7 +1082,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
     switch(solType) {
         
       case CONTINUOUS_LINEAR: { // linear Lagrange
-        unsigned iNode = mshc->el->GetChildElementDof(ielc, i0, i1);
+        unsigned iNode = mshc->GetMeshElements()->GetChildElementDof(ielc, i0, i1);
         unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
 
         if(iNode < _dofOffset[CONTINUOUS_BIQUADRATIC][isdom] + _originalOwnSize[CONTINUOUS_LINEAR][isdom]) {
@@ -1084,7 +1095,7 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
       break;
 
       case CONTINUOUS_SERENDIPITY: { // quadratic Lagrange
-        unsigned iNode = mshc->el->GetChildElementDof(ielc, i0, i1);
+        unsigned iNode = mshc->GetMeshElements()->GetChildElementDof(ielc, i0, i1);
         unsigned isdom = BisectionSearch_find_processor_of_dof(iNode, CONTINUOUS_BIQUADRATIC);
 
         if(iNode < _dofOffset[CONTINUOUS_BIQUADRATIC][isdom] + _originalOwnSize[CONTINUOUS_SERENDIPITY][isdom]) {
@@ -1097,19 +1108,19 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
       break;
 
       case CONTINUOUS_BIQUADRATIC: // bi-quadratic Lagrange
-        dof = mshc->el->GetChildElementDof(ielc, i0, i1);
+        dof = mshc->GetMeshElements()->GetChildElementDof(ielc, i0, i1);
         break;
 
       case DISCONTINUOUS_CONSTANT: // piecewise constant
         // in this case use i=0
-        dof = mshc->el->GetChildElement(ielc, i0);
+        dof = mshc->GetMeshElements()->GetChildElement(ielc, i0);
         break;
 
       case DISCONTINUOUS_LINEAR: // piecewise linear discontinuous
-        unsigned iel = mshc->el->GetChildElement(ielc, i0);
+        unsigned iel = mshc->GetMeshElements()->GetChildElement(ielc, i0);
         unsigned isdom = BisectionSearch_find_processor_of_dof(iel, DISCONTINUOUS_CONSTANT);
-        unsigned offset = _elementOffset[isdom];
-        unsigned offsetp1 = _elementOffset[isdom + 1];
+        unsigned offset = GetElementOffset(isdom);
+        unsigned offsetp1 = GetElementOffset(isdom + 1);
         unsigned ownSize = offsetp1 - offset;
         unsigned offsetPWLD = offset * (_dimension + 1);
         unsigned locIel = iel - offset;
@@ -1195,9 +1206,12 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
 
   void Mesh::AddBiquadraticNodesNotInMeshFile() {
 
+    // Nodes, initialize - BEGIN
     unsigned int nnodes = GetNumberOfNodes();
+    // Nodes, initialize - END
 
-    //intialize to UINT_MAX
+
+    //intialize to UINT_MAX - BEGIN
     for(unsigned iel = 0; iel < el->GetElementNumber(); iel++) {
       const unsigned elementType = el->GetElementType(iel);
 
@@ -1208,8 +1222,10 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         }
       }
     }
+    //intialize to UINT_MAX - END
 
-    // generate face dofs for tet and wedge elements
+
+    // generate face dofs for tet and wedge elements - BEGIN
     for(unsigned iel = 0; iel < el->GetElementNumber(); iel++) {
       const unsigned elementType = el->GetElementType(iel);
 
@@ -1253,8 +1269,9 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         }
       }
     }
+    // generate face dofs for tet and wedge elements - END
 
-    // generates element dofs for tet, wedge and triangle elements
+    // generates element dofs for tet, wedge and triangle elements - BEGIN
     for(unsigned iel = 0; iel < el->GetElementNumber(); iel++) {
       if(1 == el->GetElementType(iel)) {     //tet
         el->SetElementDofIndex(iel, 14, nnodes);
@@ -1269,14 +1286,17 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         ++nnodes;
       }
     }
+    // generates element dofs for tet, wedge and triangle elements - END
 
+
+    // Nodes - BEGIN
     el->SetNodeNumber(nnodes);
     SetNumberOfNodes(nnodes);
-//     std::cout <<"nnodes after="<< nnodes << std::endl;
-    
+    // Nodes - END
+
     
 
-    // add the coordinates of the biquadratic nodes not included in gambit
+    // add the coordinates of the biquadratic nodes not included in the mesh file - BEGIN
     _coords[0].resize(nnodes);
     _coords[1].resize(nnodes);
     _coords[2].resize(nnodes);
@@ -1304,7 +1324,8 @@ bool (* Mesh::_SetRefinementFlag)(const std::vector < double >& x, const int &El
         }
       }
     }
-    
+    // add the coordinates of the biquadratic nodes not included in the mesh file - END
+
     
   }
   

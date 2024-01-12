@@ -22,7 +22,7 @@ void AssembleSolidDisp(MultiLevelProblem& ml_prob) {
   LinearEquationSolver* myLinEqSolver = my_nnlin_impl_sys._LinSolver[level];  // pointer to the equation (level) object
   
   Mesh* mymsh = ml_prob._ml_msh->GetLevel(level);     // pointer to the mesh (level) object
-  elem* myel = mymsh->el;   // pointer to the elem object in msh (level)
+  elem* myel = mymsh->GetMeshElements();   // pointer to the elem object in msh (level)
   SparseMatrix* myKK = myLinEqSolver->_KK;  // pointer to the global stifness matrix object in pdeSys (level)
   NumericVector* myRES =  myLinEqSolver->_RES;  // pointer to the global residual vector object in pdeSys (level)
   
@@ -71,7 +71,7 @@ void AssembleSolidDisp(MultiLevelProblem& ml_prob) {
   myRES->zero();
   
   //BEGIN loop on elements (for Laplace problem for u^reset)
-  for(int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
     
     short unsigned ielt = mymsh->GetElementType(iel);
         
@@ -203,7 +203,7 @@ void AssembleMPMSys(MultiLevelProblem& ml_prob) {
   LinearEquationSolver* myLinEqSolver = my_nnlin_impl_sys._LinSolver[level];  // pointer to the equation (level) object
   
   Mesh* mymsh = ml_prob._ml_msh->GetLevel(level);     // pointer to the mesh (level) object
-  elem* myel = mymsh->el;   // pointer to the elem object in msh (level)
+  elem* myel = mymsh->GetMeshElements();   // pointer to the elem object in msh (level)
   SparseMatrix* myKK = myLinEqSolver->_KK;  // pointer to the global stifness matrix object in pdeSys (level)
   NumericVector* myRES =  myLinEqSolver->_RES;  // pointer to the global residual vector object in pdeSys (level)
   bool assembleMatrix = my_nnlin_impl_sys.GetAssembleMatrix();
@@ -317,7 +317,7 @@ void AssembleMPMSys(MultiLevelProblem& ml_prob) {
   //std::map<unsigned, std::vector < std::vector < std::vector < std::vector < double > > > > > aX;
   
   //BEGIN loop on elements (to initialize the "soft" stiffness matrix)
-  for(int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
     
     short unsigned ielt = mymsh->GetElementType(iel);
     
@@ -892,7 +892,7 @@ void SetNeumannFactor(MultiLevelSolution* ml_sol) {
   Solution  *sol = ml_sol->GetSolutionLevel(level);
   Mesh      *msh = ml_sol->GetMLMesh()->GetLevel(level);
   
-  elem* el = msh->el;   // pointer to the elem object in msh (level)
+  elem* el = msh->GetMeshElements();   // pointer to the elem object in msh (level)
   
   const unsigned dim = msh->GetDimension();
   
@@ -1015,7 +1015,7 @@ void GridToParticlesProjection(MultiLevelProblem & ml_prob, Line & linea) {
   Solution* mysolution = ml_sol->GetSolutionLevel(level);     // pointer to the solution (level) object
   
   Mesh* mymsh = ml_prob._ml_msh->GetLevel(level);     // pointer to the mesh (level) object
-  elem* myel = mymsh->el;   // pointer to the elem object in msh (level)
+  elem* myel = mymsh->GetMeshElements();   // pointer to the elem object in msh (level)
   
   double dt =  my_nnlin_impl_sys.GetIntervalTime();
   const unsigned dim = mymsh->GetDimension();

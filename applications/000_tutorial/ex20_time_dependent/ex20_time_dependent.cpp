@@ -356,7 +356,7 @@ void AssembleMatrixRes(MultiLevelProblem &ml_prob) {
   const char* pdename                         = mlPdeSys->name().c_str();
 
   Mesh*		 msh    	   = ml_prob._ml_msh->GetLevel(level);
-  elem*		 myel		   = msh->el;
+  elem*		 myel		   = msh->GetMeshElements();
   SparseMatrix*	 JAC	   = pdeSys->_KK;
   NumericVector* RES 	   = pdeSys->_RES;
 
@@ -456,7 +456,7 @@ void AssembleMatrixRes(MultiLevelProblem &ml_prob) {
   JAC->zero();
 
   // *** element loop ***
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc+1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);    // element geometry type
     
@@ -606,7 +606,7 @@ void AssembleMatrixRes_VC(MultiLevelProblem &ml_prob) {
   const char* pdename                         = mlPdeSys->name().c_str();
 
   Mesh*		 msh    	   = ml_prob._ml_msh->GetLevel(level);
-  elem*		 myel		   = msh->el;
+  elem*		 myel		   = msh->GetMeshElements();
   SparseMatrix*	 JAC	   = pdeSys->_KK;
   NumericVector* RES 	   = pdeSys->_RES;
 
@@ -712,7 +712,7 @@ void AssembleMatrixRes_VC(MultiLevelProblem &ml_prob) {
 
   
   // *** element loop ***
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc+1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);    // element geometry type
     

@@ -467,7 +467,7 @@ void AssembleBoussinesqAppoximation0(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*           msh         = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*           el          = msh->el;  // pointer to the elem object in msh (level)
+  elem*           el          = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*   mlSol         = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*   sol         = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -568,7 +568,7 @@ void AssembleBoussinesqAppoximation0(MultiLevelProblem& ml_prob) {
     KK->zero(); // Set to zero all the entries of the Global Matrix
 
   //BEGIN element loop
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     //BEGIN local dof number extraction
     unsigned nDofsT = msh->GetElementDofNumber(iel, solTType);  //temperature
@@ -813,7 +813,7 @@ void AssembleBoussinesqAppoximation(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*           msh         = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*           el          = msh->el;  // pointer to the elem object in msh (level)
+  elem*           el          = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution* mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution* sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -1026,7 +1026,7 @@ void AssembleBoussinesqAppoximation(MultiLevelProblem& ml_prob) {
 //   }*/
 
   //BEGIN element loop
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     //BEGIN local dof number extraction
     unsigned nDofsT = msh->GetElementDofNumber(iel, solTType);  //temperature

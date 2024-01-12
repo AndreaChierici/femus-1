@@ -94,20 +94,26 @@ namespace femus {
 
   void GambitIO::read(const std::string& name, std::vector < std::vector < double> > &coords, const double Lref, std::vector<bool> &type_elem_flag, const bool read_groups, const bool read_boundary_groups) {
 
+
     Mesh& mesh = GetMesh();
 
     std::ifstream inf;
     std::string str2;
+
     unsigned ngroup;
     unsigned nbcd;
+
     unsigned dim;       //dimension of the Geometric Elements
     unsigned dimNodes;  //number of coordinates provided: it could be different if you have say 2D elements in 3d
     double x, y, z;
-    
     unsigned nvt;
+
     unsigned nel;
 
+
+// === Level - BEGIN =================
     mesh.SetLevel(0);
+// === Level - END =================
 
     
     // read control data - BEGIN ******************** A
@@ -126,7 +132,7 @@ namespace femus {
       std::cout << "error control data mesh" << std::endl;
       exit(0);
     }
-//   std::cout << "***************" << _dimension << std::endl;
+
     inf.close();
     
     // read control data - END **************** A   
@@ -135,10 +141,6 @@ namespace femus {
     // Mesh, dimension - BEGIN ********************
     mesh.SetDimension(dim);
     // Mesh, dimension - END ********************
-    
-    // geom el, refinement - BEGIN ********************
-    mesh.SetRefinementCellAndFaceIndices(dim);
-    // geom el, refinement - END ******************** 
     
     // Mesh, Elements - BEGIN ********************
     mesh.SetNumberOfElements(nel);
@@ -169,36 +171,36 @@ namespace femus {
       
       if(nve == 27) {
         type_elem_flag[0] = type_elem_flag[3] = true;
-        mesh.el->AddToElementNumber(1, "Hex");
+        mesh.el->AddToElementNumber(1, geom_elems[HEX]);
         mesh.el->SetElementType(iel, HEX);
       }
       
       else if(nve == 10) {
         type_elem_flag[1] = type_elem_flag[4] = true;
-        mesh.el->AddToElementNumber(1, "Tet");
+        mesh.el->AddToElementNumber(1, geom_elems[TET]);
         mesh.el->SetElementType(iel, TET);
       }
       
       else if(nve == 18) {
         type_elem_flag[2] = type_elem_flag[3] = type_elem_flag[4] = true;
-        mesh.el->AddToElementNumber(1, "Wedge");
+        mesh.el->AddToElementNumber(1, geom_elems[WEDGE]);
         mesh.el->SetElementType(iel, WEDGE);
       }
       
       else if(nve == 9) {
         type_elem_flag[3] = true;
-        mesh.el->AddToElementNumber(1, "Quad");
+        mesh.el->AddToElementNumber(1, geom_elems[QUAD]);
         mesh.el->SetElementType(iel, QUAD);
       }
       
       else if(mesh.GetDimension() == 2 && nve == 6) {
         type_elem_flag[4] = true;
-        mesh.el->AddToElementNumber(1, "Triangle");
+        mesh.el->AddToElementNumber(1, geom_elems[TRI] );
         mesh.el->SetElementType(iel, TRI);
       }
       
       else if(mesh.GetDimension() == 1 && nve == 3) {
-        mesh.el->AddToElementNumber(1, "Line");
+        mesh.el->AddToElementNumber(1, geom_elems[LINE]);
         mesh.el->SetElementType(iel, LINE);
       }
 

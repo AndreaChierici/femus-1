@@ -163,7 +163,7 @@ int main(int argc, char** args) {
   
 
   
-    ml_mesh.ReadCoarseMeshFileReadingBeforePartitioning(infile.c_str(), Lref, read_groups, read_boundary_groups);
+    ml_mesh.ReadCoarseMeshFileReadingBeforePartitioning(infile, Lref, read_groups, read_boundary_groups);
     
 // // //  BEGIN FillISvectorDofMapAllFEFamilies
            ml_mesh.GetLevelZero(0)->dofmap_all_fe_families_initialize();
@@ -178,9 +178,6 @@ int main(int argc, char** args) {
        
            ml_mesh.GetLevelZero(0)->BuildElementAndNodeStructures();
  
-           ml_mesh.GetLevelZero(0)->ComputeCharacteristicLength();
-
-           ml_mesh.GetLevelZero(0)->PrintInfo();
            
 
   ml_mesh.BuildFETypesBasedOnExistingCoarseMeshGeomElements();

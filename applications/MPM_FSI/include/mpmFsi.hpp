@@ -35,7 +35,7 @@ void AssembleMPMSys (MultiLevelProblem& ml_prob) {
   LinearEquationSolver* myLinEqSolver = my_nnlin_impl_sys._LinSolver[level];  // pointer to the equation (level) object
   
   Mesh* msh = ml_prob._ml_msh->GetLevel (level);    // pointer to the mesh (level) object
-  elem* el = msh->el;   // pointer to the elem object in msh (level)
+  elem* el = msh->GetMeshElements();   // pointer to the elem object in msh (level)
   SparseMatrix* myKK = myLinEqSolver->_KK;  // pointer to the global stifness matrix object in pdeSys (level)
   NumericVector* myRES =  myLinEqSolver->_RES;  // pointer to the global residual vector object in pdeSys (level)
   
@@ -140,7 +140,7 @@ void AssembleMPMSys (MultiLevelProblem& ml_prob) {
   myRES->zero();
   
   //BEGIN loop on elements (to initialize the "soft" stiffness matrix)
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
     
     short unsigned ielt = msh->GetElementType (iel);
     
@@ -1003,7 +1003,7 @@ void GridToParticlesProjection (MultiLevelProblem & ml_prob, Line & solidLine, L
   Solution* mysolution = mlSol->GetSolutionLevel (level);    // pointer to the solution (level) object
   
   Mesh* msh = ml_prob._ml_msh->GetLevel (level);    // pointer to the mesh (level) object
-  elem* el = msh->el;   // pointer to the elem object in msh (level)
+  elem* el = msh->GetMeshElements();   // pointer to the elem object in msh (level)
   
   double dt =  my_nnlin_impl_sys.GetIntervalTime();
   const unsigned dim = msh->GetDimension();
@@ -1568,7 +1568,7 @@ void GetParticlesToNodeFlag1 (MultiLevelSolution &mlSol, Line & solidLine, Line 
   //END
   
   //   //BEGIN loop on elements (to initialize the "soft" stiffness matrix)
-  //   for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  //   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
   //
   //     short unsigned ielt = msh->GetElementType (iel);
   //
@@ -1612,7 +1612,7 @@ void GetParticlesToNodeFlag1 (MultiLevelSolution &mlSol, Line & solidLine, Line 
 //   unsigned    iproc = msh->processor_id();
 //
 //
-//   for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+//   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 //
 //     short unsigned ielt = msh->GetElementType (iel);
 //

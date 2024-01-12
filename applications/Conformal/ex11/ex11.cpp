@@ -233,7 +233,7 @@ void ProjectSolution(MultiLevelSolution& mlSol) {
 
   Solution* sol = mlSol.GetSolutionLevel(level);
   Mesh* msh = mlSol.GetMLMesh()->GetLevel(level);
-  elem* el = msh->el;
+  elem* el = msh->GetMeshElements();
 
   //unsigned  dim = msh->GetDimension();
   unsigned dim = 2;
@@ -246,7 +246,7 @@ void ProjectSolution(MultiLevelSolution& mlSol) {
 
   unsigned iproc = msh->processor_id();
 
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     unsigned nDofs  = msh->GetElementDofNumber(iel, solType);
 

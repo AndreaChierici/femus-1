@@ -570,7 +570,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
   Solution*      mysolution	       = ml_prob._ml_sol->GetSolutionLevel(level);
   LinearEquationSolver*  mylsyspde     = mylin_impl_sys._LinSolver[level];
   Mesh*          mymsh		       = ml_prob._ml_msh->GetLevel(level);
-  elem*          myel		       = mymsh->el;
+  elem*          myel		       = mymsh->GetMeshElements();
   SparseMatrix*  myKK		       = mylsyspde->_KK;
   NumericVector* myRES		       = mylsyspde->_RES;
   MultiLevelSolution* ml_sol           = ml_prob._ml_sol;
@@ -625,7 +625,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
   myKK->zero();
 
   // *** element loop ***
-  for(int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielt = mymsh->GetElementType(iel);
     unsigned nve = mymsh->GetElementDofNumber(iel, order_ind);
@@ -724,69 +724,6 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
       } // endif assemble_matrix
     } // end gauss point loop
 
-    //number of faces for each type of element
-    //number of faces for each type of element
-//     unsigned nfaces = mymsh->GetElementFaceNumber(iel);
-// 
-//     // loop on faces
-//     for(unsigned jface = 0; jface < nfaces; jface++) {
-// 
-//       // look for boundary faces
-//       if(myel->GetBoundaryIndex(iel, jface) > 0) {
-// 
-//         unsigned int faceIndex =  myel->GetBoundaryIndex(iel, jface) - 1u;
-// 
-//         if(ml_sol->GetBoundaryCondition("Sol", faceIndex) == NEUMANN && !ml_sol->Ishomogeneous("Sol", faceIndex)) {
-// 
-//           bdcfunc = (ParsedFunction*)(ml_sol->GetBdcFunction("Sol", faceIndex));
-//           unsigned nve = mymsh->GetElementFaceDofNumber(iel, jface, order_ind);
-//           const unsigned felt = mymsh->GetElementFaceType(iel, jface);
-// 
-//           for(unsigned i = 0; i < nve; i++) {
-//             unsigned ilocal = mymsh->GetLocalFaceVertexIndex(iel, jface, i);
-//             unsigned inode_coord_metis = mymsh->GetSolutionDof(ilocal, iel, 2);
-// 
-//             for(unsigned ivar = 0; ivar < dim; ivar++) {
-//               coordinates[ivar][i] = (*mymsh->GetTopology()->_Sol[ivar])(inode_coord_metis);
-//             }
-//           }
-// 
-//           if(felt != 6) {
-//             for(unsigned igs = 0; igs < ml_prob._ml_msh->_finiteElement[felt][order_ind]->GetGaussPointNumber(); igs++) {
-//               ml_prob._ml_msh->_finiteElement[felt][order_ind]->JacobianSur(coordinates, igs, weight, phi, gradphi, normal);
-// 
-//               xyzt.assign(4, 0.);
-// 
-//               for(unsigned i = 0; i < nve; i++) {
-//                 for(unsigned ivar = 0; ivar < dim; ivar++) {
-//                   xyzt[ivar] += coordinates[ivar][i] * phi[i];
-//                 }
-//               }
-// 
-//               // *** phi_i loop ***
-//               for(unsigned i = 0; i < nve; i++) {
-//                 double surfterm_g = (*bdcfunc)(&xyzt[0]);
-//                 double bdintegral = phi[i] * surfterm_g * weight;
-//                 unsigned int ilocalnode = mymsh->GetLocalFaceVertexIndex(iel, jface, i);
-//                 F[ilocalnode] += bdintegral;
-//               }
-//             }
-//           }
-//           else { // 1D : the side elems are points and does not still exist the point elem
-//             // in 1D it is only one point
-//             xyzt[0] = coordinates[0][0];
-//             xyzt[1] = 0.;
-//             xyzt[2] = 0.;
-//             xyzt[3] = 0.;
-// 
-//             double bdintegral = (*bdcfunc)(&xyzt[0]);
-//             unsigned int ilocalnode = mymsh->GetLocalFaceVertexIndex(iel, jface, 0);
-//             F[ilocalnode] += bdintegral;
-//           }
-//         }
-//       }
-//     }
-
 
     //--------------------------------------------------------------------------------------------------------
     //Sum the local matrices/vectors into the global Matrix/vector
@@ -864,7 +801,7 @@ double GetRelativeError(MultiLevelSolution& ml_sol, const bool& H1) {
     unsigned SolOrder = ml_sol.GetSolutionType(SolIndex);
 
 
-    for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielt = msh->GetElementType(iel);
       unsigned nve = msh->GetElementDofNumber(iel, SolOrder);

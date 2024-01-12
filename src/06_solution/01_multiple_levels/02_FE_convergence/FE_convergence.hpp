@@ -627,7 +627,7 @@ template < class real_num>
   
   
   
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
 //---------------- Geometry - BEGIN
       geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);
@@ -769,7 +769,7 @@ else if (volume_or_boundary == 1 )	{
  
 // ----------
 
-		            const int bdry_index_j = msh->el->GetFaceElementIndex(iel, iface);
+		            const int bdry_index_j = msh->GetMeshElements()->GetFaceElementIndex(iel, iface);
 
 	    if(  bdry_index_j < 0 ) {
 
@@ -930,9 +930,9 @@ else if (volume_or_boundary == 1 )	{
     
     
 if (convergence_rate_computation_method == 0)  return norms_inexact_dofs;
-if (convergence_rate_computation_method == 1)  return norms_exact_function_at_qp;
+else if (convergence_rate_computation_method == 1)  return norms_exact_function_at_qp;
 // if (convergence_rate_computation_method == 1)  return   norms_exact_function_at_dofs; //@todo this one does not work in the ABSOLUTE case but only in the INCREMENTAL case
-
+else  abort();
  
 } 
  
@@ -1053,7 +1053,7 @@ void compute_L2_norm_of_errors_of_unknowns_with_analytical_sol(MultiLevelProblem
   
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);
@@ -1130,7 +1130,7 @@ void compute_L2_norm_of_errors_of_unknowns_with_analytical_sol(MultiLevelProblem
   
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
       
 
     geom_element.set_coords_at_dofs_and_geom_type(iel, xType);
@@ -1299,7 +1299,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_with_analytical_sol(const MultiL
   
   //  extract pointers to the several objects that we are going to use
   const Mesh*     msh = ml_sol->GetMLMesh()->GetLevel(level);    // pointer to the mesh (level) object
-  const elem*     el  = msh->el;  // pointer to the elem object in msh (level)
+  const elem*     el  = msh->GetMeshElements();  // pointer to the elem object in msh (level)
   const Solution* sol = ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
 
   const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
@@ -1333,7 +1333,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_with_analytical_sol(const MultiL
   double l2norm = 0.;
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     
     const short unsigned ielGeom = msh->GetElementType(iel);
@@ -1467,7 +1467,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
   
   //  extract pointers to the several objects that we are going to use
   Mesh*     msh = ml_sol->GetMLMesh()->GetLevel(level);    // pointer to the mesh (level) object
-  elem*     el  = msh->el;  // pointer to the elem object in msh (level)
+  elem*     el  = msh->GetMeshElements();  // pointer to the elem object in msh (level)
   Solution* sol = ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
 
   const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
@@ -1509,7 +1509,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
   double l2norm_inexact = 0.;
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     
     short unsigned ielGeom = msh->GetElementType(iel);

@@ -27,7 +27,7 @@ namespace femus
 
     LinearEquationSolver * myLinEqSolver = my_nnlin_impl_sys._LinSolver[level];
     Mesh	*	mymsh		=  ml_prob._ml_msh->GetLevel ( level );
-    elem	*	myel		=  mymsh->el;
+    elem	*	myel		=  mymsh->GetMeshElements();
     SparseMatrix	* myKK		=  myLinEqSolver->_KK;
     NumericVector	* myRES		=  myLinEqSolver->_RES;
 
@@ -223,7 +223,7 @@ namespace femus
     if ( assembleMatrix ) myKK->zero();
 
     // *** element loop ***
-    for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+    for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
       short unsigned ielt = mymsh->GetElementType ( iel );
       unsigned nve        = mymsh->GetElementDofNumber ( iel, SolType2 );
@@ -331,7 +331,7 @@ namespace femus
           // look for boundary faces
           if ( myel->GetFaceElementIndex ( iel, jface ) < 0 ) {
 
-            unsigned int face = - ( mymsh->el->GetFaceElementIndex ( iel, jface ) + 1 );
+            unsigned int face = - ( mymsh->GetMeshElements()->GetFaceElementIndex ( iel, jface ) + 1 );
             double tau = 0.;
             double tau_old = 0.;
             if ( ( !ml_sol->GetBdcFunction() ( xx, "P", tau, face, time ) &&
@@ -387,12 +387,12 @@ namespace femus
         mymsh->_finiteElement[ielt][SolType2]->Jacobian ( vx_old, ig, Weight_old, phi_old, gradphi_old, nablaphi_old );
         phi1 = mymsh->_finiteElement[ielt][SolType1]->GetPhi ( ig );
 
-        if ( flag_mat == 2 || flag_mat == 3  || iel == mymsh->_elementOffset[iproc] ) {
+        if ( flag_mat == 2 || flag_mat == 3  || iel == mymsh->GetElementOffset(iproc) ) {
           if ( ig == 0 ) {
             double GaussWeight = mymsh->_finiteElement[ielt][SolType2]->GetGaussWeight ( ig );
             area = Weight_hat / GaussWeight;
 
-            if ( iel == mymsh->_elementOffset[iproc] ) {
+            if ( iel == mymsh->GetElementOffset(iproc) ) {
               area_elem_first->add ( mymsh->processor_id(), area );
               area_elem_first->close();
               rapresentative_area = area_elem_first->l1_norm() / nprocs;
@@ -1079,7 +1079,7 @@ namespace femus
 
     LinearEquationSolver * myLinEqSolver = my_nnlin_impl_sys._LinSolver[level];
     Mesh	*	mymsh		=  ml_prob._ml_msh->GetLevel ( level );
-    elem	*	myel		=  mymsh->el;
+    elem	*	myel		=  mymsh->GetMeshElements();
     SparseMatrix	* myKK		=  myLinEqSolver->_KK;
     NumericVector	* myRES		=  myLinEqSolver->_RES;
 
@@ -1274,7 +1274,7 @@ namespace femus
     if (assembleMatrix) myKK->zero();
 
     // *** element loop ***
-    for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+    for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
       short unsigned ielt = mymsh->GetElementType ( iel );
       unsigned nve        = mymsh->GetElementDofNumber ( iel, SolType2 );
@@ -1382,7 +1382,7 @@ namespace femus
           // look for boundary faces
           if ( myel->GetFaceElementIndex ( iel, jface ) < 0 ) {
 
-            unsigned int face = - ( mymsh->el->GetFaceElementIndex ( iel, jface ) + 1 );
+            unsigned int face = - ( mymsh->GetMeshElements()->GetFaceElementIndex ( iel, jface ) + 1 );
             double tau = 0.;
             double tau_old = 0.;
             if ( ( !ml_sol->GetBdcFunction() ( xx, "U", tau, face, time ) &&
@@ -1439,12 +1439,12 @@ namespace femus
         mymsh->_finiteElement[ielt][SolType2]->Jacobian ( vx_old, ig, Weight_old, phi_old, gradphi_old, nablaphi_old );
         phi1 = mymsh->_finiteElement[ielt][SolType1]->GetPhi ( ig );
 
-        if ( flag_mat == 2 || iel == mymsh->_elementOffset[iproc] ) {
+        if ( flag_mat == 2 || iel == mymsh->GetElementOffset(iproc) ) {
           if ( ig == 0 ) {
             double GaussWeight = mymsh->_finiteElement[ielt][SolType2]->GetGaussWeight ( ig );
             area = Weight_hat / GaussWeight;
 
-            if ( iel == mymsh->_elementOffset[iproc] ) {
+            if ( iel == mymsh->GetElementOffset(iproc) ) {
               area_elem_first->add ( mymsh->processor_id(), area );
               area_elem_first->close();
               rapresentative_area = area_elem_first->l1_norm() / nprocs;
@@ -2081,7 +2081,7 @@ namespace femus
 
     Solution *mysolution = mlSol.GetSolutionLevel ( level );
     Mesh *mymsh	=  mlSol.GetMLMesh()->GetLevel ( level );
-    elem *myel	=  mymsh->el;
+    elem *myel	=  mymsh->GetMeshElements();
 
 
     unsigned indLmbd = mlSol.GetIndex ( "lmbd" );
@@ -2158,7 +2158,7 @@ namespace femus
     unsigned iproc  = mymsh->processor_id();
 
     // *** element loop ***
-    for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+    for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
       unsigned kel        = iel;
       short unsigned kelt = mymsh->GetElementType ( kel );

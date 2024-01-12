@@ -229,7 +229,7 @@ void AssembleMatrixResNS(MultiLevelProblem &ml_prob){
   const char* pdename                                 = my_nnlin_impl_sys.name().c_str();
 
   Mesh*		 mymsh    	= ml_prob._ml_msh->GetLevel(level);
-  elem*		 myel		= mymsh->el;
+  elem*		 myel		= mymsh->GetMeshElements();
   SparseMatrix*	 myKK		= mylsyspde->_KK;
   NumericVector* myRES 		= mylsyspde->_RES;
 
@@ -327,7 +327,7 @@ void AssembleMatrixResNS(MultiLevelProblem &ml_prob){
 
   // *** element loop ***
 
-  for (int iel=mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc+1]; iel++) {
+  for (int iel=mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
 
     unsigned kel = iel;
     short unsigned kelt=mymsh->GetElementType(kel);

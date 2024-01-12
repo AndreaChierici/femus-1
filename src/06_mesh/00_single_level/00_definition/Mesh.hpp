@@ -62,26 +62,22 @@ class Mesh : public ParallelObject {
 
 // === Friend functions and classes - BEGIN =================
 /// These classes can access stuff that otherwise is protected/private
-friend   void MeshTools::Generation::BuildBox ( Mesh& mesh,
-		      std::vector < std::vector < double> > &coords,
-                      const unsigned int nx,
-                      const unsigned int ny,
-                      const unsigned int nz,
-                      const double xmin, const double xmax,
-                      const double ymin, const double ymax,
-                      const double zmin, const double zmax,
-                      const ElemType type,
-                      std::vector<bool> &type_elem_flag );
 
+// generation BEGIN
+friend class MeshTools::Generation;
 friend class MED_IO;
 friend class GambitIO;
+// generation END
 
+// partitioning BEGIN
 friend class MeshPartitioning;
 friend class MeshMetisPartitioning;
+// partitioning END
 
+// refinement BEGIN
 friend class MeshRefinement;
+// refinement END
 
-friend class MultiLevelMesh;
 // === Friend functions and classes - END =================
 
 
@@ -99,56 +95,33 @@ public:
     
 // === Constructors / Destructor - END =================
 
-    
 
-// === Geometric Element, Single - BEGIN =================
- public:
-   
-    /** */
-    unsigned GetElementFaceNumber(const unsigned &iel, const unsigned &type = GeomElemBase::_index_for_all_faces) const;
 
-    unsigned GetElementFaceNumber_PassElemType(const short unsigned & el_type, const unsigned& type = GeomElemBase::_index_for_all_faces) const;
-    
-    /**  */
-    unsigned GetLocalFaceVertexIndex(const unsigned &iel, const unsigned &iface, const unsigned &jnode) const;
+// === Mesh, Level, Current (when the Mesh is part of a multilevel hierarchy) - BEGIN  =================
 
-    /**  */
-    unsigned GetLocalFaceVertexIndex_PassElemType(const short unsigned & el_type, const unsigned& iface, const unsigned& jnode) const;
-    
-    
-// === Geometric Element, Single - END =================
+public:
 
-    
-// === Geometric Element, Single, REFINEMENT - BEGIN =================
- public:
-    
-    /** It would private if we put Solution as another friend of Mesh, but maybe it is too much for now */
-    const unsigned GetRefIndex() const {
-      return _ref_index;
+    /** MESH: Get the grid number */
+    unsigned GetLevel() const {
+      return _level;
     }
 
-    
+    /** MESH: Set the grid number */
+    void SetLevel(const unsigned &i) {
+        _level = i;
+    };
+
+
  private:
-   
-    /** MESH */
-    const unsigned GetRefFaceIndex() const {
-      return _ref_face_index;
-    }
-    
-     void SetRefinementCellAndFaceIndices(const unsigned &dim) {
-      _ref_index  = pow(2, dim);     //8 elements from refining 1 HEX, TET, WEDGE; 4 elements from refining 1 QUAD, TRI; 2 elements from refining 1 LINE
-      _ref_face_index = pow(2, dim -1u);
-    }
 
-    /** MESH, REF: 8 elements from refining 1 HEX, TET, WEDGE; 4 elements from refining 1 QUAD TRI; 2 elements from refining 1 LINE // 8*DIM[2]+4*DIM[1]+2*DIM[0]; */
-    unsigned _ref_index;
-    
-    /** MESH, REF: 4 faces from refining 1 QUAD TRI; 2 faces from refining 1 LINE; 1 face from refining 1 point // 4*DIM[2]+2*DIM[1]+1*DIM[0]; */
-    unsigned _ref_face_index;
+    void PrintInfoLevel() const;
 
-    
-// === Geometric Element, Single, REFINEMENT - END =================
-    
+    /** MESH: level of mesh in the multi-level hierarchy */
+    unsigned _level;
+
+// === Mesh, Level, Current (when the Mesh is part of a multilevel hierarchy) - END  =================
+
+
 
 
 // === Mesh, BASIC, Debug - BEGIN =================
@@ -169,44 +142,19 @@ private:
    
     /** MESH: Get the dimension of the problem (1D, 2D, 3D) */
     const unsigned GetDimension() const {
-      return Mesh::_dimension;
+      return _dimension;
     }
 
  private:
    
     /** MESH: Set the dimension of the problem (1D, 2D, 3D) */
     void SetDimension(const unsigned &dim) {
-      Mesh::_dimension = dim;
+      _dimension = dim;
     }
 
-    /** MESH: dimension of the problem @todo I would make it not static */
-    static unsigned _dimension;
+    /** MESH: dimension of the problem */
+    unsigned _dimension;
 // === Mesh, BASIC, Dimension - END =================
-
-
-// === Mesh, BASIC, CharacteristicLength - BEGIN =================
-
-public:
-    
-    /// @todo This soon will be private
-    void ComputeCharacteristicLength();
-    
-private:
-
-    double GetCharacteristicLength() const {
-      return _cLength;
-    };
-
-    void SetCharacteristicLength(const double & cLength){
-      _cLength = cLength;
-    }
-    
-    /** Order of the domain size */
-    double _cLength;
-
-    
-// === Mesh, BASIC, CharacteristicLength - END =================
-
 
 
 // === Mesh, Elements - BEGIN ====================================================
@@ -219,8 +167,10 @@ private:
     inline elem * GetMeshElements() const {
       return el;
     }
-    
-    /** MESH: list of all elements @todo should be private */
+
+private:
+
+    /** MESH: list of all elements */
     elem *el;
    
 // === Elements, List - END =================
@@ -251,15 +201,18 @@ private:
     
     /** Get element type*/
     short unsigned GetElementType(const unsigned &iel) const;
-    /**  */
-    const unsigned GetElementFaceType(const unsigned &kel, const unsigned &jface) const;
     
 // === Elements, Type - END =================
+
 
 // === Elements, Subdomains - BEGIN =================
  public:
     
-    /** MESH: Number of elements per processor (incremental count)  @todo should be private */
+   unsigned GetElementOffset(const unsigned iproc_in) const { return  _elementOffset[iproc_in]; }
+
+ private:
+
+    /** MESH: Number of elements per processor (incremental count) */
     std::vector < unsigned > _elementOffset;
  
 // === Elements, Subdomains - END =================
@@ -282,6 +235,25 @@ private:
     
 // === Elements, Material - END =================
     
+// === Elements, Faces - BEGIN =================
+ public:
+
+    /** */
+    unsigned GetElementFaceNumber(const unsigned &iel, const unsigned &type = GeomElemBase::_index_for_all_faces) const;
+
+    unsigned GetElementFaceNumber_PassElemType(const short unsigned & el_type, const unsigned& type = GeomElemBase::_index_for_all_faces) const;
+
+    /**  */
+    unsigned GetLocalFaceVertexIndex(const unsigned &iel, const unsigned &iface, const unsigned &jnode) const;
+
+    /**  */
+    unsigned GetLocalFaceVertexIndex_PassElemType(const short unsigned & el_type, const unsigned& iface, const unsigned& jnode) const;
+
+    /**  */
+    const unsigned GetElementFaceType(const unsigned &kel, const unsigned &jface) const;
+
+// === Elements, Faces - END =================
+
 // === Mesh, Elements - END ====================================================
 
 
@@ -319,11 +291,38 @@ private:
     /** MESH: node coordinates for each space dimension  @todo beware: this is only filled at coarse reading, then use GetTopology() for the coordinates! */
     std::vector < std::vector < double > > _coords;
 // === Nodes, coordinates read from coarse file (temporary, then use GetTopology()) - END =================
-    
+
+
+
+
+// === Mesh, BASIC, CharacteristicLength, uses _coords - BEGIN =================
+
+private:
+
+    double GetCharacteristicLength() const {
+      return _cLength;
+    };
+
+    void ComputeCharacteristicLength();
+
+    void SetCharacteristicLength(const double & cLength){
+      _cLength = cLength;
+    }
+
+    /** Order of the domain size */
+    double _cLength;
+
+
+// === Mesh, BASIC, CharacteristicLength, uses _coords - END =================
+
+
+
 // === Mesh, Nodes - END ====================================================
     
     
-    
+
+
+
     
 // === Mesh, COARSE GENERATION - BEGIN =================
     
@@ -337,19 +336,20 @@ private:
     /** This function generates the coarse mesh level, $l_0$, from an input mesh file, with option to not read groups */
     void ReadCoarseMesh(const std::string& name, const double Lref, std::vector<bool> &_finiteElement_flag, const bool read_groups, const bool read_boundary_groups);
 
+    void ReadCoarseMeshBeforePartitioning(const std::string& name, const double Lref, std::vector<bool>& type_elem_flag, const bool read_groups, const bool read_boundary_groups);
+
 private:
   
     /** Only file reading */
     void ReadCoarseMeshFile (const std::string& name, const double Lref, std::vector<bool>& type_elem_flag, const bool read_groups, const bool read_boundary_groups);
 
-    void ReadCoarseMeshBeforePartitioning(const std::string& name, const double Lref, std::vector<bool>& type_elem_flag, const bool read_groups, const bool read_boundary_groups);
   
 
 
 // === COARSE MESH GENERATION, from FILEs - END =================
 
 
-// === COARSE MESH GENERATION, from function - BEGIN =================
+// === COARSE MESH GENERATION, from function, for a Box - BEGIN =================
  public:
    
     /** This function generates a coarse box mesh */
@@ -361,6 +361,16 @@ private:
                                const double zmin, const double zmax,
                                const ElemType type, 
                                std::vector<bool> &type_elem_flag);
+
+ private:
+
+   void GenerateCoarseBoxMeshBeforePartitioning(
+    const unsigned int nx, const unsigned int ny, const unsigned int nz,
+    const double xmin, const double xmax,
+    const double ymin, const double ymax,
+    const double zmin, const double zmax,
+    const ElemType elemType, std::vector<bool>& type_elem_flag);
+
 
  public:
    
@@ -377,13 +387,17 @@ private:
     /** Boundary names for faces, this is only filled in the above function so far */
     std::map<unsigned int, std::string> _boundaryinfo;
     
-// === COARSE MESH GENERATION, from function - END =================
+// === COARSE MESH GENERATION, from function, for a Box - END =================
 
 
-// === COARSE MESH GENERATION, for all - BEGIN =================
+// === COARSE MESH GENERATION, from file or function: FE stuff (Nodes) - BEGIN =================
     
  private:
-    
+
+    void Initialize_Level_AMR_Coords();
+
+    void AddNodes_in_CoarseGen();
+
     void AddBiquadraticNodesNotInMeshFile();
     
     /** Weights used to build the baricentric coordinate to compute the missing biquadratic nodes **/
@@ -391,37 +405,13 @@ private:
     
     static const unsigned _numberOfMissedBiquadraticNodes[N_GEOM_ELS];
     
-// === COARSE MESH GENERATION, for all - END =================
+// === COARSE MESH GENERATION, from file or function: FE stuff (Nodes) - END =================
+
 
 // === Mesh, COARSE GENERATION - END =================
 
     
 
-// === Mesh, Level, Current (when the Mesh is part of a multilevel hierarchy) - BEGIN  =================
-
-public:
-
-    /** MESH: Get the grid number */
-    unsigned GetLevel() const {
-      return _level;
-    }
-
-    
- private:
-    
-    void PrintInfoLevel() const;
-    
-    /** MESH: Set the grid number */
-    void SetLevel(const unsigned &i) {
-        _level = i;
-    };
-
-    /** MESH: level of mesh in the multi-level hierarchy */
-    unsigned _level;
-    
-// === Mesh, Level, Current (when the Mesh is part of a multilevel hierarchy) - END  =================
-
-    
 
 // === FE stuff - BEGIN ====================================================
 

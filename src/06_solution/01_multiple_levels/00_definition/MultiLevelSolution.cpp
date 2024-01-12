@@ -363,8 +363,8 @@ namespace femus {
 
             for(int isdom = _iproc; isdom < _iproc + 1; isdom++) {
 
-              for(int iel = msh->_elementOffset[isdom];
-                  iel < msh->_elementOffset[isdom + 1]; iel++) {
+              for(int iel = msh->GetElementOffset(isdom);
+                  iel < msh->GetElementOffset(isdom + 1); iel++) {
                 
                 const unsigned nloc_dof = msh->GetElementDofNumber(iel, sol_type);
 
@@ -393,8 +393,8 @@ namespace femus {
 
             for(int isdom = _iproc; isdom < _iproc + 1; isdom++) {
 
-              for(int iel = msh->_elementOffset[isdom];
-                  iel < msh->_elementOffset[isdom + 1]; iel++) {
+              for(int iel = msh->GetElementOffset(isdom);
+                  iel < msh->GetElementOffset(isdom + 1); iel++) {
                   
                 const std::vector < double > xx = evaluate_coord_of_dof_carrier_Discontinuous(msh, iel);
 
@@ -570,14 +570,16 @@ namespace femus {
   }
 
 //---------------------------------------------------------------------------------------------------
-  void MultiLevelSolution::InitializeBdc() {
+  void MultiLevelSolution::InitializeBdc_with_ParsedFunction() {
     _useParsedBCFunction = true;
 
     int nvars = _solType.size();
-    int nfaces = GetMLMesh()->GetLevel(0)->GetBoundaryInfo().size();
+
     _boundaryConditions.resize(nvars);
     _isHomogeneous.resize(nvars);
     _nonHomogeneousBCFunction.resize(nvars);
+
+    int nfaces = GetMLMesh()->GetLevel(0)->GetBoundaryInfo().size();
 
     for(int i = 0; i < nvars; i++) {
       _boundaryConditions[i].resize(nfaces);
@@ -593,7 +595,7 @@ namespace femus {
   }
 
 //---------------------------------------------------------------------------------------------------
-  void MultiLevelSolution::SetBoundaryCondition_new(const std::string name, const std::string facename,
+  void MultiLevelSolution::SetBoundaryCondition_with_ParsedFunction(const std::string name, const std::string facename,
                                                     const BDCType bdctype, const bool istimedependent, FunctionBase* func) {
 
 
@@ -739,9 +741,9 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
 
 
           //AMR - related - BEGIN
-          for(int iel = msh->_elementOffset[_iproc]; iel < msh->_elementOffset[_iproc + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(_iproc); iel < msh->GetElementOffset(_iproc + 1); iel++) {
             for(unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-              if(msh->el->GetBoundaryIndex(iel, jface) == 0) {   // interior boundary (AMR) u = 0
+              if(msh->GetMeshElements()->GetBoundaryIndex(iel, jface) == 0) {   // interior boundary (AMR) u = 0
                 short unsigned ielt = msh->GetElementType(iel);
                 unsigned nv1 = msh->GetElementFaceDofNumber(iel, jface, _solType[k]);  // only the face dofs
                 for(unsigned iv = 0; iv < nv1; iv++) {
@@ -757,11 +759,11 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
           }
           //AMR - related - END
           
-          for(int iel = msh->_elementOffset[_iproc]; iel < msh->_elementOffset[_iproc + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(_iproc); iel < msh->GetElementOffset(_iproc + 1); iel++) {
 
             for(unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
 
-              const int boundary_index = msh->el->GetBoundaryIndex(iel, jface);
+              const int boundary_index = msh->GetMeshElements()->GetBoundaryIndex(iel, jface);
 
               if(boundary_index > 0) {   // exterior boundary u = value
                 short unsigned ielt = msh->GetElementType(iel);
@@ -844,7 +846,7 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
 
     for(unsigned igridn = grid0; igridn < _gridn; igridn++) {
       Mesh* msh = GetMLMesh()->GetLevel(igridn);
-      for(int iel = msh->_elementOffset[_iproc]; iel < msh->_elementOffset[_iproc + 1]; iel++) {
+      for(int iel = msh->GetElementOffset(_iproc); iel < msh->GetElementOffset(_iproc + 1); iel++) {
 
         short unsigned ielGroup = msh->GetElementGroup(iel);
 
@@ -894,7 +896,7 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
   
   
 
-  bool PRINT = false;
+  bool PRINT_RK = false;
   void MultiLevelSolution::GenerateRKBdc(
     const unsigned int &solIndex, const std::vector<unsigned> &solKiIndex,
     const unsigned int &grid0, const std::vector < double> & itime, const double &time0, const double &dt, const double *AI) {
@@ -922,9 +924,9 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
         if(_solType[solIndex] < NFE_FAMS_C_ZERO_LAGRANGE) {  // boundary condition for lagrangian elements
           
           
-          for(int iel = msh->_elementOffset[_iproc]; iel < msh->_elementOffset[_iproc + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(_iproc); iel < msh->GetElementOffset(_iproc + 1); iel++) {
             for(unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-              if(msh->el->GetBoundaryIndex(iel, jface) == 0) {   // interior boundary (AMR) u = 0
+              if(msh->GetMeshElements()->GetBoundaryIndex(iel, jface) == 0) {   // interior boundary (AMR) u = 0
                 short unsigned ielt = msh->GetElementType(iel);
                 unsigned nv1 = msh->GetElementFaceDofNumber(iel, jface, _solType[solIndex]);  // only the face dofs
                 for(unsigned iv = 0; iv < nv1; iv++) {
@@ -941,9 +943,9 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
             }
           }
 
-          for(int iel = msh->_elementOffset[_iproc]; iel < msh->_elementOffset[_iproc + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(_iproc); iel < msh->GetElementOffset(_iproc + 1); iel++) {
             for(unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-              if(msh->el->GetBoundaryIndex(iel, jface) > 0) {   // exterior boundary u = value
+              if(msh->GetMeshElements()->GetBoundaryIndex(iel, jface) > 0) {   // exterior boundary u = value
                 short unsigned ielt = msh->GetElementType(iel);
                 unsigned nv1 = msh->GetElementFaceDofNumber(iel, jface, _solType[solIndex]);
 
@@ -952,7 +954,7 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
                   const unsigned inode_coord_Metis = msh->GetSolutionDof(i, iel, CONTINUOUS_BIQUADRATIC);
                   
                   if(_useParsedBCFunction) {
-                    unsigned int faceIndex = msh->el->GetBoundaryIndex(iel, jface);
+                    unsigned int faceIndex = msh->GetMeshElements()->GetBoundaryIndex(iel, jface);
 
                     if(GetBoundaryCondition(solIndex, faceIndex - 1u) == DIRICHLET) {
                       const unsigned inode_Metis = msh->GetSolutionDof(i, iel, _solType[solIndex]);
@@ -998,22 +1000,22 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
                     const std::vector< double > xx = evaluate_coord_of_dof_carrier_Lagrange(msh, iel, i);
                   
                     bool test = (_bdcFuncSetMLProb) ?
-                                _SetBoundaryConditionFunctionMLProb(_mlBCProblem, xx, _solName[solIndex], value0, msh->el->GetBoundaryIndex(iel, jface), time0) :
-                                _SetBoundaryConditionFunction(xx, _solName[solIndex], value0, msh->el->GetBoundaryIndex(iel, jface), time0);
+                                _SetBoundaryConditionFunctionMLProb(_mlBCProblem, xx, _solName[solIndex], value0, msh->GetMeshElements()->GetBoundaryIndex(iel, jface), time0) :
+                                _SetBoundaryConditionFunction(xx, _solName[solIndex], value0, msh->GetMeshElements()->GetBoundaryIndex(iel, jface), time0);
 
                     if(test) {
 
-                      if(PRINT) std::cout << inode_coord_Metis << " " << value0 << "\n" ;
+                      if(PRINT_RK) std::cout << inode_coord_Metis << " " << value0 << "\n" ;
 
                       std::vector < double > ivalue(solKiIndex.size(), 0.);
                       for(unsigned k = 0; k < solKiIndex.size(); k++) {
                         if(_bdcFuncSetMLProb) {
-                          _SetBoundaryConditionFunctionMLProb(_mlBCProblem, xx, _solName[solIndex], ivalue[k], msh->el->GetBoundaryIndex(iel, jface), itime[k]);
+                          _SetBoundaryConditionFunctionMLProb(_mlBCProblem, xx, _solName[solIndex], ivalue[k], msh->GetMeshElements()->GetBoundaryIndex(iel, jface), itime[k]);
                         }
                         else {
-                          _SetBoundaryConditionFunction(xx, _solName[solIndex], ivalue[k], msh->el->GetBoundaryIndex(iel, jface), itime[k]);
+                          _SetBoundaryConditionFunction(xx, _solName[solIndex], ivalue[k], msh->GetMeshElements()->GetBoundaryIndex(iel, jface), itime[k]);
                         }
-                        if(PRINT) std::cout << inode_coord_Metis << " " << ivalue[k] << std::endl;
+                        if(PRINT_RK) std::cout << inode_coord_Metis << " " << ivalue[k] << std::endl;
                         ivalue[k] -= value0;
                       }
 
@@ -1060,7 +1062,7 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
       }
     }
 
-    PRINT = false;
+    PRINT_RK = false;
   }
 
 
@@ -1213,8 +1215,8 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
       if(sol_type < NFE_FAMS_C_ZERO_LAGRANGE) {
 
         for(int isdom = _iproc; isdom < _iproc + 1; isdom++) {
-          for(int iel = msh->_elementOffset[isdom];
-              iel < msh->_elementOffset[isdom + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(isdom);
+              iel < msh->GetElementOffset(isdom + 1); iel++) {
             
             unsigned nloc_dof = msh->GetElementDofNumber(iel, sol_type);
 
@@ -1243,8 +1245,8 @@ void MultiLevelSolution::GenerateBdc(const char* name, const char* bdc_type, con
       else if(sol_type < NFE_FAMS) {
         
         for(int isdom = _iproc; isdom < _iproc + 1; isdom++) {
-          for(int iel = msh->_elementOffset[isdom];
-              iel < msh->_elementOffset[isdom + 1]; iel++) {
+          for(int iel = msh->GetElementOffset(isdom);
+              iel < msh->GetElementOffset(isdom + 1); iel++) {
           
             const std::vector < double > xx = evaluate_coord_of_dof_carrier_Discontinuous(msh, iel);
 

@@ -183,7 +183,7 @@ namespace femus
 
     unsigned iel = initialElem;
 
-    unsigned ielProc = (initialElem < sol->GetMesh()->_elementOffset[_nprocs]) ?
+    unsigned ielProc = (initialElem < sol->GetMesh()->GetElementOffset(_nprocs) ) ?
                        sol->GetMesh()->BisectionSearch_find_processor_of_dof(iel, 3) : _nprocs;
 
     if (useInitialSearch || _iproc != ielProc) {
@@ -195,7 +195,7 @@ namespace femus
 
       double modulus = 1.e10;
 
-      for (int jel = sol->GetMesh()->_elementOffset[_iproc]; jel < sol->GetMesh()->_elementOffset[_iproc + 1]; jel += 25) {
+      for (int jel = sol->GetMesh()->GetElementOffset(_iproc); jel < sol->GetMesh()->GetElementOffset(_iproc + 1); jel += 25) {
 
         unsigned interiorNode = sol->GetMesh()->GetElementDofNumber(jel, 2) - 1;
         unsigned jDof  = sol->GetMesh()->GetSolutionDof(interiorNode, jel, 2);    // global to global mapping between coordinates node and coordinate dof
@@ -355,7 +355,7 @@ namespace femus
 
         //BEGIN SMART search among all the elements received by _iproc and sent from jprocs
         double modulus = 1.e10;
-        iel = sol->GetMesh()->_elementOffset[_iproc + 1] ;
+        iel = sol->GetMesh()->GetElementOffset(_iproc + 1) ;
 
         for (unsigned jproc = 0; jproc < _nprocs; jproc++) {
           if (processorMarkerFlag[jproc] == 3) {
@@ -384,7 +384,7 @@ namespace femus
           //END SMART search
         }
 
-        if (iel != sol->GetMesh()->_elementOffset[_iproc + 1]) {
+        if (iel != sol->GetMesh()->GetElementOffset(_iproc + 1)) {
           //   std::cout << "start element= " << iel << std::endl;
           pointIsOutsideTheDomain = false;
           pointIsOutsideThisProcess = false;
@@ -558,7 +558,7 @@ namespace femus
       for (unsigned k = 0; k < _dim; k++) {
         projection += vt[k] * faceNormal[ielType][jface][k];
       }
-      int jelement = (sol->GetMesh()->el->GetFaceElementIndex(iel, jface) - 1);
+      int jelement = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(iel, jface) - 1);
       if (projection > maxProjection && jelement != previousElem) {
         maxProjection = projection;
         faceIndex = jface;
@@ -733,7 +733,7 @@ namespace femus
                 else {
                   unsigned nodeIndex = (_solType == 0) ? i : i / 2;
 
-                  nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, nodeIndex) - 1);
+                  nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, nodeIndex) - 1);
                   if (nextElem != previousElem) {
                     nextElementFound = true;
                   }
@@ -759,7 +759,7 @@ namespace femus
 
                   unsigned nodeIndex = (_solType == 0) ? i : i / 2;
 
-                  nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, nodeIndex) - 1);
+                  nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, nodeIndex) - 1);
                   if (nextElem != previousElem) {
                     nextElementFound = true;
                   }
@@ -1035,7 +1035,7 @@ namespace femus
                       }
                       else {
                         //     std::cout << "r is in triangle " << itri << std::endl;
-                        nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                        nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                         if (nextElem != previousElem) {
                           nextElementFound = true;
                         }
@@ -1057,7 +1057,7 @@ namespace femus
                       }
                       else {
                         //     std::cout << "r is in triangle " << itri << std::endl;
-                        nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                        nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                         if (nextElem != previousElem) {
                           nextElementFound = true;
                         }
@@ -1085,7 +1085,7 @@ namespace femus
               }
               else {
                 //    std::cout << "r is in triangle " << itri << std::endl;
-                nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                 if (nextElem != previousElem) {
                   nextElementFound = true;
                 }
@@ -1370,7 +1370,7 @@ namespace femus
                       }
                       else {
                         //     std::cout << "r is in triangle " << itri << std::endl;
-                        nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                        nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                         unsigned historyCounter = 0;
                         for(unsigned i = 0; i < searchHistory.size(); i++) {
                           // std::cout << "searchHistory[" << i<< "]"<< searchHistory[i] <<std::endl;
@@ -1399,7 +1399,7 @@ namespace femus
                       }
                       else {
                         //     std::cout << "r is in triangle " << itri << std::endl;
-                        nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                        nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                         unsigned historyCounter = 0;
                         for(unsigned i = 0; i < searchHistory.size(); i++) {
                           //  std::cout << "searchHistory[" << i<< "]"<< searchHistory[i] <<std::endl;
@@ -1434,7 +1434,7 @@ namespace femus
               }
               else {
                 //    std::cout << "r is in triangle " << itri << std::endl;
-                nextElem = (sol->GetMesh()->el->GetFaceElementIndex(currentElem, iface) - 1);
+                nextElem = (sol->GetMesh()->GetMeshElements()->GetFaceElementIndex(currentElem, iface) - 1);
                 unsigned historyCounter = 0;
                 for(unsigned i = 0; i < searchHistory.size(); i++) {
                   //  std::cout << "searchHistory[" << i<< "]"<< searchHistory[i] <<std::endl;
@@ -1562,7 +1562,7 @@ namespace femus
       // std::cout << "\n\n--------------------------------------------------" << std::endl;
       // std::cout << "solType = " << solType << std::endl;
 
-      for (int iel = sol->GetMesh()->_elementOffset[_iproc]; iel < sol->GetMesh()->_elementOffset[_iproc + 1]; iel++) {
+      for (int iel = sol->GetMesh()->GetElementOffset(_iproc); iel < sol->GetMesh()->GetElementOffset(_iproc + 1); iel++) {
         //for(int iel = 494; iel < 495; iel++) {
         //  std::cout << "iel = " << iel << std::endl;
         //  std::cout << "--------------------------------------------------\n" << std::endl;

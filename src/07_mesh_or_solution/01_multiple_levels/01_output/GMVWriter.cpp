@@ -182,10 +182,10 @@ namespace femus {
     //mesh->GetTopology()->_Sol[mesh->GetTypeIndex()]->localize_to_one( vector1, 0 );
 
     for( unsigned isdom = 0; isdom < _writer_one_level.n_processors(); isdom++ ) {
-      mesh->el->LocalizeElementDof( isdom );
-      mesh->el->LocalizeElement_Level_Type_Group_Material(isdom);
+      mesh->GetMeshElements()->LocalizeElementDof( isdom );
+      mesh->GetMeshElements()->LocalizeElement_Level_Type_Group_Material(isdom);
       if( _writer_one_level.processor_id() == 0 ) {
-        for( unsigned ii = mesh->_elementOffset[isdom]; ii < mesh->_elementOffset[isdom + 1]; ii++ ) {
+        for( unsigned ii = mesh->GetElementOffset(isdom); ii < mesh->GetElementOffset(isdom + 1); ii++ ) {
 	  short unsigned ielt = mesh->GetElementType(ii);
           if( ielt == 0 )
             sprintf( buffer, "phex%d", eltp[index][0] );
@@ -221,8 +221,8 @@ namespace femus {
           fout.write( ( char* ) topology, sizeof( unsigned ) *  nvertices  );
         }
       }
-      mesh->el->FreeLocalizedElementDof();
-      mesh->el->FreeLocalizedElement_Level_Type_Group_Material();
+      mesh->GetMeshElements()->FreeLocalizedElementDof();
+      mesh->GetMeshElements()->FreeLocalizedElement_Level_Type_Group_Material();
     }
 
     //END CONNETTIVITY
@@ -241,7 +241,7 @@ namespace femus {
     vector1.resize( nel );
     unsigned icount = 0;
     for( int isdom = 0; isdom < _writer_one_level.n_processors(); isdom++ ) {
-      for( unsigned ii = mesh->_elementOffset[isdom]; ii < mesh->_elementOffset[isdom + 1]; ii++ ) {
+      for( unsigned ii = mesh->GetElementOffset(isdom); ii < mesh->GetElementOffset(isdom + 1); ii++ ) {
         vector1[icount] = isdom;
         icount++;
       }

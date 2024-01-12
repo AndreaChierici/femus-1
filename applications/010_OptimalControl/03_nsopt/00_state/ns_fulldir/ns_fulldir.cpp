@@ -293,7 +293,7 @@ void AssembleNS_AD(MultiLevelProblem& ml_prob) {
   bool assembleMatrix = mlPdeSys.GetAssembleMatrix(); 
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
+  elem*          el         = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -426,7 +426,7 @@ void AssembleNS_AD(MultiLevelProblem& ml_prob) {
 // #endif  
   
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
 
@@ -687,7 +687,7 @@ void AssembleNS_nonAD(MultiLevelProblem& ml_prob){
   MultiLevelSolution* mlSol = ml_prob._ml_sol;
   
   Mesh*		 msh    = ml_prob._ml_msh->GetLevel(level);
-  elem*		 el	= msh->el;
+  elem*		 el	= msh->GetMeshElements();
   SparseMatrix*	 JAC	= pdeSys->_KK;
   NumericVector* RES 	= pdeSys->_RES;
     
@@ -807,7 +807,7 @@ void AssembleNS_nonAD(MultiLevelProblem& ml_prob){
   
     // ****************** element loop *******************
  
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
   // geometry *****************************
    short unsigned ielGeom = msh->GetElementType(iel);
@@ -1135,7 +1135,7 @@ double*  GetErrorNorm(const MultiLevelProblem& ml_prob, MultiLevelSolution* mlSo
   unsigned level = mlSol->GetMLMesh()->GetNumberOfLevels() - 1u;
   //  extract pointers to the several objects that we are going to use
   Mesh*     msh = mlSol->GetMLMesh()->GetLevel(level);    // pointer to the mesh (level) object
-  elem*     el  = msh->el;  // pointer to the elem object in msh (level)
+  elem*     el  = msh->GetMeshElements();  // pointer to the elem object in msh (level)
   Solution* sol = mlSol->GetSolutionLevel(level);    // pointer to the solution (level) object
 
   unsigned iproc = msh->processor_id(); // get the process_id (for parallel computation)
@@ -1233,7 +1233,7 @@ double*  GetErrorNorm(const MultiLevelProblem& ml_prob, MultiLevelSolution* mlSo
   std::vector < double > l2norm (ns_state_only::no_of_norms,0.);
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     
   // geometry *****************************

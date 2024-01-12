@@ -311,7 +311,7 @@ void AssembleFracProblem(MultiLevelProblem& ml_prob)
 
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -426,7 +426,7 @@ void AssembleFracProblem(MultiLevelProblem& ml_prob)
   
   for(int kproc = 0; kproc < nprocs; kproc++) {
       
-    for(int jel = msh->_elementOffset[kproc]; jel < msh->_elementOffset[kproc + 1]; jel++) {
+    for(int jel = msh->GetElementOffset(kproc); jel < msh->GetElementOffset(kproc + 1); jel++) {
 
       short unsigned ielGeom2;
       unsigned nDof2;
@@ -565,7 +565,7 @@ void AssembleFracProblem(MultiLevelProblem& ml_prob)
 
 
 
-      for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+      for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
         short unsigned ielGeom1 = msh->GetElementType(iel);
 
@@ -875,7 +875,7 @@ void AssembleFracProblem(MultiLevelProblem& ml_prob)
 //============ Mixed Integral 2D - Numerical ==================
                 else if (dim == 2) {
                   double mixed_term1 = 0;
-//     for(int kel = msh->_elementOffset[iproc]; kel < msh->_elementOffset[iproc + 1]; kel++) {
+//     for(int kel = msh->GetElementOffset(iproc); kel < msh->GetElementOffset(iproc + 1); kel++) {
             // *** Face Gauss point loop (boundary Integral) ***
                   for(unsigned jj = 0; jj < bd_face.size(); jj++) {
 
@@ -980,7 +980,7 @@ void AssembleFracProblem(MultiLevelProblem& ml_prob)
             else if( dim == 2 ) {
 
             double mixed_term1 = 0;
-//     for(int kel = msh->_elementOffset[iproc]; kel < msh->_elementOffset[iproc + 1]; kel++) {
+//     for(int kel = msh->GetElementOffset(iproc); kel < msh->GetElementOffset(iproc + 1); kel++) {
             // *** Face Gauss point loop (boundary Integral) ***
             for(unsigned jj = 0; jj < bd_face.size(); jj++) {
 
@@ -1164,7 +1164,7 @@ void GetHsNorm(const unsigned level,  MultiLevelProblem& ml_prob)
 
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -1247,7 +1247,7 @@ void GetHsNorm(const unsigned level,  MultiLevelProblem& ml_prob)
   double integral_iproc_H1 = 0.;
 
 
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     geom_element1.set_coords_at_dofs_and_geom_type(iel, xType);
 
@@ -1317,7 +1317,7 @@ void GetHsNorm(const unsigned level,  MultiLevelProblem& ml_prob)
 
 
   for(int kproc = 0; kproc < nprocs; kproc++) {
-    for(int jel = msh->_elementOffset[kproc]; jel < msh->_elementOffset[kproc + 1]; jel++) {
+    for(int jel = msh->GetElementOffset(kproc); jel < msh->GetElementOffset(kproc + 1); jel++) {
 
       short unsigned ielGeom2;
       unsigned nDof2;
@@ -1400,7 +1400,7 @@ void GetHsNorm(const unsigned level,  MultiLevelProblem& ml_prob)
       }
 
       // element loop: each process loops only on the elements that owns
-      for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+      for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
         short unsigned ielGeom1 = msh->GetElementType(iel);
         unsigned nDof1  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs

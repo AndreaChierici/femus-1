@@ -178,7 +178,7 @@ void AssembleConformalMinimization(MultiLevelProblem& ml_prob) {
 
   // Pointers to the mesh (level) object and elem object in mesh (level).
   Mesh *msh = ml_prob._ml_msh->GetLevel(level);
-  elem *el = msh->el;
+  elem *el = msh->GetMeshElements();
 
   // Pointers to the multilevel solution, solution (level) and equation (level).
   MultiLevelSolution *mlSol = ml_prob._ml_sol;
@@ -274,7 +274,7 @@ void AssembleConformalMinimization(MultiLevelProblem& ml_prob) {
   RES->zero(); // Zero all the entries of the Global Residual
 
   // ELEMENT LOOP: each process loops only on the elements that it owns.
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     // Numer of solution element dofs.
     short unsigned ielGeom = msh->GetElementType(iel);
@@ -655,7 +655,7 @@ void UpdateMu(MultiLevelSolution& mlSol) {
 
   Solution* sol = mlSol.GetSolutionLevel(level);
   Mesh* msh = mlSol.GetMLMesh()->GetLevel(level);
-  elem* el = msh->el;
+  elem* el = msh->GetMeshElements();
 
   unsigned  dim = msh->GetDimension();
 
@@ -721,7 +721,7 @@ void UpdateMu(MultiLevelSolution& mlSol) {
   unsigned iproc = msh->processor_id();
   unsigned nprocs = msh->n_processors();
 
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofs1  = msh->GetElementDofNumber(iel, solType1);
@@ -906,7 +906,7 @@ void UpdateMu(MultiLevelSolution& mlSol) {
     std::vector < double > phi2_x; // local test function first order partial derivatives
     double weight2; // gauss point weight
 
-    for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielGeom = msh->GetElementType(iel);
       unsigned nDofs1  = msh->GetElementDofNumber(iel, solType1);
@@ -993,7 +993,7 @@ void UpdateMu(MultiLevelSolution& mlSol) {
     std::vector< double > solTheta2;
     std::vector< double > solPhi2;
 
-    for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielGeom = msh->GetElementType(iel);
       unsigned nDofs1  = msh->GetElementDofNumber(iel, solType1);
@@ -1168,7 +1168,7 @@ void AssembleShearMinimization(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh *msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem *el = msh->el;  // pointer to the elem object in msh (level)
+  elem *el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution *mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution *sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -1215,7 +1215,7 @@ void AssembleShearMinimization(MultiLevelProblem& ml_prob) {
   RES->zero(); // Set to zero all the entries of the Global Residual
 
   // element loop: each process loops only on the elements that owns
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nxDofs  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs

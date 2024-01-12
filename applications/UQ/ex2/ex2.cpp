@@ -201,7 +201,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
   double varianceInput = stdDeviationInput * stdDeviationInput;
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -259,7 +259,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
   CC->zero();
 
   for(int kproc = 0; kproc < nprocs; kproc++) {
-    for(int jel = msh->_elementOffset[kproc]; jel < msh->_elementOffset[kproc + 1]; jel++) {
+    for(int jel = msh->GetElementOffset(kproc); jel < msh->GetElementOffset(kproc + 1); jel++) {
 
       short unsigned ielGeom2;
       unsigned nDof2;
@@ -321,7 +321,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
       }
 
       // element loop: each process loops only on the elements that owns
-      for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+      for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
         short unsigned ielGeom1 = msh->GetElementType(iel);
         unsigned nDof1  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
@@ -430,7 +430,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
 
   ierr = EPSGetConverged(eps, &convergedSolns);
   CHKERRABORT(MPI_COMM_WORLD, ierr);
-  ierr = PetscPrintf(PETSC_COMM_WORLD, " Number of converged eigenpairs: %D\n\n", convergedSolns);
+  ierr = PetscPrintf(PETSC_COMM_WORLD, " Number of converged eigenpairs: %d", convergedSolns);
   CHKERRABORT(MPI_COMM_WORLD, ierr);
 
   if(convergedSolns > 0) {
@@ -467,7 +467,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
 //
 //   std::vector < std::vector < double > > eigenFunction(numberOfEigPairs); // local solution
 //
-//   for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+//   for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 //
 //     short unsigned ielGeom = msh->GetElementType(iel);
 //     unsigned nDofu  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
@@ -555,7 +555,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
 
         //BEGIN COMPUTE coeffsGS LOCAL
 
-        for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+        for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
           short unsigned ielGeom = msh->GetElementType(iel);
           unsigned nDofu  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
@@ -618,7 +618,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
     sol->_Sol[eigfIndex[iGS]]->close();
     
     double local_norm2 = 0.;
-    for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielGeom = msh->GetElementType(iel);
       unsigned nDofu  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
@@ -678,7 +678,7 @@ void GetEigenPair(MultiLevelProblem& ml_prob, const int& numberOfEigPairs, std::
     for(unsigned j1 = 0; j1 < numberOfEigPairs; j1++) {
 
       double integral = 0.;
-      for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+      for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
         short unsigned ielGeom = msh->GetElementType(iel);
         unsigned nDofu  = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
@@ -741,7 +741,7 @@ void GetQuantityOfInterest(MultiLevelProblem& ml_prob, std::vector < double >&  
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -783,7 +783,7 @@ void GetQuantityOfInterest(MultiLevelProblem& ml_prob, std::vector < double >&  
 
   // element loop: each process loops only on the elements that owns
 
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofu  = msh->GetElementDofNumber(iel, soluType);    // number of solution element dofs

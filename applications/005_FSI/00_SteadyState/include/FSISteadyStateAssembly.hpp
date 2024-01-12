@@ -24,7 +24,7 @@ namespace femus {
     Solution*	                mysolution      = ml_sol->GetSolutionLevel(level);
     LinearEquationSolver*       myLinEqSolver   = my_nnlin_impl_sys._LinSolver[level];
     Mesh*		        mymsh		= ml_prob._ml_msh->GetLevel(level);
-    elem*		        myel		= mymsh->el;
+    elem*		        myel		= mymsh->GetMeshElements();
     SparseMatrix*	        myKK		= myLinEqSolver->_KK;
     NumericVector*	        myRES		= myLinEqSolver->_RES;
 
@@ -173,7 +173,7 @@ namespace femus {
     if( assembleMatrix ) myKK->zero();
 
     // *** element loop ***
-    for (int iel = mymsh->_elementOffset[iproc]; iel  <  mymsh->_elementOffset[iproc + 1]; iel++) {
+    for (int iel = mymsh->GetElementOffset(iproc); iel  <  mymsh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielt = mymsh->GetElementType(iel);
       unsigned nve        = mymsh->GetElementDofNumber(iel, SolType2);
@@ -264,7 +264,7 @@ namespace femus {
 
           // look for boundary faces
           if (myel->GetFaceElementIndex(iel, jface) < 0) {
-            unsigned int face = -(mymsh->el->GetFaceElementIndex(iel, jface) + 1);
+            unsigned int face = -(mymsh->GetMeshElements()->GetFaceElementIndex(iel, jface) + 1);
 
             if ( !ml_sol->GetBdcFunction()(xx, "U", tau, face, 0.) && tau != 0.) {
                 
@@ -313,12 +313,12 @@ namespace femus {
         mymsh->_finiteElement[ielt][SolType2]->Jacobian(vx_hat, ig, jacobian_hat, phi_hat, gradphi_hat, nablaphi_hat);
         phi1 = mymsh->_finiteElement[ielt][SolType1]->GetPhi(ig);
 
-        if (flag_mat == 2 || iel  ==  mymsh->_elementOffset[iproc]) {
+        if (flag_mat == 2 || iel  ==  mymsh->GetElementOffset(iproc)) {
           if (ig  ==  0) {
             double GaussWeight = mymsh->_finiteElement[ielt][SolType2]->GetGaussWeight(ig);
             area = jacobian_hat / GaussWeight;
 
-            if (iel == mymsh->_elementOffset[iproc]) {
+            if (iel == mymsh->GetElementOffset(iproc)) {
               area_elem_first->add(mymsh->processor_id(), area);
               area_elem_first->close();
               rapresentative_area = area_elem_first->l1_norm() / nprocs;
@@ -685,7 +685,7 @@ namespace femus {
     Solution*                   mysolution      = ml_sol->GetSolutionLevel(level);
     LinearEquationSolver*       myLinEqSolver   = my_nnlin_impl_sys._LinSolver[level];
     Mesh*                       mymsh           = ml_prob._ml_msh->GetLevel(level);
-    elem*                       myel            = mymsh->el;
+    elem*                       myel            = mymsh->GetMeshElements();
     SparseMatrix*               myKK            = myLinEqSolver->_KK;
     NumericVector*              myRES           = myLinEqSolver->_RES;
 
@@ -834,7 +834,7 @@ namespace femus {
     if( assembleMatrix ) myKK->zero();
 
     // *** element loop ***
-    for (int iel = mymsh->_elementOffset[iproc]; iel  <  mymsh->_elementOffset[iproc + 1]; iel++) {
+    for (int iel = mymsh->GetElementOffset(iproc); iel  <  mymsh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielt = mymsh->GetElementType(iel);
       unsigned nve        = mymsh->GetElementDofNumber(iel, SolType2);
@@ -925,7 +925,7 @@ namespace femus {
 
           // look for boundary faces
           if (myel->GetFaceElementIndex(iel, jface) < 0) {
-            unsigned int face = -(mymsh->el->GetFaceElementIndex(iel, jface) + 1);
+            unsigned int face = -(mymsh->GetMeshElements()->GetFaceElementIndex(iel, jface) + 1);
 
             if ( !ml_sol->GetBdcFunction()(xx, "U", tau, face, 0.) && tau != 0.) {
               unsigned nve = mymsh->GetElementFaceDofNumber(iel, jface, SolType2);
@@ -973,12 +973,12 @@ namespace femus {
         mymsh->_finiteElement[ielt][SolType2]->Jacobian(vx_hat, ig, jacobian_hat, phi_hat, gradphi_hat, nablaphi_hat);
         phi1 = mymsh->_finiteElement[ielt][SolType1]->GetPhi(ig);
 
-        if (flag_mat == 2 || iel  ==  mymsh->_elementOffset[iproc]) {
+        if (flag_mat == 2 || iel  ==  mymsh->GetElementOffset(iproc)) {
           if (ig  ==  0) {
             double GaussWeight = mymsh->_finiteElement[ielt][SolType2]->GetGaussWeight(ig);
             area = jacobian_hat / GaussWeight;
 
-            if (iel == mymsh->_elementOffset[iproc]) {
+            if (iel == mymsh->GetElementOffset(iproc)) {
               area_elem_first->add(mymsh->processor_id(), area);
               area_elem_first->close();
               rapresentative_area = area_elem_first->l1_norm() / nprocs;
@@ -1374,12 +1374,14 @@ bool or_vector(const int current_face, const std::vector< int > all_face_flags) 
       for (unsigned iel = ml_msh.GetLevel(lev)->GetMeshElements()->GetElementTypeArray().begin(); 
                     iel < ml_msh.GetLevel(lev)->GetMeshElements()->GetElementTypeArray().end(); iel++) {
           
-        short unsigned elType = ml_msh.GetLevel(lev)->GetMeshElements()->GetElementTypeArray()[iel];
+        const short unsigned elType = ml_msh.GetLevel(lev)->GetElementType(iel);
       
+        const unsigned dimension = ml_msh.GetLevel(0)->GetDimension();
+
         int increment = 1;
       
         if (static_cast < short unsigned >(coarseLocalizedAmrVector[iel] + 0.25) == 1) {
-          increment = ml_msh.GetLevel(0)->GetMeshElements()->GetNRE(elType);
+          increment = ml_msh.GetLevel(0)->GetMeshElements()->GetRefIndex(dimension);
         }
         
         for (unsigned j = 0; j < increment; j++) {
@@ -1609,7 +1611,7 @@ bool or_vector(const int current_face, const std::vector< int > all_face_flags) 
 //   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);
@@ -1728,7 +1730,7 @@ bool or_vector(const int current_face, const std::vector< int > all_face_flags) 
  
     
   // element loop: each process loops only on its own elements
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     geom_element.set_coords_at_dofs_and_geom_type(iel, solType_coords);
         
@@ -1768,10 +1770,10 @@ bool or_vector(const int current_face, const std::vector< int > all_face_flags) 
        const unsigned nve_bdry_u = msh->GetElementFaceDofNumber(iel,jface,solType_u[POS_U]);
        
 // // // 	    // look for boundary faces
-// // //             const int bdry_index = msh->el->GetFaceElementIndex(iel,jface);
+// // //             const int bdry_index = msh->GetMeshElements()->GetFaceElementIndex(iel,jface);
 // // //             
 // // // 	    if( bdry_index < 0) {
-// // // 	      unsigned int face = msh->el->GetBoundaryIndex(iel,jface);
+// // // 	      unsigned int face = msh->GetMeshElements()->GetBoundaryIndex(iel,jface);
 // // // 	      
 // // // 		
 // // // // 	      if( !ml_sol->_SetBoundaryConditionFunction(xx,"U",tau,face,0.) && tau!=0.){

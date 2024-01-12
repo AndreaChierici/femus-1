@@ -127,7 +127,7 @@ namespace femus {
 
     /// @todo I assume that the mesh is not mixed
     std::string type_elem;
-    unsigned iel0 = mesh->_elementOffset[_writer_one_level.processor_id()];
+    unsigned iel0 = mesh->GetElementOffset( _writer_one_level.processor_id() );
     unsigned elemtype = mesh->GetElementType( iel0 );
 
     type_elem = XDMFWriter::type_el[index_nd][elemtype];
@@ -142,7 +142,7 @@ namespace femus {
     unsigned nel = mesh->GetNumberOfElements();
     unsigned dim = mesh->GetDimension();
     unsigned maxDim = ( nvt > ( dim + 1 ) * nel ) ? nvt : ( dim + 1 ) * nel;
-    unsigned ndofs = mesh->el->GetNVE( elemtype, index_nd );
+    unsigned ndofs = mesh->GetMeshElements()->GetNVE( elemtype, index_nd );
 
     std::vector < int > var_conn( nel * ndofs );
 
@@ -298,9 +298,9 @@ namespace femus {
     //BEGIN CONNETTIVITY
     unsigned icount = 0;
     for( unsigned isdom = 0; isdom < _writer_one_level.n_processors(); isdom++ ) {
-      mesh->el->LocalizeElementDof( isdom );
+      mesh->GetMeshElements()->LocalizeElementDof( isdom );
       if( _writer_one_level.processor_id() == 0 ) {
-        for( unsigned iel = mesh->_elementOffset[isdom]; iel < mesh->_elementOffset[isdom + 1]; iel++ ) {
+        for( unsigned iel = mesh->GetElementOffset(isdom); iel < mesh->GetElementOffset(isdom + 1); iel++ ) {
           for( unsigned j = 0; j < ndofs; j++ ) {
             unsigned vtk_loc_conn = Writer_one_level::FemusToVTKorToXDMFConn[j];
             var_conn[icount] = mesh->GetSolutionDof( vtk_loc_conn, iel, index_nd );
@@ -308,7 +308,7 @@ namespace femus {
           }
         }
       }
-      mesh->el->FreeLocalizedElementDof();
+      mesh->GetMeshElements()->FreeLocalizedElementDof();
     }
 
     if(_writer_one_level.processor_id() == 0) {
@@ -328,7 +328,7 @@ namespace femus {
     if( _writer_one_level.processor_id() == 0 ) {
       unsigned icount = 0;
       for( int isdom = 0; isdom < _writer_one_level.n_processors(); isdom++ ) {
-        for( unsigned ii = mesh->_elementOffset[isdom]; ii < mesh->_elementOffset[isdom + 1]; ii++ ) {
+        for( unsigned ii = mesh->GetElementOffset(isdom); ii < mesh->GetElementOffset(isdom + 1); ii++ ) {
           vector1[icount] = isdom;
           icount++;
         }

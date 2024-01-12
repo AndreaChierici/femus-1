@@ -404,7 +404,7 @@ void AssembleMatrixResNS ( MultiLevelProblem &ml_prob ) {
   LinearEquationSolver*  myLinEqSolver       = my_nnlin_impl_sys._LinSolver[level];
 
   Mesh		*mymsh		=  ml_prob._ml_msh->GetLevel ( level );
-  elem		*myel		=  mymsh->el;
+  elem		*myel		=  mymsh->GetMeshElements();
   SparseMatrix	*myKK		=  myLinEqSolver->_KK;
   NumericVector 	*myRES		=  myLinEqSolver->_RES;
 
@@ -525,7 +525,7 @@ void AssembleMatrixResNS ( MultiLevelProblem &ml_prob ) {
   myKK->zero();
 
   // *** element loop ***
-  for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+  for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
     unsigned kel        = iel;
     short unsigned kelt = mymsh->GetElementType ( kel );
@@ -961,7 +961,7 @@ void SetLambda ( MultiLevelSolution &mlSol, const unsigned &level, const  FEOrde
 
   Solution *mysolution = mlSol.GetSolutionLevel ( level );
   Mesh *mymsh	=  mlSol.GetMLMesh()->GetLevel ( level );
-  elem *myel	=  mymsh->el;
+  elem *myel	=  mymsh->GetMeshElements();
 
 
   unsigned indLmbd = mlSol.GetIndex ( "lmbd" );
@@ -1029,7 +1029,7 @@ void SetLambda ( MultiLevelSolution &mlSol, const unsigned &level, const  FEOrde
   unsigned iproc  = mymsh->processor_id();
 
   // *** element loop ***
-  for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+  for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
     unsigned kel        = iel;
     short unsigned kelt = mymsh->GetElementType ( kel );
@@ -1283,7 +1283,7 @@ void AssembleMatrixResT ( MultiLevelProblem &ml_prob ) {
 
   LinearEquationSolver*  mylsyspde     = mylin_impl_sys._LinSolver[level];
   Mesh*          mymsh		       = ml_prob._ml_msh->GetLevel ( level );
-  elem*          myel		       = mymsh->el;
+  elem*          myel		       = mymsh->GetMeshElements();
   SparseMatrix*  myKK		       = mylsyspde->_KK;
   NumericVector* myRES		       = mylsyspde->_RES;
   MultiLevelSolution* ml_sol           = ml_prob._ml_sol;
@@ -1337,7 +1337,7 @@ void AssembleMatrixResT ( MultiLevelProblem &ml_prob ) {
 
   // *** element loop ***
 
-  for ( int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++ ) {
+  for ( int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++ ) {
 
     unsigned kel = iel;
     short unsigned kelt = mymsh->GetElementType ( kel );

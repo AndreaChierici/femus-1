@@ -160,7 +160,7 @@ void ETD(MultiLevelProblem& ml_prob, const unsigned& NLayers)
   unsigned level = ml_prob._ml_msh->GetNumberOfLevels() - 1u;
 
   Mesh* msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem* el = msh->el;  // pointer to the elem object in msh (level)
+  elem* el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution* mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution* sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -231,7 +231,7 @@ void ETD(MultiLevelProblem& ml_prob, const unsigned& NLayers)
   
   double dx;
     
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofh  = msh->GetElementDofNumber(iel, solTypeh);    // number of solution element dofs

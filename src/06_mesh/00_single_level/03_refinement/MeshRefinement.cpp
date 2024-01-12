@@ -69,7 +69,7 @@ namespace femus {
 
     //BEGIN flag element to be refined
     if(type == 0) {   // Flag all element
-      for(int iel = _mesh._elementOffset[_iproc]; iel < _mesh._elementOffset[_iproc + 1]; iel++) {
+      for(int iel = _mesh.GetElementOffset(_iproc); iel < _mesh.GetElementOffset(_iproc + 1); iel++) {
         if(_mesh.el->GetIfElementCanBeRefined(iel)) {
           _mesh.GetTopology()->_Sol[_mesh.GetAmrIndex()]->set(iel, 1.);
           numberOfRefinedElement->add(_iproc, 1.);
@@ -77,7 +77,7 @@ namespace femus {
       }
     }
     else if(type == 1) {   // Flag AMR elements
-      for(int iel = _mesh._elementOffset[_iproc]; iel < _mesh._elementOffset[_iproc + 1]; iel++) {
+      for(int iel = _mesh.GetElementOffset(_iproc); iel < _mesh.GetElementOffset(_iproc + 1); iel++) {
         if(_mesh.el->GetIfElementCanBeRefined(iel)) {
           if((*_mesh.GetTopology()->_Sol[ _mesh.GetAmrIndex() ])(iel) > 0.5) {
             numberOfRefinedElement->add(_iproc, 1.);
@@ -110,7 +110,7 @@ namespace femus {
       }
     }
     else if(type == 2) {   // Flag only even elements (for debugging purposes)
-      for(int iel = _mesh._elementOffset[_iproc]; iel < _mesh._elementOffset[_iproc + 1]; iel++) {
+      for(int iel = _mesh.GetElementOffset(_iproc); iel < _mesh.GetElementOffset(_iproc + 1); iel++) {
         if(_mesh.el->GetIfElementCanBeRefined(iel)) {
           if((*_mesh.GetTopology()->_Sol[_mesh.GetAmrIndex()])(iel) < 0.5 && iel % 2 == 0) {
             _mesh.GetTopology()->_Sol[_mesh.GetAmrIndex()]->set(iel, 1.);
@@ -149,7 +149,7 @@ namespace femus {
 
 
     //BEGIN flag element to be refined
-    for(int iel = _mesh._elementOffset[_iproc]; iel < _mesh._elementOffset[_iproc + 1]; iel++) {
+    for(int iel = _mesh.GetElementOffset(_iproc); iel < _mesh.GetElementOffset(_iproc + 1); iel++) {
       if(_mesh.el->GetIfElementCanBeRefined(iel)) {
         if((*_mesh.GetTopology()->_Sol[_mesh.GetAmrIndex()])(iel) < 0.5 && error(iel) > treshold) {
           _mesh.GetTopology()->_Sol[_mesh.GetAmrIndex()]->set(iel, 1.);
@@ -205,13 +205,11 @@ void MeshRefinement::RefineMesh(const unsigned& igrid, Mesh* mshc, /*const*/ ele
     
     const unsigned dim = mshc->GetDimension();
     
-    // geom el, refinement - BEGIN ********************
-    _mesh.SetRefinementCellAndFaceIndices(dim);
-    // geom el, refinement - END ******************** 
+    _mesh.SetDimension(dim);
 
     _mesh.get_prol_matrices().SetCoarseMesh(mshc);
 
-    elem* elc = mshc->el;
+    elem* elc = mshc->GetMeshElements();
 
     _mesh.SetFiniteElementPtr(otherFiniteElement);
     
@@ -221,20 +219,22 @@ void MeshRefinement::RefineMesh(const unsigned& igrid, Mesh* mshc, /*const*/ ele
 //====== BEGIN ELEMENTS  ==============================
 
     // total number of elements on the fine level
-     int nelem = elem::InitializeNumberOfElementsFromCoarseList(elc, _mesh.GetRefIndex() );
+
+    const unsigned n_elems_per_elem_after_ref = _mesh.GetMeshElements()->GetRefIndex(dim);
+     int nelem = elem::InitializeNumberOfElementsFromCoarseList(elc, n_elems_per_elem_after_ref );
 
     _mesh.SetNumberOfElements(nelem);
 
-    unsigned elementOffsetCoarse   = mshc->_elementOffset[_iproc];
-    unsigned elementOffsetCoarseP1 = mshc->_elementOffset[_iproc + 1];
+    unsigned elementOffsetCoarse   = mshc->GetElementOffset(_iproc);
+    unsigned elementOffsetCoarseP1 = mshc->GetElementOffset(_iproc + 1);
 
     std::vector < double > coarseLocalizedAmrVector;
     mshc->GetTopology()->_Sol[mshc->GetAmrIndex()]->localize_to_all(coarseLocalizedAmrVector);
 
-    mshc->el->AllocateChildrenElement   (_mesh.GetRefIndex(), mshc);
-    mshc->el->AllocateChildrenElementDof(_mesh.GetRefIndex(), mshc);
+    mshc->GetMeshElements()->AllocateChildrenElement   (n_elems_per_elem_after_ref, mshc);
+    mshc->GetMeshElements()->AllocateChildrenElementDof(n_elems_per_elem_after_ref, mshc);
 
-    _mesh.el = new elem(elc, mshc->GetDimension(), _mesh.GetRefIndex(), coarseLocalizedAmrVector);
+    _mesh.el = new elem(elc, mshc->GetDimension(), n_elems_per_elem_after_ref, coarseLocalizedAmrVector);
 
 
     unsigned jel = 0;
@@ -252,13 +252,13 @@ void MeshRefinement::RefineMesh(const unsigned& igrid, Mesh* mshc, /*const*/ ele
       elc->LocalizeElementNearFace(isdom);
       elc->LocalizeElement_Level_Type_Group_Material(isdom);
       
-      for(unsigned iel = mshc->_elementOffset[isdom]; iel < mshc->_elementOffset[isdom + 1]; iel++) {
+      for(unsigned iel = mshc->GetElementOffset(isdom); iel < mshc->GetElementOffset(isdom + 1); iel++) {
           
         if(static_cast < unsigned short >(coarseLocalizedAmrVector[iel] + 0.25) == 1) {
             
           unsigned elt = elc->GetElementType(iel);
           // project element type, group, material; child element -----------------
-          for(unsigned j = 0; j < _mesh.GetRefIndex(); j++) {
+          for(unsigned j = 0; j < n_elems_per_elem_after_ref; j++) {
             _mesh.el->SetElementType(jel + j, elc->GetElementType(iel));
             _mesh.el->SetElementGroup(jel + j, elc->GetElementGroup(iel));
             
@@ -273,7 +273,7 @@ void MeshRefinement::RefineMesh(const unsigned& igrid, Mesh* mshc, /*const*/ ele
           }
 
           // project vertex indices -----------------
-          for(unsigned j = 0; j < _mesh.GetRefIndex(); j++)
+          for(unsigned j = 0; j < n_elems_per_elem_after_ref; j++)
             for(unsigned inode = 0; inode < elc->GetNVE(elt, CONTINUOUS_LINEAR); inode++) {
               unsigned jDof =  otherFiniteElement[elt][ CONTINUOUS_LINEAR ]->GetBasis()->GetFine2CoarseVertexMapping(j, inode);
               _mesh.el->SetElementDofIndex(jel + j, inode,  elc->GetElementDofIndex(iel, jDof));
@@ -284,13 +284,13 @@ void MeshRefinement::RefineMesh(const unsigned& igrid, Mesh* mshc, /*const*/ ele
             int value = elc->GetFaceElementIndex(iel, iface);
 
             if(value < -1)
-              for(unsigned jface = 0; jface < _mesh.GetRefFaceIndex(); jface++)
+              for(unsigned jface = 0; jface < _mesh.GetMeshElements()->GetRefFaceIndex(dim); jface++)
                 _mesh.el->SetFaceElementIndex(jel + coarse2FineFaceMapping[elt][iface][jface][0], coarse2FineFaceMapping[elt][iface][jface][1], value);
           }
 
           // update element numbers -----------------
-          jel += _mesh.GetRefIndex();
-          _mesh.el->AddToElementNumber(_mesh.GetRefIndex(), elt);
+          jel += n_elems_per_elem_after_ref;
+          _mesh.el->AddToElementNumber(n_elems_per_elem_after_ref, elt);
         }
         else {
             

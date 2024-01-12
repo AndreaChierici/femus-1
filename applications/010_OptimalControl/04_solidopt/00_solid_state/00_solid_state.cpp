@@ -286,7 +286,7 @@ void AssembleSolidMech(MultiLevelProblem& ml_prob,
   bool 			assembleMatrix 		    = mlPdeSys->GetAssembleMatrix(); 
 
   Mesh*          		msh    		= ml_prob._ml_msh->GetLevel(level);
-  elem*          		el     		= msh->el;
+  elem*          		el     		= msh->GetMeshElements();
 
   MultiLevelSolution*  		ml_sol  = ml_prob._ml_sol;
   Solution*    			sol      	= ml_prob._ml_sol->GetSolutionLevel(level); 
@@ -422,7 +422,7 @@ void AssembleSolidMech(MultiLevelProblem& ml_prob,
   
 
 
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
 
   //=============== Unknowns ========================================

@@ -23,25 +23,52 @@
 #include "MyVector.hpp"
 #include "MyMatrix.hpp"
 
+#include "MeshGeneration.hpp"
 
 #include <vector>
 #include <map>
+#include <cmath>
+
 
 
 namespace femus {
 
   //Forward declarations  
   class Mesh;
+
   /**
    * The elem class: it contains the list of all Mesh Geometric Elements, along with several Element-based and also Node-based properties
    * @todo I believe it would even be more linear if this class did not have any function at all involving the Mesh pointer, there are very few in any case
    * @todo Some GeomEl information has to be moved to the basic classes
+   * The idea is that the elem class does not modify the Mesh class, but only the other way around
   */
   class elem {
 
+// === Friend functions and classes - BEGIN ===============
+
+friend class Mesh;
+
+// generation BEGIN
+friend class MeshTools::Generation;
+friend class MED_IO;
+friend class GambitIO;
+// generation END
+
+// partitioning BEGIN
+// friend class MeshPartitioning;
+friend class MeshMetisPartitioning;
+// partitioning END
+
+
+// refinement BEGIN
+friend class MeshRefinement;
+// refinement END
+
+// === Friend functions and classes - END =================
+
 
 // === Constructors / Destructor - BEGIN =================
-    public:
+    private:
 
       /** constructors */
       elem(const unsigned& other_nel, const unsigned dim_in);
@@ -61,10 +88,9 @@ namespace femus {
   
       const unsigned GetIG(const unsigned& elementType, const unsigned& iface, const unsigned& jnode) const   {    return ig[elementType][iface][jnode];  }
   
-      const unsigned GetNRE(const unsigned& elementType) const  { return NRE[elementType]; }
-      
-      const unsigned GetReferenceElementDirection(const unsigned& elementType, const unsigned dir, const unsigned node) const { 
-        return directions_of_reference_element[elementType][dir][node]; }
+      const unsigned GetReferenceElementDirection(const unsigned& elementType, const unsigned dir, const unsigned node) const {
+        return directions_of_reference_element[elementType][dir][node];
+      }
       
   private:
 
@@ -119,11 +145,6 @@ namespace femus {
     }
   };
   
-  /**
-   * Number of elements obtained with one refinement
-  **/
-  const unsigned NRE[N_GEOM_ELS] = {8, 8, 8, 4, 4, 2};
-
   
   const unsigned directions_of_reference_element[N_GEOM_ELS][3][2] = { //Endpoint1, Endpoint2 =rEED[elemem type][direction][0,1]
   {
@@ -149,15 +170,42 @@ namespace femus {
 // const unsigned origin_of_reference_element[6]={26,0,12/*?*/,8,0,2};
 
 // === Geometric Element, Single - END =================
-    
+
+
+// === Geometric Element, Single, REFINEMENT - BEGIN =================
+  public:
+
+    /** It would private if we put Solution as another friend of Mesh, but maybe it is too much for now */
+    ///8 elements from refining 1 HEX, TET, WEDGE; 4 elements from refining 1 QUAD, TRI; 2 elements from refining 1 LINE
+    /** MESH, REF: 8 elements from refining 1 HEX, TET, WEDGE; 4 elements from refining 1 QUAD TRI; 2 elements from refining 1 LINE // 8*DIM[2]+4*DIM[1]+2*DIM[0]; */
+    const unsigned GetRefIndex(const unsigned dim) const {
+      return pow(2, dim);
+    }
+
+
+  private:
+
+    /** MESH, REF: 4 faces from refining 1 QUAD TRI; 2 faces from refining 1 LINE; 1 face from refining 1 point // 4*DIM[2]+2*DIM[1]+1*DIM[0]; */
+    const unsigned GetRefFaceIndex(const unsigned dim) const {
+      return pow(2, dim -1u);
+    }
+
+  /** Unused now */
+  const unsigned GetNRE(const unsigned& elementType) const  { return NRE[elementType]; }
+
+  /**
+   * Number of elements obtained with one refinement
+  **/
+  const unsigned NRE[N_GEOM_ELS] = {8, 8, 8, 4, 4, 2};
+
+// === Geometric Element, Single, REFINEMENT - END =================
 
 
 // === Mesh, Basic, Dimension - BEGIN =================
-  public:
+  private:
+
       /** To be Added */
       unsigned GetDimension() const { return _dim; }
-      
-  private:
 
       /** Dimension of the underlying Mesh */
       unsigned _dim;
@@ -167,9 +215,27 @@ namespace femus {
       
 
 // === Mesh, Elements - BEGIN ===========================================================
-    public:
+  public:
+
+      /// @todo These are called by some Writers, but I don't want to make them friends here
+      void LocalizeElement_Level_Type_Group_Material(const unsigned &lproc) {
+        _elementLevel.broadcast(lproc);
+        _elementType.broadcast(lproc);
+        _elementGroup.broadcast(lproc);
+        _elementMaterial.broadcast(lproc);
+      }
+
+      /// @todo These are called by some Writers, but I don't want to make them friends here
+      void FreeLocalizedElement_Level_Type_Group_Material() {
+        _elementLevel.clearBroadcast();
+        _elementType.clearBroadcast();
+        _elementGroup.clearBroadcast();
+        _elementMaterial.clearBroadcast();
+      }
+
+
+    private:
       
-      //Elem
       // reorder the element according to the new element mapping
       void ReorderMeshElement_Type_Level_Group_Material___NearFace_rows_ChildElem_columns(const std::vector < unsigned >& elementMapping);
 
@@ -177,9 +243,7 @@ namespace femus {
       
       void BuildElem_NearFace_NearElem_using_NearVertex();
       
-      
-  private:
-      
+
       void ResizeElement_Level_Type_Group_Material(const unsigned nel_in, const unsigned level_in) {
        _elementLevel.resize(nel_in, level_in);
        _elementType.resize(nel_in);
@@ -193,52 +257,32 @@ namespace femus {
         _elementGroup.scatter(_elementOffset);
         _elementMaterial.scatter(_elementOffset);
       }
-      
-  public:
-      
-      void LocalizeElement_Level_Type_Group_Material(const unsigned &lproc) {
-        _elementLevel.broadcast(lproc);
-        _elementType.broadcast(lproc);
-        _elementGroup.broadcast(lproc);
-        _elementMaterial.broadcast(lproc);
-      }
-      
-      void FreeLocalizedElement_Level_Type_Group_Material() {
-        _elementLevel.clearBroadcast();
-        _elementType.clearBroadcast();
-        _elementGroup.clearBroadcast();
-        _elementMaterial.clearBroadcast();
-      }
 
 
-      
-      
 // === Elements, Numbers - BEGIN =================
-    public:
-  
+    private:
+      
       /**    Return the number of elements of a certain shape, specified as an input string. Otherwise return the number of all elements */
-      unsigned GetElementNumber(const char* name = "All") const;
+      unsigned GetElementNumber(const std::string name = "All") const;
 
       /** To be Added */
       unsigned GetRefinedElementNumber() const {
         return _nelr;
       };
 
+      static  unsigned int  InitializeNumberOfElementsFromCoarseList(elem* elc, const unsigned refindex);
+
+      /** To be Added */
+      void AddToElementNumber(const unsigned& value, const std::string name);
+
+      /** To be Added */
+      void AddToElementNumber(const unsigned& value, short unsigned ielt);
+
       /** To be Added */
       void SetRefinedElementNumber(const unsigned& value) {
         _nelr = value;
       };
 
-      /** To be Added */
-      void AddToElementNumber(const unsigned& value, const char name[]);
-
-      /** To be Added */
-      void AddToElementNumber(const unsigned& value, short unsigned ielt);
-
-     static  unsigned int  InitializeNumberOfElementsFromCoarseList(elem* elc, const unsigned refindex);
-      
-    private:
-      
       void InitializeNumberOfElementsPerGeomType() {
             for (unsigned g = 0; g < N_GEOM_ELS ; g++) { _nelt[g] = 0; }
       }
@@ -255,40 +299,26 @@ namespace femus {
 // === Elements, Type - BEGIN =================
   public:
     
+      /** @todo this is not const because it does broadcast at one point */
+      MyVector< short unsigned > & GetElementTypeArray() { return _elementType; }
+      
+  private:
+    
       /** To be Added */
-      unsigned GetIndex(const char name[]) const;
+      unsigned GetIndex(const std::string name) const;
 
       /** To be Added */
       const short unsigned GetElementType(const unsigned& iel) const;
 
       /** To be Added */
-      MyVector< short unsigned > & GetElementTypeArray() { return _elementType; }
-      
-      /** To be Added */
       void SetElementType(const unsigned& iel, const short unsigned& value);
-      
-    
-  private:
-    
+
       MyVector< short unsigned> _elementType;
     
 // === Elements, Type - END =================
 
 
 // === Elements, Subdomains - BEGIN =================
-  public:
-    
-      void SetElementOffsets(const std::vector < unsigned > & elementOffset, const unsigned &iproc, const unsigned &nprocs) {
-        
-        _elementOffset = elementOffset;
-        _elementOwned = elementOffset[iproc + 1] - elementOffset[iproc];
-
-        SetProcs(iproc, nprocs);
-        
-      }
-      
-     unsigned get_n_elements_owned() const { return _elementOwned; }
-     
     private:
 
       unsigned _iproc;
@@ -298,10 +328,21 @@ namespace femus {
       std::vector < unsigned > _elementOffset;
       unsigned _elementOwned;
       
+      void SetElementOffsets(const std::vector < unsigned > & elementOffset, const unsigned &iproc, const unsigned &nprocs) {
+
+        _elementOffset = elementOffset;
+        _elementOwned = elementOffset[iproc + 1] - elementOffset[iproc];
+
+        SetProcs(iproc, nprocs);
+
+      }
+
       void SetProcs(const unsigned &iproc, const unsigned &nprocs) {
         _iproc = iproc;
         _nprocs = nprocs;
       }
+
+     unsigned get_n_elements_owned() const { return _elementOwned; }
 
 // === Elements, Subdomains - END =================
 
@@ -310,14 +351,6 @@ namespace femus {
 // === Elements, Level - BEGIN =================
   public:
     
-      const unsigned GetLevelOfRefinementForList() const {
-        return _level;
-      }
-      
-      void SetElementLevel(const unsigned& iel, const short unsigned& level) {
-        _elementLevel[iel] = level;
-      }
-      
       const short unsigned GetElementLevel(const unsigned &jel) const {
         return _elementLevel[jel];
       }
@@ -326,14 +359,18 @@ namespace femus {
         return (_elementLevel[iel] == _level) ? true : false;
       }
       
+  private:
+    
+      const unsigned GetLevelOfRefinementForList() const {
+        return _level;
+      }
+
       const bool GetIfFatherHasBeenRefined(const unsigned& iel) const {
         return GetIfElementCanBeRefined(iel);
       }
-      
-      const MyVector<short unsigned> &  GetElementLevelArray() const { return _elementLevel; } 
-    
-  private:
-    
+
+      const MyVector<short unsigned> &  GetElementLevelArray() const { return _elementLevel; }
+
       MyVector<short unsigned> _elementLevel;
       
       /** Pointer to the list of coarser elements */
@@ -342,6 +379,10 @@ namespace femus {
       /** level of refinement of this list of elements */
       unsigned _level;
       
+      void SetElementLevel(const unsigned& iel, const short unsigned& level) {
+        _elementLevel[iel] = level;
+      }
+
 // === Elements, Level - END =================
 
       
@@ -350,18 +391,18 @@ namespace femus {
   public:
 
       /** To be Added */
-      short unsigned GetElementGroup(const unsigned& iel);
+      short unsigned GetElementGroup(const unsigned& iel) const;
 
-      /** To be Added */
+      /** @todo If it wasn't for a nonlocal assembly, it would be private */
       void SetElementGroup(const unsigned& iel, const short unsigned& value);
+
+  private:
 
       /** Number of groups  */
       unsigned GetElementGroupNumber() const;
 
       /** Number of groups  */
       void SetElementGroupNumber(const unsigned& value);
-      
-  private:
 
       /** @todo Number of groups of elements - in Gambit it is explicit at the top of the file */
       unsigned _ngroup;
@@ -376,14 +417,14 @@ namespace femus {
   public:
       
       /** To be Added */
-      void SetElementMaterial(const unsigned& iel, const short unsigned& value);
-
-      /** To be Added */
-      short unsigned GetElementMaterial(const unsigned& iel);
+      short unsigned GetElementMaterial(const unsigned& iel) const;
 
 
   private:
     
+      /** To be Added */
+      void SetElementMaterial(const unsigned& iel, const short unsigned& value);
+
       MyVector< short unsigned> _elementMaterial;
     
 // === Elements, Materials - END =================
@@ -392,30 +433,27 @@ namespace femus {
 
 // === Elements, for Each Element give the Elements with a common Face to the current element - BEGIN =================
    public:
-     
-     //Elem
-      void ReorderElementNearFace_rows(const std::vector < unsigned >& elementMapping);
-      
  
       /** To be Added */
-      void SetFaceElementIndex(const unsigned& iel, const unsigned& iface, const int& value);
+      int GetFaceElementIndex(const unsigned& iel, const unsigned& iface) const;
 
-      /** To be Added */
-      int GetFaceElementIndex(const unsigned& iel, const unsigned& iface);
-
-      int GetBoundaryIndex(const unsigned& iel, const unsigned& iface);
+      int GetBoundaryIndex(const unsigned& iel, const unsigned& iface) const;
+     
+   private:
      
       void ShrinkToFitElementNearFace();
       void LocalizeElementNearFace(const unsigned& jproc);
       void FreeLocalizedElementNearFace();
 
-      const MyMatrix <int> &  GetElementNearFaceArray() const { return _elementNearFace; } 
+      const MyMatrix <int> &  GetElementNearFaceArray() const { return _elementNearFace; }
 
-      MyMatrix <int> &  GetElementNearFaceArray() { return _elementNearFace; } 
+      MyMatrix <int> &  GetElementNearFaceArray() { return _elementNearFace; }
 
+      /** To be Added */
+      void SetFaceElementIndex(const unsigned& iel, const unsigned& iface, const int& value);
 
-   private:
-     
+      void ReorderElementNearFace_rows(const std::vector < unsigned >& elementMapping);
+
       void ScatterElementNearFace();
       
       /** To be added */
@@ -430,19 +468,19 @@ namespace femus {
 // === Elements, for Each Element give all elements near the current element, including those with a common vertex - BEGIN =================
   public:
       
-      void BuildElementNearElement();
-
-      const unsigned GetElementNearElementSize(const unsigned& iel, const unsigned &layers)  {
+      const unsigned GetElementNearElementSize(const unsigned& iel, const unsigned &layers) const {
         return (layers == 0) ? 1 : _elementNearElement.end(iel);
       };
 
-      const unsigned GetElementNearElement(const unsigned& iel, const unsigned &j)  {
+      const unsigned GetElementNearElement(const unsigned& iel, const unsigned &j) const {
         return _elementNearElement[iel][j];
       };
 
       
    private:
      
+      void BuildElementNearElement();
+
       /** For each element, it gives the elements that are near the given element, including those that are only touching a common vertex
        * It is used for Domain Decomposition and for AMR
         @todo why is this not scattered??? */
@@ -451,22 +489,19 @@ namespace femus {
 
 
 // === Elements, for Each Element gives the children elements - BEGIN =================
-  public:
-
-      //Elem
-      void ReorderChildElement_OnCoarseElem_columns(const std::vector < unsigned >& elementMapping);
+   private:
      
-      void AllocateChildrenElement(const unsigned int& refindex, const Mesh* msh);
+      /** To be Added */
+      unsigned GetChildElement(const unsigned& iel, const unsigned& json) const;
 
       /** To be Added */
       void SetChildElement(const unsigned& iel, const unsigned& json, const unsigned& value);
 
-      /** To be Added */
-      unsigned GetChildElement(const unsigned& iel, const unsigned& json);
-      
-   private:
-     
-      /** This is only going to all levels except the finest one  
+      void AllocateChildrenElement(const unsigned int& refindex, const Mesh* msh);
+
+      void ReorderChildElement_OnCoarseElem_columns(const std::vector < unsigned >& elementMapping);
+
+      /** This is only going to all levels except the finest one
        *  It contains for each element the list of its child elements */
       MyMatrix <unsigned> _childElem;
       
@@ -482,36 +517,31 @@ namespace femus {
       
       
 // === Nodes, Number - BEGIN =================
-  public:
-
+  private:
+      
       /** To be Added */
-      unsigned GetNodeNumber()const;
+      unsigned GetNodeNumber() const;
 
       /** To be Added */
       void SetNodeNumber(const unsigned& value);
 
-  
-  private:
-      
       /** Number of nodes of the Mesh */
       unsigned _nvt;
 // === Nodes, Number - END =================
 
 
 // === Nodes, for Each Node give the Elements having that Node as a vertex (temporary then deleted) - BEGIN =================
-  public:
+   private:
       
+      /** To be Added */
+      unsigned GetElementNearVertexNumber(const unsigned& inode) const;
+
+      /** To be Added */
+      unsigned GetElementNearVertex(const unsigned& inode, const unsigned& jnode) const;
+
       /** To be Added */
       void BuildElementNearVertex();
 
-      /** To be Added */
-      unsigned GetElementNearVertexNumber(const unsigned& inode);
-
-      /** To be Added */
-      unsigned GetElementNearVertex(const unsigned& inode, const unsigned& jnode);
-
-   private:
-      
       void DeleteElementNearVertex();
 
       /** For each Node, it gives the list of elements having that Node as a vertex 
@@ -525,8 +555,7 @@ namespace femus {
 
 
      
-// ========= Previously, it was all info of geometric elements. From now on, there is also FE information - BEGIN ==========      
-// =========      
+// ========= Previously, it was all info of geometric elements. From now on, there is also FE information - BEGIN ==========
 
 
 
@@ -598,54 +627,54 @@ namespace femus {
 
 // === Mesh, DOF, for Each Element return the dof of 1 scalar variable  (Local->Global (element-based) Dofmap for 1 scalar variable) - BEGIN =================
   public:
-      
-      /** To be Added */
-      unsigned GetFaceVertexIndex(const unsigned& iel, const unsigned& iface, const unsigned& inode);
 
-      void ShrinkToFitElementDof();
+      /// @todo These are called by some Writers, but I don't want to make them friends here
       void LocalizeElementDof(const unsigned &jproc);
+
+      /// @todo These are called by some Writers, but I don't want to make them friends here
       void FreeLocalizedElementDof();
 
       /** Return the local->global node number */
-      unsigned GetElementDofIndex(const unsigned& iel, const unsigned& inode);
+      unsigned GetElementDofIndex(const unsigned& iel, const unsigned& inode) const;
 
-      /** To be Added */
-      void SetElementDofIndex(const unsigned& iel, const unsigned& inode, const unsigned& value);
-      
-      void ScatterElementDof();
-      
+
+  private:
+    
       //Dof
       void ReorderMeshElement_Dof_stuff(const std::vector < unsigned >& elementMapping);
-      
+
       //Dof
       void ReorderElementDof_rows(const std::vector < unsigned >& elementMapping);
-      
+
       //Dof
       // reorder the nodes according to the new node mapping
       void ReorderElementDof_columns_Using_node_mapping(const std::vector < unsigned >& nodeMapping);
 
-      
+      void ScatterElementDof();
 
-     
-  private:
-    
+      void ShrinkToFitElementDof();
+
+      /** To be Added */
+      void SetElementDofIndex(const unsigned& iel, const unsigned& inode, const unsigned& value);
+
+      /** To be Added */
+      unsigned GetFaceVertexIndex(const unsigned& iel, const unsigned& iface, const unsigned& inode) const;
+
      /** For each element, gives the conversion from local node index to global node index */
       MyMatrix <unsigned> _elementDof;
 // === Mesh, DOF, for Each Element return the dof of 1 scalar variable  (Local->Global (element-based) Dofmap for 1 scalar variable) - END =================
 
       
 // === Mesh, DOF, for Each Element return the dofs of all its children (or only of itself if it is not a refined element), for 1 scalar variable - BEGIN =================
-  public:
+   private:
+     
+      unsigned GetChildElementDof(const unsigned& iel, const unsigned& i0, const unsigned i1) const;
 
       void AllocateChildrenElementDof(const unsigned int& refindex, const Mesh* msh);
-      
+
       /** To be Added */
       void SetChildElementDof(elem* elf);
 
-      unsigned GetChildElementDof(const unsigned& iel, const unsigned& i0, const unsigned i1);
-      
-   private:
-     
       /** This is only going to all levels except the finest one */
       MyMatrix <unsigned> _childElemDof;
 // === Mesh, DOF, for Each Element return the dofs of all its children (or only of itself if it is not a refined element), for 1 scalar variable - END =================

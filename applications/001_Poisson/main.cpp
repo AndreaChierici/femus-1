@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 
   if (inputparser->isTrue("multilevel_mesh.first.type", "box")) {
     //Set Boundary (update Dirichlet(...) function)
-    ml_sol.InitializeBdc();
+    ml_sol.InitializeBdc_with_ParsedFunction();
 
     unsigned int bdcsize = inputparser->getSize("multilevel_solution.multilevel_mesh.first.variable.first.boundary_conditions");
 
@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
     }
 
     for (int i = 0; i < bdcsize; ++i) {
-      ml_sol.SetBoundaryCondition_new("Sol", facenamearray[i], bdctypearray[i], false, &parsedfunctionarray[i]);
+      ml_sol.SetBoundaryCondition_with_ParsedFunction("Sol", facenamearray[i], bdctypearray[i], false, &parsedfunctionarray[i]);
     }
 
     ml_sol.GenerateBdc("All");
@@ -291,7 +291,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
   Solution*      mysolution	       = ml_prob._ml_sol->GetSolutionLevel(level);
   LinearEquationSolver*  mylsyspde     = mylin_impl_sys._LinSolver[level];
   Mesh*          mymsh		       = ml_prob._ml_msh->GetLevel(level);
-  elem*          myel		       = mymsh->el;
+  elem*          myel		       = mymsh->GetMeshElements();
   SparseMatrix*  myKK		       = mylsyspde->_KK;
   NumericVector* myRES		       = mylsyspde->_RES;
   MultiLevelSolution* ml_sol           = ml_prob._ml_sol;
@@ -347,7 +347,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
 
 
   // *** element loop ***
-  for (int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielt = mymsh->GetElementType(iel);
     unsigned nve = mymsh->GetElementDofNumber(iel, order_ind);
@@ -492,7 +492,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
       } // end phii loop
     } // end gauss point loop
 
-    if (ml_prob._ml_sol->_useParsedBCFunction) {
+    if (ml_prob._ml_sol->GetUseParsedBCFunction() ) {
 
       //number of faces for each type of element
       unsigned nfaces = mymsh->GetElementFaceNumber(iel);
@@ -504,6 +504,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
           unsigned int faceIndex =  myel->GetBoundaryIndex(iel, jface);
 
           if (ml_sol->GetBoundaryCondition("Sol", faceIndex - 1u) == NEUMANN && !ml_sol->Ishomogeneous("Sol", faceIndex - 1u)) {
+
             bdcfunc = (ParsedFunction*)(ml_sol->GetBdcFunction("Sol", faceIndex - 1u));
             unsigned nve = mymsh->GetElementFaceDofNumber(iel, jface, order_ind);
             const unsigned felt = mymsh->GetElementFaceType(iel, jface);

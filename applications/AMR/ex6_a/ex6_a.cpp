@@ -299,7 +299,7 @@ void AssemblePoisson_AD(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*           msh         = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*           el          = msh->el;  // pointer to the elem object in msh (level)
+  elem*           el          = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*   mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*   sol             = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -366,7 +366,7 @@ void AssemblePoisson_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
   // element loop: each process loops only on the elements that owns
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);      // element geometry type
 
@@ -478,7 +478,7 @@ std::pair < double, double > GetError(MultiLevelSolution* mlSol) {
   unsigned level = mlSol->GetMLMesh()->GetNumberOfLevels() - 1u;
   //  extract pointers to the several objects that we are going to use
   Mesh*          msh          = mlSol->GetMLMesh()->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el           = msh->el;  // pointer to the elem object in msh (level)
+  elem*          el           = msh->GetMeshElements();  // pointer to the elem object in msh (level)
   Solution*      sol          = mlSol->GetSolutionLevel(level);    // pointer to the solution (level) object
 
   const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
@@ -520,7 +520,7 @@ std::pair < double, double > GetError(MultiLevelSolution* mlSol) {
   double l2normE = 0.;
   double seminormE = 0.;
   // element loop: each process loops only on the elements that owns
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofsU  = msh->GetElementDofNumber(iel, solUType);    // number of solution element dofs
@@ -609,7 +609,7 @@ std::pair < double, double > GetError(MultiLevelSolution* mlSol) {
        
     Rhok = hk * sqrt(Rhok);
     
-    if( msh->el->GetIfElementCanBeRefined(iel) ) {
+    if( msh->GetMeshElements()->GetIfElementCanBeRefined(iel) ) {
       sol->_Sol[errorIndex]->set(iel, Rhok);
     }
     else {

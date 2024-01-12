@@ -281,7 +281,7 @@ void AssemblePoissonProblem_AD(MultiLevelProblem& ml_prob) {
   
   
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    ml_sol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -336,7 +336,7 @@ void AssemblePoissonProblem_AD(MultiLevelProblem& ml_prob) {
 
   // element loop: each process loops only on the elements that owns
   // Adventure starts here!
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
      
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofu  = msh->GetElementDofNumber(iel, soluType);// number of solution element dofs

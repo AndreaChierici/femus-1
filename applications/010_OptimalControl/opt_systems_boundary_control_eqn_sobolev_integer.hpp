@@ -95,7 +95,7 @@ public:
 // integral - END ************
 
  
-    for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
         
 // --- geometry        
             geom_element_iel.set_coords_at_dofs_and_geom_type(iel, solType_coords);
@@ -176,7 +176,7 @@ public:
 
 // --- geometry - END        
          
-        std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->el, iel, iface);
+        std::pair< int, unsigned int > pair_control_iface = femus::face_is_a_Gamma_control_face_of_some_index< LIST_OF_CTRL_FACES >(msh->GetMeshElements(), iel, iface);
 
          int   iface_is_a_boundary_control  = pair_control_iface.first;
 

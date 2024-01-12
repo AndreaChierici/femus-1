@@ -341,7 +341,7 @@ void AssembleBoussinesqApproximation_AD(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*           msh         = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*           el          = msh->el;  // pointer to the elem object in msh (level)
+  elem*           el          = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*   mlSol         = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*   sol         = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -460,7 +460,7 @@ void AssembleBoussinesqApproximation_AD(MultiLevelProblem& ml_prob) {
     KK->zero(); // Set to zero all the entries of the Global Matrix
 
   // element loop: each process loops only on the elements that owns
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     // element geometry type
     short unsigned ielGeom = msh->GetElementType(iel);
@@ -797,7 +797,7 @@ std::pair < std::vector <double>, std::vector <double> > GetVaribleValues(MultiL
   }
   */
   //BEGIN local dof number extraction
-  if(elem >= msh->_elementOffset[iproc] && elem  < msh->_elementOffset[iproc + 1]) {
+  if(elem >= msh->GetElementOffset(iproc) && elem  < msh->GetElementOffset(iproc + 1)) {
 	unsigned nDofsT = msh->GetElementDofNumber(elem, solTType);  //temperature
   	solT.reserve(nDofsT);
   
@@ -911,7 +911,7 @@ std::pair <double, std::vector <double> >GetKineandPointValue(MultiLevelSolution
   unsigned level = mlSol -> GetMLMesh()->GetNumberOfLevels()-1u;
   //  extract pointers to the several objects that we are going to use
   Mesh* msh = mlSol -> GetMLMesh()->GetLevel(level); // pointer to the mesh (level) object 
-  elem* el = msh -> el; // pointer to the elem object in msh (level)
+  elem* el = msh ->GetMeshElements(); // pointer to the elem object in msh (level)
   Solution* sol = mlSol -> GetSolutionLevel (level); //pointer to the solution (level) object 
   
   const unsigned dim = msh->GetDimension(); // get the domain dimension of the problem
@@ -952,7 +952,7 @@ std::pair <double, std::vector <double> >GetKineandPointValue(MultiLevelSolution
   double ptVCoord = 0.0;
   
   // element loop: each process loops only on the elements that owns
-  for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for(int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     // element geometry type
     short unsigned ielGeom = msh->GetElementType(iel);

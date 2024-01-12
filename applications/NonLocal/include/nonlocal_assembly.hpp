@@ -96,7 +96,7 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel (level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel (level);
@@ -178,7 +178,7 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
 
 //BEGIN
 
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType (iel);
     unsigned nDof1  = msh->GetElementDofNumber (iel, soluType);
@@ -199,15 +199,15 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
     double xMin = x1[0][0];
 
     if ( (xMax < leftBound || fabs (xMax - leftBound) < 1.e-10) && (xMin > (leftBound - delta1) || fabs (xMin - (leftBound - delta1)) < 1.e-10)) {
-      msh->el->SetElementGroup (iel, 5);
+      msh->GetMeshElements()->SetElementGroup (iel, 5);
     }
 
-    else if ( (xMax < 0. || fabs (xMax) < 1.e-10) && (xMin > leftBound || fabs (xMin - leftBound) < 1.e-10)) msh->el->SetElementGroup (iel, 7);
+    else if ( (xMax < 0. || fabs (xMax) < 1.e-10) && (xMin > leftBound || fabs (xMin - leftBound) < 1.e-10)) msh->GetMeshElements()->SetElementGroup (iel, 7);
 
-    else if ( (xMax < rightBound || fabs (xMax - rightBound) < 1.e-10) && (xMin > 0. || fabs (xMin) < 1.e-10)) msh->el->SetElementGroup (iel, 8);
+    else if ( (xMax < rightBound || fabs (xMax - rightBound) < 1.e-10) && (xMin > 0. || fabs (xMin) < 1.e-10)) msh->GetMeshElements()->SetElementGroup (iel, 8);
 
     else if ( (xMax < (rightBound + delta2) || fabs (xMax - (rightBound + delta2)) < 1.e-10) && (xMin > rightBound || fabs (xMin - rightBound) < 1.e-10)) {
-      msh->el->SetElementGroup (iel, 6);
+      msh->GetMeshElements()->SetElementGroup (iel, 6);
     }
 
   }
@@ -216,7 +216,7 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
 
 //loop to change _Bdc in the boundary elements and assign the BoundaryFunctionValue to their nodes
 //BEGIN
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGroup = msh->GetElementGroup (iel);
 
@@ -249,7 +249,7 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
 //END
 
   for (int kproc = 0; kproc < nprocs; kproc++) {
-    for (int jel = msh->_elementOffset[kproc]; jel < msh->_elementOffset[kproc + 1]; jel++) {
+    for (int jel = msh->GetElementOffset(kproc); jel < msh->GetElementOffset(kproc + 1); jel++) {
 
       if (elementSkipFlags[jel] == 0) {
 
@@ -294,7 +294,7 @@ void AssembleNonLocalSys (MultiLevelProblem& ml_prob) {
           MPI_Bcast (& x2[k][0], nDof2, MPI_DOUBLE, kproc, MPI_COMM_WORLD);
         }
 
-        for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+        for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
           if (elementSkipFlags[iel] == 0) {
 
@@ -517,7 +517,7 @@ void AssembleLocalSys (MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel (level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel (level);
@@ -576,7 +576,7 @@ void AssembleLocalSys (MultiLevelProblem& ml_prob) {
 
   //BEGIN local assembly
 
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGroup = msh->GetElementGroup (iel);
 
@@ -609,7 +609,7 @@ void AssembleLocalSys (MultiLevelProblem& ml_prob) {
 
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     if (elementSkipFlags[iel] == 0) {
 
@@ -746,7 +746,7 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel (level);
-  elem*                     el = msh->el;
+  elem*                     el = msh->GetMeshElements();
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel (level);
@@ -828,7 +828,7 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
 
 //BEGIN
 
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType (iel);
     unsigned nDof1  = msh->GetElementDofNumber (iel, soluType);
@@ -849,15 +849,15 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
     double xMin = x1[0][0];
 
     if ( (xMax < leftBound || fabs (xMax - leftBound) < 1.e-10) && (xMin > (leftBound - delta1) || fabs (xMin - (leftBound - delta1)) < 1.e-10)) {
-      msh->el->SetElementGroup (iel, 5);
+      msh->GetMeshElements()->SetElementGroup (iel, 5);
     }
 
-    else if ( (xMax < 0. || fabs (xMax) < 1.e-10) && (xMin > leftBound || fabs (xMin - leftBound) < 1.e-10)) msh->el->SetElementGroup (iel, 7);
+    else if ( (xMax < 0. || fabs (xMax) < 1.e-10) && (xMin > leftBound || fabs (xMin - leftBound) < 1.e-10)) msh->GetMeshElements()->SetElementGroup (iel, 7);
 
-    else if ( (xMax < rightBound || fabs (xMax - rightBound) < 1.e-10) && (xMin > 0. || fabs (xMin) < 1.e-10)) msh->el->SetElementGroup (iel, 8);
+    else if ( (xMax < rightBound || fabs (xMax - rightBound) < 1.e-10) && (xMin > 0. || fabs (xMin) < 1.e-10)) msh->GetMeshElements()->SetElementGroup (iel, 8);
 
     else if ( (xMax < (rightBound + delta2) || fabs (xMax - (rightBound + delta2)) < 1.e-10) && (xMin > rightBound || fabs (xMin - rightBound) < 1.e-10)) {
-      msh->el->SetElementGroup (iel, 6);
+      msh->GetMeshElements()->SetElementGroup (iel, 6);
     }
 
   }
@@ -866,7 +866,7 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
 
 //loop to change _Bdc in the boundary elements and assign the BoundaryFunctionValue to their nodes
 //BEGIN
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGroup = msh->GetElementGroup (iel);
 
@@ -899,7 +899,7 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
 //END
 
   for (int kproc = 0; kproc < nprocs; kproc++) {
-    for (int jel = msh->_elementOffset[kproc]; jel < msh->_elementOffset[kproc + 1]; jel++) {
+    for (int jel = msh->GetElementOffset(kproc); jel < msh->GetElementOffset(kproc + 1); jel++) {
 
       if (elementSkipFlagsFine[jel] == 0) {
 
@@ -944,7 +944,7 @@ void AssembleNonLocalSysFine (MultiLevelProblem& ml_prob) {
           MPI_Bcast (& x2[k][0], nDof2, MPI_DOUBLE, kproc, MPI_COMM_WORLD);
         }
 
-        for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+        for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
           if (elementSkipFlagsFine[iel] == 0) {
 

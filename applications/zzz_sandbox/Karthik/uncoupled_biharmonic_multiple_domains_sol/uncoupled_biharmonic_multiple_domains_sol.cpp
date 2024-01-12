@@ -137,7 +137,7 @@ static void natural_loop_u_1d (const MultiLevelProblem* ml_prob,
         std::vector <double> xx_face_elem_center(3,0.);
          xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
 
-        const int boundary_index = msh-> el-> GetFaceElementIndex(iel,jface);
+        const int boundary_index = msh->GetMeshElements()-> GetFaceElementIndex(iel,jface);
 
         if (boundary_index <0) {
 
@@ -185,7 +185,7 @@ static void natural_loop_v_1d (const MultiLevelProblem* ml_prob,
         std:: vector <double> xx_face_elem_center(3,0.);
         xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
 
-        const int boundary_index = msh -> el -> GetFaceElementIndex(iel, jface);
+        const int boundary_index = msh ->GetMeshElements() -> GetFaceElementIndex(iel, jface);
 
         if (boundary_index <0) {
             unsigned int face = -(boundary_index + 1);
@@ -261,7 +261,7 @@ static void natural_loop_u_2d3d(const MultiLevelProblem *    ml_prob,
                     std::vector <double> xx_face_elem_center(3,0);
                     xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
 
-                    const int boundary_index = msh-> el -> GetFaceElementIndex(iel, jface);
+                    const int boundary_index = msh->GetMeshElements() -> GetFaceElementIndex(iel, jface);
 
 
                     if (boundary_index <0) {
@@ -392,7 +392,7 @@ static void natural_loop_V_2d3d(const MultiLevelProblem *    ml_prob,
        std::vector <  double > xx_face_elem_center(3, 0.);
        xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
 
-       const int boundary_index = msh->el->GetFaceElementIndex(iel, jface);
+       const int boundary_index = msh->GetMeshElements()->GetFaceElementIndex(iel, jface);
 
        if ( boundary_index < 0) { //I am on the boundary
 
@@ -633,14 +633,7 @@ int main(int argc, char** args) {
 
   const std::string mesh_file = my_specifics[app]._mesh_files_path_relative_to_executable[m] + my_specifics[app]._mesh_files[m];
 
-  ml_mesh.ReadCoarseMeshFileReadingBeforePartitioning(mesh_file.c_str(), Lref, read_groups, read_boundary_groups);
-
-  ml_mesh.GetLevelZero(0)->dofmap_build_all_fe_families_and_elem_and_node_structures();
-
-
-  ml_mesh.BuildFETypesBasedOnExistingCoarseMeshGeomElements();
-
-  ml_mesh.PrepareNewLevelsForRefinement();
+  ml_mesh.ReadCoarseMesh(mesh_file, Lref, read_groups, read_boundary_groups);
   // ======= Mesh, Coarse reading - END ==================
 
   double scalingFactor = 1.;
@@ -848,7 +841,7 @@ void AssembleV_AD(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
+  elem*          el         = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -915,7 +908,7 @@ void AssembleV_AD(MultiLevelProblem& ml_prob) {
   ml_prob.get_all_abstract_fe(elem_all);
 
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
     
     geom_element.set_coords_at_dofs_and_geom_type(iel, xType);
 
@@ -1066,7 +1059,7 @@ void AssembleU_AD(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
+  elem*          el         = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -1143,7 +1136,7 @@ void AssembleU_AD(MultiLevelProblem& ml_prob) {
   
   
   // element loop: each process loops only on the elements that owns
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
     
     geom_element.set_coords_at_dofs_and_geom_type(iel, xType);
 

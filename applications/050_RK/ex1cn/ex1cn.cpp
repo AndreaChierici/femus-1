@@ -170,7 +170,7 @@ void AssembleAllenCahnProblem_with_Crank_Nicholson_AD(MultiLevelProblem& ml_prob
   const unsigned level = mlPdeSys->GetLevelToAssemble(); // We have different level of meshes. we assemble the problem on the specified one.
 
   Mesh*                    msh = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*                     el = msh->el;  // pointer to the elem object in msh (level)
+  elem*                     el = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*    mlSol = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*                sol = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -232,7 +232,7 @@ void AssembleAllenCahnProblem_with_Crank_Nicholson_AD(MultiLevelProblem& ml_prob
   
   double dt = GetTimeStep(0.); 
   
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
      
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofu  = msh->GetElementDofNumber(iel, soluType);    // number of solution element dofs

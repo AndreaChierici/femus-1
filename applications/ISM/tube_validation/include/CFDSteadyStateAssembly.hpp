@@ -25,7 +25,7 @@ namespace femus {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*           msh         = mlProb._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*           el          = msh->el;  // pointer to the elem object in msh (level)
+  elem*           el          = msh->GetMeshElements();  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*   mlSol   = mlProb._ml_sol;  // pointer to the multilevel solution object
   Solution*   sol         = mlProb._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -111,7 +111,7 @@ namespace femus {
   if (assembleMatrix) KK->zero();
 
   //BEGIN element loop for each process
-  for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielType = msh->GetElementType(iel);
 

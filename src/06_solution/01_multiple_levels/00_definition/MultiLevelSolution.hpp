@@ -383,7 +383,6 @@ public:
     void UpdateBdc(const double time);
 
     /** To be Added */
-    void GenerateBdc( const unsigned int k, const unsigned grid0, const double time );
     void GenerateRKBdc(const unsigned int &solIndex, const std::vector<unsigned> &solKiIndex, 
                        const unsigned int &grid0, const std::vector < double> & time,  const double &time0, 
                        const double &dt, const double* AI);
@@ -391,60 +390,48 @@ public:
     /** for NONLOCAL problems, _Bdc must be 0 on all the volume constraint */
     void GenerateBdcOnVolumeConstraint(const std::vector<unsigned> &volumeConstraintFlags, const unsigned &solIndex, const unsigned &grid0);
 
-    /** To be Added */
-    BDCType GetBoundaryCondition(const std::string varname, const unsigned int facename) const;
-
-    /** To be Added */
-    bool Ishomogeneous(const std::string varname, const unsigned int facename) const;
-
-    /** @deprecated */
-    void InitializeBdc();
-    
-    /** @deprecated */
-    void SetBoundaryCondition_new(const std::string name, const std::string facename, const BDCType bdctype = DIRICHLET,
-                              const bool istimedependent = false, FunctionBase* func = NULL);
-
-    /** To be Added */
-    FunctionBase* GetBdcFunction(const std::string varname, const unsigned int facename) const;
-
-    BoundaryFunc GetBdcFunction() {
-      return _SetBoundaryConditionFunction;
-    }
-
     BoundaryFunc GetBdcFunction() const {
       return _SetBoundaryConditionFunction;
     }
 
-    BoundaryFuncMLProb GetBdcFunctionMLProb() {
-      return _SetBoundaryConditionFunctionMLProb;
-    }
 
     BoundaryFuncMLProb GetBdcFunctionMLProb() const {
       return _SetBoundaryConditionFunctionMLProb;
     }
 
     /** To be Added */
-    char* GetBdcType(unsigned i) {
+    char* GetBdcType(unsigned i) const {
         return _bdcType[i];
     };
 
-    bool _useParsedBCFunction;
 
+    /** @deprecated */
+    bool GetUseParsedBCFunction() const {
+      return _useParsedBCFunction;
+    }
+
+    /** @deprecated */
+    BDCType GetBoundaryCondition(const std::string varname, const unsigned int facename) const;
+
+    /** @deprecated */
+    bool Ishomogeneous(const std::string varname, const unsigned int facename) const;
+
+    /** @deprecated */
+    void InitializeBdc_with_ParsedFunction();
     
-    
+    /** @deprecated */
+    void SetBoundaryCondition_with_ParsedFunction(const std::string name, const std::string facename, const BDCType bdctype = DIRICHLET,
+                              const bool istimedependent = false, FunctionBase* func = NULL);
+
+    /** @deprecated */
+    FunctionBase* GetBdcFunction(const std::string varname, const unsigned int facename) const;
+
+
 private:
-    
-    /** To be Added */
-    bool Ishomogeneous(const unsigned int var, const unsigned int facename) const;
 
-    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary */
-    std::vector < std::vector <BDCType> >         _boundaryConditions;
-    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary. Says if the Boundary Condition is homogeneous */
-    std::vector < std::vector <bool> >            _isHomogeneous;
-    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary */
-    std::vector < std::vector <FunctionBase *> >  _nonHomogeneousBCFunction;
-    
-    /** Vector size: number of added solutions. */
+    void GenerateBdc( const unsigned int k, const unsigned grid0, const double time );
+
+    /** Vector size: number of added solutions. Steady or Time-dependent, or undefined or Not-available ...*/
     std::vector < char* >                    _bdcType;
     
     /** boundary condition function pointer */
@@ -456,15 +443,34 @@ private:
     /** Flag to tell whether the BC function has been set */
     bool _bdcFuncSetMLProb;
 
-    /** To be Added */
-    BDCType GetBoundaryCondition(const unsigned int var, const unsigned int facename) const;
-
-    /** To be Added */
-    FunctionBase* GetBdcFunction(const unsigned int var, const unsigned int facename) const;
-
     /** Problem pointer for Boundary Conditions */
     const MultiLevelProblem* _mlBCProblem;
-    
+
+
+    /** @deprecated */
+    bool _useParsedBCFunction;
+
+    /** @deprecated */
+    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary */
+    std::vector < std::vector <BDCType> >         _boundaryConditions;
+
+    /** @deprecated */
+    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary. Says if the Boundary Condition is homogeneous */
+    std::vector < std::vector <bool> >            _isHomogeneous;
+
+    /** @deprecated */
+    /** Vector size: number of added solutions. Inner vector size: number of faces of the domain boundary */
+    std::vector < std::vector <FunctionBase *> >  _nonHomogeneousBCFunction;
+
+    /** @deprecated */
+    BDCType GetBoundaryCondition(const unsigned int var, const unsigned int facename) const;
+
+    /** @deprecated */
+    bool Ishomogeneous(const unsigned int var, const unsigned int facename) const;
+
+    /** @deprecated */
+    FunctionBase* GetBdcFunction(const unsigned int var, const unsigned int facename) const;
+
 // === Boundary Conditions - THERE IS TIME DEPENDENT STUFF HERE - END =================
 
 
@@ -572,20 +578,17 @@ BDCType MultiLevelSolution::GetBoundaryCondition(const unsigned int var, const u
     return _boundaryConditions[var][facename];
 }
 
-inline
-bool MultiLevelSolution::Ishomogeneous(const unsigned int var, const unsigned int facename) const {
-    return _isHomogeneous[var][facename];
-}
-
-inline
-FunctionBase* MultiLevelSolution::GetBdcFunction(const unsigned int var, const unsigned int facename) const {
-    return _nonHomogeneousBCFunction[var][facename];
-}
 
 inline
 BDCType MultiLevelSolution::GetBoundaryCondition(const std::string varname, const unsigned int facename) const {
     unsigned int var = GetIndex(varname.c_str());
     return _boundaryConditions[var][facename];
+}
+
+
+inline
+bool MultiLevelSolution::Ishomogeneous(const unsigned int var, const unsigned int facename) const {
+    return _isHomogeneous[var][facename];
 }
 
 inline
@@ -595,10 +598,17 @@ bool MultiLevelSolution::Ishomogeneous(const std::string varname, const unsigned
 }
 
 inline
+FunctionBase* MultiLevelSolution::GetBdcFunction(const unsigned int var, const unsigned int facename) const {
+    return _nonHomogeneousBCFunction[var][facename];
+}
+
+inline
 FunctionBase* MultiLevelSolution::GetBdcFunction(const std::string varname, const unsigned int facename) const {
     unsigned int var = GetIndex(varname.c_str());
     return _nonHomogeneousBCFunction[var][facename];
 }
+
+
 
 inline 
 void MultiLevelSolution::Set(const char * name, InitFuncMLProb funcMLProb, const MultiLevelProblem * ml_prob) {
@@ -636,8 +646,8 @@ namespace femus {
           if(sol_type < NFE_FAMS_C_ZERO_LAGRANGE) {
               abort();
 //             for(int isdom = _iproc; isdom < _iproc + 1; isdom++) {
-//               for(int iel = GetMLMesh()->GetLevel(ig)->_elementOffset[isdom];
-//                   iel < GetMLMesh()->GetLevel(ig)->_elementOffset[isdom + 1]; iel++) {
+//               for(int iel = GetMLMesh()->GetLevel(ig)->GetElementOffset(isdom);
+//                   iel < GetMLMesh()->GetLevel(ig)->GetElementOffset(isdom + 1); iel++) {
 //                 unsigned nloc_dof = GetMLMesh()->GetLevel(ig)->GetElementDofNumber(iel, sol_type);
 // 
 //                 for(int j = 0; j < nloc_dof; j++) {
@@ -669,8 +679,8 @@ namespace femus {
               
   CurrentElem < double > geom_element_iel(dim, GetMLMesh()->GetLevel(ig) );
   
-              for(int iel = GetMLMesh()->GetLevel(ig)->_elementOffset[_iproc];
-                  iel < GetMLMesh()->GetLevel(ig)->_elementOffset[_iproc + 1]; iel++) {
+              for(int iel = GetMLMesh()->GetLevel(ig)->GetElementOffset(_iproc);
+                  iel < GetMLMesh()->GetLevel(ig)->GetElementOffset(_iproc + 1); iel++) {
                   value = 0.;
 
 // ------- - BEGIN
@@ -685,7 +695,7 @@ namespace femus {
 	  for(unsigned iface = 0; iface < GetMLMesh()->GetLevel(ig)->GetElementFaceNumber(iel); iface++) {
        
           
-        const int bdry_index = GetMLMesh()->GetLevel(ig)->el->GetFaceElementIndex(iel, iface);
+        const int bdry_index = GetMLMesh()->GetLevel(ig)->GetMeshElements()->GetFaceElementIndex(iel, iface);
         
         if (bdry_index < 0) {
         const unsigned int face_index_in_domain = - ( bdry_index + 1);

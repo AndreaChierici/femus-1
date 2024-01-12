@@ -7,19 +7,21 @@
 #include "Fluid.hpp"
 #include "Parameter.hpp"
 #include "FemusInit.hpp"
+#include "SparseMatrix.hpp"
 #include "VTKWriter.hpp"
 #include "GMVWriter.hpp"
 #include "XDMFWriter.hpp"
-#include "NonLinearImplicitSystem.hpp"
+#include "LinearImplicitSystem.hpp"
 #include "LinearEquationSolver.hpp"
 #include "SolvertypeEnum.hpp"
 #include "FElemTypeEnum.hpp"
 
-#include "ParsedFunction.hpp"
 #include "Files.hpp"
+#include "ParsedFunction.hpp"
 
 #include <json/json.h>
 #include <json/value.h>
+
 #include <cstdlib>
 
 
@@ -163,7 +165,7 @@ int main(int argc, char** argv) {
     {
       elemtype = INVALID_ELEM;
     }
-    
+
   }
 
   std::string variableName = root["variable"].get("name", "Q").asString();
@@ -349,13 +351,13 @@ int main(int argc, char** argv) {
   ml_sol.Initialize("Sol");
 
   //Set Boundary (update Dirichlet(...) function)
-  ml_sol.InitializeBdc();
+  ml_sol.InitializeBdc_with_ParsedFunction();
 
 //     ml_sol.SetBoundaryCondition("Sol","right", NEUMANN, false, false, &bdcfunc);
 //     ml_sol.SetBoundaryCondition("Sol","top", NEUMANN);
 
   for (int i = 0; i < boundary_conditions.size(); ++i) {
-    ml_sol.SetBoundaryCondition_new("Sol", facenamearray[i], bdctypearray[i], false, &parsedfunctionarray[i]);
+    ml_sol.SetBoundaryCondition_with_ParsedFunction("Sol", facenamearray[i], bdctypearray[i], false, &parsedfunctionarray[i]);
   }
 
   ml_sol.GenerateBdc("All");
@@ -454,7 +456,6 @@ int main(int argc, char** argv) {
 
   if (iproc == 0) printf("\n||Sol_h-Sol||_H1 / ||Sol||_H1  = %g \n", H1error);
 
-  ml_msh.PrintInfo();
 
   //Destroy all the new systems
   ml_prob.clear();
@@ -473,7 +474,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
   Solution*      mysolution	       = ml_prob._ml_sol->GetSolutionLevel(level);
   LinearEquationSolver*  mylsyspde     = mylin_impl_sys._LinSolver[level];
   Mesh*          mymsh		       = ml_prob._ml_msh->GetLevel(level);
-  elem*          myel		       = mymsh->el;
+  elem*          myel		       = mymsh->GetMeshElements();
   SparseMatrix*  myKK		       = mylsyspde->_KK;
   NumericVector* myRES		       = mylsyspde->_RES;
   MultiLevelSolution* ml_sol           = ml_prob._ml_sol;
@@ -528,7 +529,7 @@ void AssemblePoissonMatrixandRhs(MultiLevelProblem& ml_prob) {
   myKK->zero();
 
   // *** element loop ***
-  for (int iel = mymsh->_elementOffset[iproc]; iel < mymsh->_elementOffset[iproc + 1]; iel++) {
+  for (int iel = mymsh->GetElementOffset(iproc); iel < mymsh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielt = mymsh->GetElementType(iel);
     unsigned nve = mymsh->GetElementDofNumber(iel, order_ind);
@@ -769,7 +770,7 @@ double GetRelativeError(MultiLevelSolution& ml_sol, const bool& H1) {
     unsigned SolOrder = ml_sol.GetSolutionType(SolIndex);
 
 
-    for (int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+    for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
       short unsigned ielt = msh->GetElementType(iel);
       unsigned nve = msh->GetElementDofNumber(iel, SolOrder);

@@ -299,7 +299,7 @@ namespace femus
   /**
    * Return the local->global face node index
    **/
-  unsigned elem::GetFaceVertexIndex(const unsigned& iel, const unsigned& iface, const unsigned& inode)
+  unsigned elem::GetFaceVertexIndex(const unsigned& iel, const unsigned& iface, const unsigned& inode) const
   {
     return _elementDof[iel][ig[_elementType[iel]][iface][inode]];
   }
@@ -323,9 +323,9 @@ namespace femus
   /**
    * Return the total number of elements, where the shape can be specified as an input string
    **/
-  unsigned elem::GetElementNumber(const char* name) const
+  unsigned elem::GetElementNumber(const std::string name) const
   {
-    if (!strcmp(name, "All")) {
+    if (!strcmp(name.c_str(), "All")) {
       return _nel;
     }
     unsigned i;
@@ -336,7 +336,7 @@ namespace femus
   /**
    * Add value to the total number of the element
    **/
-  void elem::AddToElementNumber(const unsigned& value, const char name[])
+  void elem::AddToElementNumber(const unsigned& value, const std::string name)
   {
     unsigned i;
     i = GetIndex(name);
@@ -353,12 +353,12 @@ namespace femus
   /**
    * Return the global adiacent-to-face element number
    **/
-  int elem::GetFaceElementIndex(const unsigned& iel, const unsigned& iface)
+  int elem::GetFaceElementIndex(const unsigned& iel, const unsigned& iface) const
   {
     return _elementNearFace[iel][iface];
   }
 
-  int elem::GetBoundaryIndex(const unsigned& iel, const unsigned& iface)
+  int elem::GetBoundaryIndex(const unsigned& iel, const unsigned& iface) const
   {
     return  -(GetFaceElementIndex(iel, iface) + 1);
   }
@@ -390,7 +390,7 @@ namespace femus
   /**
    * Return element group
    **/
-  short unsigned elem::GetElementGroup(const unsigned& iel)
+  short unsigned elem::GetElementGroup(const unsigned& iel) const
   {
     return _elementGroup[iel];
   }
@@ -414,7 +414,7 @@ namespace femus
   /**
    * Return element material
    **/
-  short unsigned elem::GetElementMaterial(const unsigned& iel)
+  short unsigned elem::GetElementMaterial(const unsigned& iel) const
   {
     return _elementMaterial[iel];
   }
@@ -456,16 +456,16 @@ namespace femus
                   unsigned j3 = GetFaceVertexIndex(jel, jface, 2);
                   unsigned j4 = GetFaceVertexIndex(jel, jface, 3);
                   
-                  const bool faces_coincide_three_dim = (GetDimension()/*Mesh::_dimension*/ == 3 &&
+                  const bool faces_coincide_three_dim = ( GetDimension() == 3 &&
                                          (i1 == j1 || i1 == j2 || i1 == j3 ||  i1 == j4) &&
                                          (i2 == j1 || i2 == j2 || i2 == j3 ||  i2 == j4) &&
                                          (i3 == j1 || i3 == j2 || i3 == j3 ||  i3 == j4));
                   
-                  const bool faces_coincide_two_dim = (GetDimension()/*Mesh::_dimension*/ == 2 &&
+                  const bool faces_coincide_two_dim = ( GetDimension() == 2 &&
                                        (i1 == j1 || i1 == j2) &&
                                        (i2 == j1 || i2 == j2));
                   
-                  const bool faces_coincide_one_dim = (GetDimension()/*Mesh::_dimension*/ == 1 && (i1 == j1));
+                  const bool faces_coincide_one_dim = ( GetDimension() == 1 && (i1 == j1));
 
                   if(faces_coincide_three_dim
                       ||
@@ -578,7 +578,7 @@ namespace femus
   /**
    * Return the number of elements which have a given vertex
    **/
-  unsigned elem::GetElementNearVertexNumber(const unsigned& inode)
+  unsigned elem::GetElementNearVertexNumber(const unsigned& inode) const
   {
     return _elementNearVertex.size(inode);
   }
@@ -586,7 +586,7 @@ namespace femus
   /**
    * Return the element index for the given i-node in the j-position with 0<=j<nve(i)
    **/
-  unsigned elem::GetElementNearVertex(const unsigned& inode, const unsigned& j)
+  unsigned elem::GetElementNearVertex(const unsigned& inode, const unsigned& j) const
   {
     return _elementNearVertex[inode][j];
   }
@@ -594,26 +594,26 @@ namespace femus
   /**
    * return the index 0=hex, 1=Tet, 2=Wedge, 3=Quad, 4=Triangle and 5=Line
    **/
-  unsigned elem::GetIndex(const char name[]) const
+  unsigned elem::GetIndex(const std::string name) const
   {
     unsigned index = 0;
-    if (!strcmp(name, "Hex")) {
-      index = 0;
+    if (!strcmp(name.c_str(), geom_elems[HEX].c_str() )) {
+      index = HEX;
     }
-    else if (!strcmp(name, "Tet")) {
-      index = 1;
+    else if (!strcmp(name.c_str(), geom_elems[TET].c_str() )) {
+      index = TET;
     }
-    else if (!strcmp(name, "Wedge")) {
-      index = 2;
+    else if (!strcmp(name.c_str(), geom_elems[WEDGE].c_str() )) {
+      index = WEDGE;
     }
-    else if (!strcmp(name, "Quad")) {
-      index = 3;
+    else if (!strcmp(name.c_str(), geom_elems[QUAD].c_str() )) {
+      index = QUAD;
     }
-    else if (!strcmp(name, "Triangle")) {
-      index = 4;
+    else if (!strcmp(name.c_str(), geom_elems[TRI].c_str() )) {
+      index = TRI;
     }
-    else if (!strcmp(name, "Line")) {
-      index = 5;
+    else if (!strcmp(name.c_str(), geom_elems[LINE].c_str() ) ) {
+      index = LINE;
     }
     else {
       std::cout << "error! invalid Element Shape in elem::GetIndex(...)" << std::endl;
@@ -660,7 +660,7 @@ namespace femus
     }
   }
 
-  unsigned elem::GetChildElementDof(const unsigned& iel, const unsigned& i0, const unsigned i1)
+  unsigned elem::GetChildElementDof(const unsigned& iel, const unsigned& i0, const unsigned i1) const
   {
     return _childElemDof[iel][i0 * GetElementDofNumber(iel, 2) + i1];
   }
@@ -670,7 +670,7 @@ namespace femus
     _childElem[iel][json] = value;
   }
 
-  unsigned elem::GetChildElement(const unsigned& iel, const unsigned& json)
+  unsigned elem::GetChildElement(const unsigned& iel, const unsigned& json) const
   {
     return _childElem[iel][json];
   }
@@ -691,7 +691,7 @@ namespace femus
     _elementDof.broadcast(jproc);
   }
 
-  unsigned elem::GetElementDofIndex(const unsigned& iel, const unsigned& inode)
+  unsigned elem::GetElementDofIndex(const unsigned& iel, const unsigned& inode) const
   {
     return _elementDof[iel][inode];
   };
