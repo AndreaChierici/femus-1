@@ -192,7 +192,7 @@ void Nom::PointsAndDistInConstantSupport(){
     for(unsigned j = i+1; j < _nNodes; j++){
       double dist = 0;
       for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-      if(dist < _delta * _delta) {
+      if(dist <= _delta * _delta) {
         _suppNodes[i][_count[i]] = j;
         _suppNodes[j][_count[j]] = i;
         _suppNodesN[i][_count[i]] = {j,_delta};
@@ -265,7 +265,7 @@ void Nom::PointsAndDistInConstantSupportWithInv(){
       if(i != j){
         double dist = 0;
         for(unsigned d = 0; d < _dim; d++) dist += (_x[i][d] - _x[j][d]) * (_x[i][d] - _x[j][d]);
-        if(dist < _delta * _delta) {
+        if(dist <= _delta * _delta) {
           _suppNodes[i][_count[i]] = j;
           innerMap[j] = _count[i];
           for(unsigned d = 0; d < _dim; d++) {
@@ -683,7 +683,10 @@ void Nom::SetEigenRhs(std::vector<double> rhs){
         _rhsE(i) = _scale[i] * rhs[i];
       }
       else{
-        _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented
+//         _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented
+        for(unsigned d = 0; d < _dim; d++){
+          _rhsE(i) += _penalty * _x[i][d] * _x[i][d]; // TODO only non-homogeneous Dir BC implemented
+        }
       }
     }
   }
@@ -734,9 +737,11 @@ double Nom::L2Error(){
 
 
 double Nom::GetKernel(unsigned i, unsigned j, double s){
-  double dist = _suppNodesN[i][j].second;
-  double Cns = s * pow(2.,2.*s) * tgamma ((_dim + 2. * s) / 2.) / (pow(M_PI, 0.5*_dim) * tgamma(1 - s));
-  double kernel = Cns / (2. * pow(dist, _dim + 2 * s)); // fractional laplacian kernel
+//   double dist = _suppNodesN[i][j].second;
+//   double Cns = s * pow(2.,2.*s) * tgamma ((_dim + 2. * s) / 2.) / (pow(M_PI, 0.5*_dim) * tgamma(1 - s));
+//   double kernel = Cns / (2. * pow(dist, _dim + 2 * s)); // fractional laplacian kernel
+  
+  double kernel = 1.; //4. / (M_PI  * _delta * _delta * _delta * _delta);
   return kernel;
 }
 
