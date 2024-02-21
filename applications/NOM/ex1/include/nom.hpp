@@ -143,6 +143,10 @@ namespace femus {
 
       std::vector<double> _anSol;
 
+      Eigen::MatrixXd _I;
+
+      clock_t _startTime;
+
 
       Mat _A;
       

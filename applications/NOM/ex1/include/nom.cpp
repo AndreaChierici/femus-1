@@ -1,6 +1,7 @@
 #include "nom.hpp"
 #include <Eigen/Dense>
 #include <Eigen/SVD>
+#include <Eigen/Cholesky>
 
 namespace femus {
 
@@ -428,6 +429,7 @@ void Nom::combinationUtil(int arr[], int data[],
 void Nom::MultiIndexList(unsigned n){
   SetOrder(n);  
   _indxDim = factorial(_n + _dim) / (factorial(_n) * factorial(_dim)) - 1;
+  _I = Eigen::MatrixXd::Identity(_indxDim, _indxDim);
   
   _multiIndexList.resize(_indxDim, std::vector<int>(_dim));
   _cnt = 0;
@@ -517,7 +519,8 @@ void Nom::ComputeHighOrdOperatorK(unsigned i){
       _KHOE = _KHOE + tensProd;
     }
 
-    _KHOE=_KHOE.inverse();
+    // _KHOE=_KHOE.inverse();
+    _KHOE = _KHOE.llt().solve(_I);  // Cholesky Decomposition
     _KHOE=_HinvE*_KHOE;
   }
 }
@@ -650,6 +653,7 @@ void Nom::AssembleLaplacianNode(unsigned i){
 }
 
 void Nom::AssembleLaplacian(){
+  _startTime = clock();
   _scale.resize(_nNodes, 1.);
   for(unsigned i = 0; i < _nNodes; i++){
     if(_dirBC[i] == 0){
@@ -660,6 +664,7 @@ void Nom::AssembleLaplacian(){
     }
   }
   std::cout<<"\n --- END ASSEMBLY --- \n";
+  std::cout << "Laplacian Assembly time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
 }
 
 void Nom::CreateGlobalEigenMatrix(){
@@ -683,10 +688,10 @@ void Nom::SetEigenRhs(std::vector<double> rhs){
         _rhsE(i) = _scale[i] * rhs[i];
       }
       else{
-//         _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented
-        for(unsigned d = 0; d < _dim; d++){
-          _rhsE(i) += _penalty * _x[i][d] * _x[i][d]; // TODO only non-homogeneous Dir BC implemented
-        }
+        _rhsE(i) = 0; // TODO only homogeneous Dir BC implemented
+        // for(unsigned d = 0; d < _dim; d++){
+        //   _rhsE(i) += _penalty * _x[i][d] * _x[i][d]; // TODO only non-homogeneous Dir BC implemented
+        // }
       }
     }
   }
