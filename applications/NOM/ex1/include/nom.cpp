@@ -701,6 +701,18 @@ void Nom::SolveEigen(){
   _solE = _ME.inverse() * _rhsE;
 }
 
+void Nom::SolveEigenSVD(){
+  Eigen::BDCSVD<Eigen::MatrixXd> svd(_ME, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+  // const Eigen::MatrixXcd &U = svd.matrixU();
+  // const Eigen::MatrixXcd &V = svd.matrixV();
+  const Eigen::VectorXd &S = svd.singularValues();
+
+  std::cout << "\n" << S <<"\n";
+  // TODO study some least square technique to solve this
+
+}
+
 
 void Nom::PrintGlobalEigenMatrix(){
   std::cout<< std::endl <<"Global Matrix: \n" << _ME << std::endl;

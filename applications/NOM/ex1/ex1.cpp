@@ -28,9 +28,9 @@ std::vector<double> SetRhs(const std::vector<std::vector < double >>& x) {
   std::vector<double> value(x.size(), 0.);
   for(unsigned i = 0; i < x.size(); i++) {
     for(unsigned k = 0; k < x[0].size(); k++) {
-//       value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
+      value[i] +=  20 * x[i][k] * x[i][k] * x[i][k] + M_PI * M_PI * cos(M_PI * x[i][k]); //1D ODE
     }
-    value[i] = 2 * x[i][0] *(x[i][1] - 1) * (x[i][1] - 2 * x[i][0] + x[i][0] * x[i][1] + 2) * exp(x[i][0] - x[i][1]); //2D POISSON
+    // value[i] = 2 * x[i][0] *(x[i][1] - 1) * (x[i][1] - 2 * x[i][0] + x[i][0] * x[i][1] + 2) * exp(x[i][0] - x[i][1]); //2D POISSON
     // value[i] = -2; // NONLOCAL
   }
   return value;
@@ -45,10 +45,10 @@ std::vector<double> SetAnSol(const std::vector<std::vector < double >>& x) {
     if(isDir) value[i] = 0;
     else{
       for(unsigned k = 0; k < x[0].size(); k++) {
-//         value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
+        value[i] +=  x[i][k] * x[i][k] * x[i][k] * x[i][k] * x[i][k] - 3 * x[i][k] - cos(M_PI * x[i][k]) + 1; //1D ODE
           // value[i] += x[i][k] * x[i][k]; // NONLOCAL
       }
-      value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]); //2D POISSON
+      // value[i] = x[i][0] * (1 - x[i][0]) * x[i][1] * (1 - x[i][1]) * exp(x[i][0] - x[i][1]); //2D POISSON
     }
     isDir = false;
   }
@@ -62,15 +62,15 @@ int main(int argc, char** argv)
   // Testing the class Nom - initialization
 
   Nom nom;
-  std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{20,20};
+  std::vector<double> lengths{1.};
+  std::vector<unsigned> nPoints{10};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   // nom.InitPointStructureNLBC(lengths,nPoints,1);
   nom.SetConstDeltaV(lengths);
   unsigned order = 2;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
-  unsigned nNeigh = /*5 * order +*/ np + 5 * order;
+  unsigned nNeigh = /*5 * order +*/ np + dim * order;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
   
   unsigned midPoint = 1;
@@ -287,6 +287,7 @@ int main(int argc, char** argv)
   
 //   Solve the system
   nom.SolveEigen();
+  nom.SolveEigenSVD();
 
 // //   Printing matrix, rhs and solution
 //   nom.PrintGlobalEigenMatrix();
