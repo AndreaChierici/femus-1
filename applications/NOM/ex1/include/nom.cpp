@@ -703,41 +703,73 @@ void Nom::SolveEigen(){
   _startTime = clock();
   
   _solE = _ME.inverse() * _rhsE;
-  
+      
   std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
   std::cout<<"\n --- END SOLVING --- \n";
 }
 
-void Nom::SolveEigenSparse(){
-  std::cout<<"\n --- START SOLVING - OTHER --- \n";
+void Nom::SolveEigenPPLU(){
+  std::cout<<"\n --- START SOLVING - PPLU --- \n";
   _startTime = clock(); 
-
+  
   _solE = _ME.lu().solve(_rhsE);
   
   std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
-  std::cout<<"\n --- END SOLVING - OTHER --- \n";
+  std::cout<<"\n --- END SOLVING - PPLU --- \n";
 }
 
-void Nom::SolveEigenSVD(){
-  std::cout<<"\n --- START SOLVING - MOORE-PENROSE --- \n";
-  _startTime = clock();  
-    
-  _ME = pseudoInverse(_ME,std::numeric_limits<double>::epsilon());  // Moore-Penrose Pseudo-Inverse Using Eigen
-  _solE = _ME * _rhsE;
+void Nom::SolveEigenQR(){
+  std::cout<<"\n --- START SOLVING - QR --- \n";
+  _startTime = clock();
   
+  _solE = _ME.householderQr().solve(_rhsE);
+    
   std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
-  std::cout<<"\n --- END SOLVING - MOORE-PENROSE --- \n";
+  std::cout<<"\n --- END SOLVING - QR --- \n";
 }
 
-// method for calculating the pseudo-Inverse as recommended by Eigen developers
-Eigen::MatrixXd Nom::pseudoInverse(const Eigen::MatrixXd &a, double epsilon = std::numeric_limits<double>::epsilon())
-{
-	Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeFullU | Eigen::ComputeFullV);
-        // For a non-square matrix
-        // Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeThinU | Eigen::ComputeThinV);
-	double tolerance = epsilon * std::max(a.cols(), a.rows()) *svd.singularValues().array().abs()(0);
-	return svd.matrixV() *  (svd.singularValues().array().abs() > tolerance).select(svd.singularValues().array().inverse(), 0).matrix().asDiagonal() * svd.matrixU().adjoint();
-}
+// void Nom::SolveEigenSVD(){
+//   std::cout<<"\n --- START SOLVING - MOORE-PENROSE --- \n";
+//   _startTime = clock();  
+//     
+//   _ME = pseudoInverse(_ME,std::numeric_limits<double>::epsilon());  // Moore-Penrose Pseudo-Inverse Using Eigen
+//   _solE = _ME * _rhsE;
+//   
+//   std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+//   std::cout<<"\n --- END SOLVING - MOORE-PENROSE --- \n";
+// }
+// 
+// // method for calculating the pseudo-Inverse as recommended by Eigen developers
+// Eigen::MatrixXd Nom::pseudoInverse(const Eigen::MatrixXd &a, double epsilon = std::numeric_limits<double>::epsilon())
+// {
+// 	Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeFullU | Eigen::ComputeFullV);
+//         // For a non-square matrix
+//         // Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeThinU | Eigen::ComputeThinV);
+// 	double tolerance = epsilon * std::max(a.cols(), a.rows()) *svd.singularValues().array().abs()(0);
+// 	return svd.matrixV() *  (svd.singularValues().array().abs() > tolerance).select(svd.singularValues().array().inverse(), 0).matrix().asDiagonal() * svd.matrixU().adjoint();
+// }
+
+// void Nom::SolveEigenSparse(){
+//   std::cout<<"\n --- START SOLVING - SPARSE --- \n";
+//   _startTime = clock();
+//   
+//   _solE = cppSparseSolver(_ME) * _rhsE;
+//   
+//   std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+//   std::cout<<"\n --- END SOLVING - SPARSE --- \n";
+// }
+// 
+// MatrixXd Nom::cppSparseSolver(MatrixXd matrix){
+//     int n = matrix.rows();
+//     MatrixXd I = MatrixXd::Identity(n,n);
+//     SpMat matrix_s = matrix.sparseView();
+//     Eigen::SimplicialLLT<SpMat, Eigen::Lower, Eigen::NaturalOrdering<int>> solver;
+//     matrix_s.makeCompressed();
+//     solver.compute(matrix_s);
+//     MatrixXd Ainv = solver.solve(I);
+//     std::cout << Ainv << "\n\n\n\n" << matrix.inverse() << "\n\n\n";
+//     return Ainv;
+// }
 
 
 
@@ -809,6 +841,22 @@ void Nom::AssembleNonLocalKernelEigen(double s){
   }
   std::cout<<"\n --- END ASSEMBLY NONLOCAL KERNEL--- \n";
   
+}
+
+void Nom::PrinMatRhsMatlabFormat(){
+  std::cout<<"A=[";
+  for(unsigned i = 0; i < _ME.rows(); i++){
+    for(unsigned j = 0; j < _ME.cols(); j++){
+      std::cout<< _ME(i,j) << " , ";
+    }
+    std::cout<<";\n";
+  }
+  std::cout<<"];\n";
+  std::cout<<"b = [";
+  for(unsigned i = 0; i < _ME.rows(); i++){
+    std::cout << _rhsE(i) << " ; ";    
+  }
+  std::cout<<"];\n";
 }
 
 

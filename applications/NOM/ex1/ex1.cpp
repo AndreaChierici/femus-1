@@ -63,12 +63,12 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.,1.};
-  std::vector<unsigned> nPoints{40,40};
+  std::vector<unsigned> nPoints{20,20};
   unsigned dim = lengths.size();
   nom.InitializeSimplestPointStructure(lengths,nPoints);
   // nom.InitPointStructureNLBC(lengths,nPoints,1);
   nom.SetConstDeltaV(lengths);
-  unsigned order = 6;
+  unsigned order = 4;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
   unsigned nNeigh = /*5 * order +*/ np + 5 * order;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
@@ -287,7 +287,9 @@ int main(int argc, char** argv)
   
 //   Solve the system
   nom.SolveEigen();
-  nom.SolveEigenSparse();
+//   nom.SolveEigenSparse();
+  nom.SolveEigenPPLU();
+  nom.SolveEigenQR();
 
 // //   Printing matrix, rhs and solution
 //   nom.PrintGlobalEigenMatrix();

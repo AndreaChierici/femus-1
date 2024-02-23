@@ -11,8 +11,12 @@
 // #include "SparseMatrix.hpp"
 #include "petscmat.h"
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 
 // using namespace Eigen;
+
+typedef Eigen::SparseMatrix<double> SpMat;
+typedef Eigen::MatrixXd MatrixXd;
 
 
 namespace femus {
@@ -54,10 +58,10 @@ namespace femus {
       std::vector<std::vector<double>> GetK();
       std::vector<std::vector<double>> GetKinv();
       std::vector<std::vector<double>> GetKHO();
-      Eigen::MatrixXd GetKHOE();
-      Eigen::MatrixXd GetPolyE();
+      MatrixXd GetKHOE();
+      MatrixXd GetPolyE();
       std::vector<std::vector<int>> GetMultiIndexList();
-      Eigen::MatrixXd GetB();
+      MatrixXd GetB();
       
       double ComputeNOMDivergence(std::vector<std::vector<double>> vec, unsigned i);
       std::vector<double> ComputeNOMScalarGradient(std::vector<double> sol, unsigned i);
@@ -67,8 +71,8 @@ namespace femus {
       unsigned factorial(unsigned n);
       void combinationUtil(int arr[], int data[], int index, int r);
       std::vector<double> PolyMultiIndex(unsigned i, unsigned j);
-      Eigen::MatrixXd DiagLengthHInv(unsigned i);
-      Eigen::MatrixXd SelfTensProd(std::vector<double> vec);
+      MatrixXd DiagLengthHInv(unsigned i);
+      MatrixXd SelfTensProd(std::vector<double> vec);
       void ComputeHighOrdOperatorK(unsigned i);
       void ComputePolyOperator(unsigned i);
       void ComputeHighOrdKAndPolyOperators(unsigned i);
@@ -87,8 +91,12 @@ namespace femus {
 
       void SetAnalyticSol(std::vector<double> sol);
       void SolveEigen();
-      void SolveEigenSparse();
-      void SolveEigenSVD();
+      void SolveEigenPPLU();
+      void SolveEigenQR();
+//       void SolveEigenSVD();
+//       MatrixXd pseudoInverse(const MatrixXd &a, double epsilon);
+//       void SolveEigenSparse();
+//       MatrixXd cppSparseSolver(MatrixXd matrix);
       double L2Error();
       
       double GetKernel(unsigned i, unsigned j, double s);
@@ -97,7 +105,7 @@ namespace femus {
 
       void CreateGlobalMatrix();
       
-      Eigen::MatrixXd pseudoInverse(const Eigen::MatrixXd &a, double epsilon);
+      void PrinMatRhsMatlabFormat();
       
       
     private:
@@ -136,18 +144,19 @@ namespace femus {
       unsigned _n;
       unsigned _cnt;
       std::vector<std::vector<double>> _KHO;
-      Eigen::MatrixXd _HinvE;
-      Eigen::MatrixXd _KHOE;
-      Eigen::MatrixXd _PolyE;
-      Eigen::MatrixXd _BE;
+      MatrixXd _HinvE;
+      MatrixXd _KHOE;
+      MatrixXd _PolyE;
+      MatrixXd _BE;
 
-      Eigen::MatrixXd  _ME;
+      MatrixXd  _ME;
+      SpMat _MES;
       Eigen::VectorXd _rhsE;
       Eigen::VectorXd _solE;
 
       std::vector<double> _anSol;
 
-      Eigen::MatrixXd _I;
+      MatrixXd _I;
 
       clock_t _startTime;
 
