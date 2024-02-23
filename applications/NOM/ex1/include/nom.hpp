@@ -87,6 +87,7 @@ namespace femus {
 
       void SetAnalyticSol(std::vector<double> sol);
       void SolveEigen();
+      void SolveEigenSparse();
       void SolveEigenSVD();
       double L2Error();
       
@@ -96,6 +97,8 @@ namespace femus {
 
       void CreateGlobalMatrix();
       
+      Eigen::MatrixXd pseudoInverse(const Eigen::MatrixXd &a, double epsilon);
+      
       
     private:
       unsigned _dim;  
@@ -104,7 +107,7 @@ namespace femus {
       std::vector<double> _deltaV;
       std::vector<double> _field;
       std::vector<unsigned> _dirBC;
-      double _penalty = 1e5;
+      double _penalty = 1e8;
       std::vector<double> _scale;
 
       unsigned _totCount;

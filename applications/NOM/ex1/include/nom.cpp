@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <Eigen/Cholesky>
+#include <Eigen/IterativeLinearSolvers>
 
 namespace femus {
 
@@ -656,11 +657,11 @@ void Nom::AssembleLaplacian(){
   _startTime = clock();
   _scale.resize(_nNodes, 1.);
   for(unsigned i = 0; i < _nNodes; i++){
-    if(_dirBC[i] == 0){
+    if(_dirBC[i] == 0){  
       AssembleLaplacianNode(i);
     }
     else{
-      _ME(i,i) = _penalty;
+      _ME(i,i) += _penalty;
     }
   }
   std::cout<<"\n --- END ASSEMBLY --- \n";
@@ -698,20 +699,46 @@ void Nom::SetEigenRhs(std::vector<double> rhs){
 }
 
 void Nom::SolveEigen(){
+  std::cout<<"\n --- START SOLVING --- \n";
+  _startTime = clock();
+  
   _solE = _ME.inverse() * _rhsE;
+  
+  std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout<<"\n --- END SOLVING --- \n";
+}
+
+void Nom::SolveEigenSparse(){
+  std::cout<<"\n --- START SOLVING - OTHER --- \n";
+  _startTime = clock(); 
+
+  _solE = _ME.lu().solve(_rhsE);
+  
+  std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout<<"\n --- END SOLVING - OTHER --- \n";
 }
 
 void Nom::SolveEigenSVD(){
-  Eigen::BDCSVD<Eigen::MatrixXd> svd(_ME, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-  // const Eigen::MatrixXcd &U = svd.matrixU();
-  // const Eigen::MatrixXcd &V = svd.matrixV();
-  const Eigen::VectorXd &S = svd.singularValues();
-
-  std::cout << "\n" << S <<"\n";
-  // TODO study some least square technique to solve this
-
+  std::cout<<"\n --- START SOLVING - MOORE-PENROSE --- \n";
+  _startTime = clock();  
+    
+  _ME = pseudoInverse(_ME,std::numeric_limits<double>::epsilon());  // Moore-Penrose Pseudo-Inverse Using Eigen
+  _solE = _ME * _rhsE;
+  
+  std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout<<"\n --- END SOLVING - MOORE-PENROSE --- \n";
 }
+
+// method for calculating the pseudo-Inverse as recommended by Eigen developers
+Eigen::MatrixXd Nom::pseudoInverse(const Eigen::MatrixXd &a, double epsilon = std::numeric_limits<double>::epsilon())
+{
+	Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeFullU | Eigen::ComputeFullV);
+        // For a non-square matrix
+        // Eigen::JacobiSVD< Eigen::MatrixXd > svd(a ,Eigen::ComputeThinU | Eigen::ComputeThinV);
+	double tolerance = epsilon * std::max(a.cols(), a.rows()) *svd.singularValues().array().abs()(0);
+	return svd.matrixV() *  (svd.singularValues().array().abs() > tolerance).select(svd.singularValues().array().inverse(), 0).matrix().asDiagonal() * svd.matrixU().adjoint();
+}
+
 
 
 void Nom::PrintGlobalEigenMatrix(){
@@ -783,7 +810,6 @@ void Nom::AssembleNonLocalKernelEigen(double s){
   std::cout<<"\n --- END ASSEMBLY NONLOCAL KERNEL--- \n";
   
 }
-
 
 
 
