@@ -93,6 +93,7 @@ namespace femus {
       void SolveEigen();
       void SolveEigenPPLU();
       void SolveEigenQR();
+      void SolveEigenAINVPrecond();
 //       void SolveEigenSVD();
 //       MatrixXd pseudoInverse(const MatrixXd &a, double epsilon);
 //       void SolveEigenSparse();
@@ -106,6 +107,8 @@ namespace femus {
       void CreateGlobalMatrix();
       
       void PrinMatRhsMatlabFormat();
+
+      std::vector<MatrixXd> BiconjugationAINV(MatrixXd &A);
       
       
     private:

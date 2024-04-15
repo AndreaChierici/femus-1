@@ -860,6 +860,44 @@ void Nom::PrinMatRhsMatlabFormat(){
 }
 
 
+std::vector<MatrixXd> Nom::BiconjugationAINV(MatrixXd &A){
+  unsigned n = A.rows();
+  MatrixXd Z = MatrixXd::Identity(n, n);
+  MatrixXd W = MatrixXd::Identity(n, n);
+  Eigen::VectorXd Dinv = Eigen::VectorXd::Constant(n, 1.);
+
+  Eigen::VectorXd q = Eigen::VectorXd::Constant(n, 0.);
+
+  for (unsigned i = 0; i < n; i++){
+    Dinv(i) = 1. / (A.row(i) * Z.col(i));
+    if(fabs(Dinv(i)) > 1e10) {
+      std::cerr << "Division by 0 in BiconjugationAINV\n";
+      abort();
+    }
+    q(i) = A.col(i).transpose() * W.col(i);
+    for (unsigned j = i + 1; j < n; j++ ){
+      Dinv(j) = 1. / ( A.row(i) * Z.col(j) );
+      q(j) = A.col(i).transpose() * W.col(j);
+      Z.col(j) = Z.col(j) - Dinv(i) / Dinv(j) * Z.col(i);
+      W.col(j) = W.col(j) - q(j) / q(i) * W.col(i);
+    }
+  }
+  return {Z,W,Dinv.asDiagonal()};
+}
+
+void Nom::SolveEigenAINVPrecond(){
+  std::cout<<"\n --- START SOLVING - AINV Precond --- \n";
+  _startTime = clock();
+
+  std::vector<MatrixXd> ZWD = BiconjugationAINV(_ME);
+  // _solE =ZWD[2].inverse()*ZWD[1].transpose()*_rhsE*ZWD[0];
+  _solE = ZWD[0]*ZWD[2]*ZWD[1].transpose()*_rhsE;
+
+  std::cout << "Solving time = " << static_cast<double>(clock() - _startTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout<<"\n --- END SOLVING - AINV Precond --- \n";
+}
+
+
 
 
 
