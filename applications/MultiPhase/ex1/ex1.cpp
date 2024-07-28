@@ -70,13 +70,21 @@ Cloud *cldint;
 // const double sigma = 24.5;
 // const double gravity = -0.98;
 
-// Turek 2
-const double mu1 = 0.1;
-const double mu2 = 10.;
+// // Turek 2
+// const double mu1 = 0.1;
+// const double mu2 = 10.;
+// const double rho1 = 1.;
+// const double rho2 = 1000;
+// const double sigma = 1.96;
+// const double gravity = -0.98;
+
+//Parasitic Test
+const double mu1 = 1.; // TODO Sandro put mu_1 = mu_2 = 0.005
+const double mu2 = 1.;
 const double rho1 = 1.;
-const double rho2 = 1000;
-const double sigma = 1.96;
-const double gravity = -0.98;
+const double rho2 = 1.;
+const double sigma = 0.25; // ???
+const double gravity = 0.;
 
 std::vector <double> g;
 
@@ -84,7 +92,8 @@ std::vector <double> g;
 #include "../include/GhostPenaltyDGP.hpp"
 #include "../include/Stabilization.hpp"
 
-#define RADIUS 0.25
+// #define RADIUS 0.25
+#define RADIUS 0.214
 #define XG 0.5
 #define YG 0.5
 #define ZG 0.
@@ -144,8 +153,9 @@ int main(int argc, char** args) {
   double scalingFactor = 1.;
 //   mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
 //   mlMsh.ReadCoarseMesh("./input/square_quad.neu", "fifth", scalingFactor);
-  mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
+  // mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
 //   mlMsh.GenerateCoarseBoxMesh(64, 256, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
+  mlMsh.GenerateCoarseBoxMesh(80, 80, 0, 0., 1., 0., 1., 0., 0., QUAD9, "fifth"); // Parasitic Test
   /* "seventh" is the order of accuracy that is used in the gauss integration scheme
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
@@ -332,7 +342,8 @@ int main(int argc, char** args) {
 
 double TimeStepMultiphase(const double time) {
 //   double dt =  0.005; //RT
-  double dt =  0.01; //Turek
+  // double dt =  0.01; //Turek
+  double dt =  0.0025; //Parasitic Test
   return dt;
 }
 

@@ -79,7 +79,7 @@ void BuildMarkersOnConicArc(const double &dt1, const unsigned &nMin,
   P[nk] = (!reverse) ? P2 : P1;
 
 
-  std::cout<<"aaaaaaaaaaa "<< n <<" "<<dt <<std::endl;
+  // std::cout<<"aaaaaaaaaaa "<< n <<" "<<dt <<std::endl;
 
   std::vector<double> Nt = N;
   for(unsigned k = 1, nk = n0 + signKappa; k < n - 1; k++, nk += signKappa) {
