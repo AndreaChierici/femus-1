@@ -88,10 +88,10 @@ void BuildMarkersOnConicArc(const double &dt1, const unsigned &nMin,
     Nt = N;
   }
 
-  for(unsigned k = 0; k < n; k++) {
-    std::cout << k << " " << P[k][0] << " " << P[k][1] << std::endl;
-  }
-  std::cout << std::endl;
+  // for(unsigned k = 0; k < n; k++) {
+  //   std::cout << k << " " << P[k][0] << " " << P[k][1] << std::endl;
+  // }
+  // std::cout << std::endl;
 }
 
 bool GetPoint(const std::vector<double> &A,
