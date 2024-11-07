@@ -305,8 +305,8 @@ void AssembleGhostPenalty(MultiLevelProblem& ml_prob) {
                   }
                 }
 
-                double C1 =  50. * 0.05 * mu;
-                double D1 =  50. * 0.05 * rho;
+                double C1 =  100. * 0.05 * mu;
+                double D1 =  100. * 0.05 * rho;
 
                 adept::adouble absSolDotN = 0.;
                 for(unsigned I = 0; I < dim; I++) {
@@ -704,8 +704,8 @@ void AssembleGhostPenalty(MultiLevelProblem& ml_prob) {
                         }
                       }
 
-                      double C1 = 50. * 0.05 * mu;
-                      double D1 = 50. * 0.05 * rho;
+                      double C1 = 100. * 0.05 * mu;
+                      double D1 = 100. * 0.05 * rho;
 
                       adept::adouble absSolDotN = 0.;
                       for(unsigned I = 0; I < dim; I++) {

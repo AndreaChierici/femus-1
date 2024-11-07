@@ -81,9 +81,9 @@ Cloud *cldint;
 //Parasitic Test
 const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
 const double mu2 = 0.1;
-const double rho1 = 30.;
-const double rho2 = 30.;
-const double sigma = 10.; // ???
+const double rho1 = 100.;
+const double rho2 = 100.;
+const double sigma = 3.; // ???
 const double gravity = 0.;
 
 std::vector <double> g;
@@ -250,7 +250,7 @@ int main(int argc, char** args) {
   std::cout << "Testing the class Cloud \n";
 
 
-  unsigned nIterations = 6000;
+  unsigned nIterations = 35000;
   unsigned nMrk = 800;
 
 // //   Oscillation
@@ -345,6 +345,7 @@ int main(int argc, char** args) {
   vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, 0);
 
 
+
   for(unsigned it = 1; it <= nIterations; it++) {
 
     mlSol.CopySolutionToOldSolution();
@@ -374,12 +375,12 @@ double TimeStepMultiphase(const double time) {
   // double dt =  0.005; //RT
   // double dt =  0.001; //RT
 //   // double dt =  0.01; //Turek
-  double sigma = 10;
-  double rho = 30.;
+  double sigma = 3;
+  double rho = 100.;
   // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
   // double dt =  totalT/800; //Parasitic Test
 
-  double dt =   0.25 * 0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
+  double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
   // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
   return dt;
 }
