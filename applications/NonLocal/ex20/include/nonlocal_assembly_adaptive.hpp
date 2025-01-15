@@ -3,8 +3,16 @@
 #include <boost/random/normal_distribution.hpp>
 #include "MultiLevelSolution.hpp"
 
-
 using namespace femus;
+
+#include "CDWeights.hpp"
+
+#include "./parabInt/Rebuild.hpp"
+#include "./parabInt/parabolaIntegration.hpp"
+
+#include "./parabInt/polyWPar.cpp"
+
+
 
 class Region {
   private:
@@ -289,6 +297,9 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
   SparseMatrix*            KK = pdeSys->_KK;
   NumericVector*           RES = pdeSys->_RES;
 
+
+  MatSetOption((static_cast< PetscMatrix* >(KK))->mat(), MAT_IGNORE_ZERO_ENTRIES,PETSC_TRUE);
+
   Region region2(10);
 
   const unsigned  dim = msh->GetDimension();
@@ -367,7 +378,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
   std::cout << "EPS = " << eps << " " << "delta1 = " << delta1 + eps << " " << " lmax1 = " << lmax1 << " lmin1 = " << lmin1 << std::endl;
 
   RefineElement *refineElement[6][3];
-  //RefineElement *refineElementCF[6][3];
+  polyWPar <double> *CDWeightPar;
 
   NonLocal *nonlocal;
 
@@ -387,9 +398,18 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
   }
   else if(dim == 2) {
+
+
+
     refineElement[3][0] = new RefineElement(lmax1, "quad", "linear", "fourth", "fourth", "legendre");
     refineElement[3][1] = new RefineElement(lmax1, "quad", "quadratic", "fourth", "fourth", "legendre");
     refineElement[3][2] = new RefineElement(lmax1, "quad", "biquadratic", "fourth", "fourth", "legendre");
+
+    CDWeightPar = new polyWParQUAD<double> (refineElement[3][2]->GetQuadratureOrder(), 6, 0.001);
+    refineElement[3][0]->SetCDParabolaWeights(CDWeightPar);
+    refineElement[3][1]->SetCDParabolaWeights(CDWeightPar);
+    refineElement[3][2]->SetCDParabolaWeights(CDWeightPar);
+
 
     refineElement[4][0] = new RefineElement(lmax1, "tri", "linear", "fourth", "fourth", "legendre");
     refineElement[4][1] = new RefineElement(lmax1, "tri", "quadratic", "fourth", "fourth", "legendre");
@@ -458,6 +478,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
   std::vector < std::vector < std::vector < double > > > orXRecv(nprocs);
 
   unsigned sizeAll = (offsetp1 - offset) * pow(3, dim);
+
+  time_t overallAssemblyTime = clock();
 
   time_t exchangeTime = clock();
 
@@ -738,6 +760,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
             jelIndex[j] = j;
           }
 
+          //std::cout << "...Iel "<< iel <<std::endl;
+
           nonlocal->AssemblyCutFemI2(0, lmin1, lmax1, 0,
                                      refineElement[ielGeom][soluType]->GetOctTreeElement1(), refineElement[ielGeom][soluType]->GetOctTreeElement1CF(),
                                      *refineElement[ielGeom][soluType], region2, jelIndex, solu1, kappa1, delta1, printMesh);
@@ -763,6 +787,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
     double I2real = (dim == 2) ? 0.5 * M_PI * pow(delta1, 4) : 4. / 5. * M_PI * pow(delta1, 5);
 
+    std::cout<<" I2real = " << I2real<<std::endl;
+
     for(unsigned jel = offset; jel < offsetp1; jel++) {
       unsigned jelGroup = msh->GetElementGroup(jel);
       if (jelGroup == 5) {
@@ -776,7 +802,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
         }
       }
     }
-    std::cout<<I2;
+//     std::cout<<I2;
     //END parallel corrective moment Constant evaluation
   }
 
@@ -943,6 +969,11 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
   std::cout << "Closing Time = " << static_cast<double>(clock() - start) / CLOCKS_PER_SEC << std::endl;
   std::cout << std::endl;
 
+
+  std::cout << "[" << iproc << "] ";
+  std::cout << "Overall Assembly Time = " << static_cast<double>(clock() - overallAssemblyTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout << std::endl;
+
   //END nonlocal assembly
 
   sol->_Sol[cntIndex]->close();
@@ -968,6 +999,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
     delete refineElement[4][0];
     delete refineElement[4][1];
     delete refineElement[4][2];
+    delete CDWeightPar;
   }
   // ***************** END ASSEMBLY *******************
 }

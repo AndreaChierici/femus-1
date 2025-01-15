@@ -80,51 +80,51 @@ int main() {
 
   generateAndLoadOctrees<Type>(maxDepth, degree, percent, Pweights, /*roots,*/ loadedRoots);
 // Example: Search for a point in the loaded Octree
-//   table = 0 ;
-//   Point3D searchPoint(static_cast<double>(p1.x), static_cast<double>(p2.y), static_cast<double>(p3.y));
-//   OctreeNode<Type>* result = loadedRoots[table].search(searchPoint);
-//   if(result) {
-//     std::cout << "Found the smallest sub-cube containing the search point." << std::endl;
-//     std::cout << "\nSearch Point: (" << searchPoint.x << ", " << searchPoint.y << ", " << searchPoint.z << ")\n";
-//     std::cout << "Smallest Sub-cube Bounds: ";
-//     std::cout << "(" << result->minBounds.x << ", " << result->minBounds.y << ", " << result->minBounds.z << ") to ";
-//     std::cout << "(" << result->maxBounds.x << ", " << result->maxBounds.y << ", " << result->maxBounds.z << ")\n";
-//     std::cout << "depth : = " << result->depth << " \n";
-//
-//     std::vector<double>interp_point = {searchPoint.x, searchPoint.y, searchPoint.z};
-//     std::cout << "\n interp Point: (" << interp_point[0] << ", " << interp_point[1] << ", " << interp_point[2] << ")\n";
-//
-//     trilinier_interpolation_vector(result->corners, result->cornerWeights, interp_point, interp_point_weights);
-//
-//     Area = GaussIntegral(0, 0, xg, yg, interp_point_weights, gaussWeight);
-//     Ix  = GaussIntegral(1, 0, xg, yg, interp_point_weights, gaussWeight);
-//     Iy  = GaussIntegral(0, 1, xg, yg, interp_point_weights, gaussWeight);
-//     Ix3  = GaussIntegral(3, 0, xg, yg, interp_point_weights, gaussWeight);
-//     Ix2y  = GaussIntegral(2, 1, xg, yg, interp_point_weights, gaussWeight);
-//     Ixy2  = GaussIntegral(1, 2, xg, yg, interp_point_weights, gaussWeight);
-//     Iy3 = GaussIntegral(0, 3, xg, yg, interp_point_weights, gaussWeight);
-//     Ix2y2  = GaussIntegral(2, 2, xg, yg, interp_point_weights, gaussWeight);
-//
-//     std::cout << "Area0 = " << Area0 << std::endl;
-//     std::cout << "Area = " << Area << std::endl;
-//     std::cout << "Ix = " << Ix << std::endl;
-//     std::cout << "Iy = " << Iy << std::endl;
-//     std::cout << "Ix3 = " << Ix3 << std::endl;
-//     std::cout << "Ix2y = " << Ix2y << std::endl;
-//     std::cout << "Ixy2 = " << Ixy2 << std::endl;
-//     std::cout << "Iy3 = " << Iy3 << std::endl;
-//     std::cout << "Ix2y2 = " << Ix2y2 << std::endl;
-//   }
-//   else {
-//     std::cout << "Search point not found in the Octree." << std::endl;
-//   }
-//
-//   Type direct_area_00 = find_area_2intersection_formula<Type>(0, 0, 0, 0, 1, 4,  p1,  p2, p3);
-//   Type direct_area_10 = find_area_2intersection_formula<Type>(1, 0, 0, 0, 1, 4,  p1,  p2, p3);
-//   Type direct_area_01 = find_area_2intersection_formula<Type>(0, 1, 0, 0, 1, 4,  p1,  p2, p3);
-//   cout << " area = " << direct_area_00 << endl;
-//   cout << " area10 = " << direct_area_10 << endl;
-//   cout << " area01 = " << direct_area_01 << endl;
+  table = 0 ;
+  Point3D searchPoint(static_cast<double>(p1.x), static_cast<double>(p2.y), static_cast<double>(p3.y));
+  OctreeNode<Type>* result = loadedRoots[table].search(searchPoint);
+  if(result) {
+    std::cout << "Found the smallest sub-cube containing the search point." << std::endl;
+    std::cout << "\nSearch Point: (" << searchPoint.x << ", " << searchPoint.y << ", " << searchPoint.z << ")\n";
+    std::cout << "Smallest Sub-cube Bounds: ";
+    std::cout << "(" << result->minBounds.x << ", " << result->minBounds.y << ", " << result->minBounds.z << ") to ";
+    std::cout << "(" << result->maxBounds.x << ", " << result->maxBounds.y << ", " << result->maxBounds.z << ")\n";
+    std::cout << "depth : = " << result->depth << " \n";
+
+    std::vector<double>interp_point = {searchPoint.x, searchPoint.y, searchPoint.z};
+    std::cout << "\n interp Point: (" << interp_point[0] << ", " << interp_point[1] << ", " << interp_point[2] << ")\n";
+
+    trilinier_interpolation_vector(result->corners, result->cornerWeights, interp_point, interp_point_weights);
+
+    Area = GaussIntegral(0, 0, xg, yg, interp_point_weights, gaussWeight);
+    Ix  = GaussIntegral(1, 0, xg, yg, interp_point_weights, gaussWeight);
+    Iy  = GaussIntegral(0, 1, xg, yg, interp_point_weights, gaussWeight);
+    Ix3  = GaussIntegral(3, 0, xg, yg, interp_point_weights, gaussWeight);
+    Ix2y  = GaussIntegral(2, 1, xg, yg, interp_point_weights, gaussWeight);
+    Ixy2  = GaussIntegral(1, 2, xg, yg, interp_point_weights, gaussWeight);
+    Iy3 = GaussIntegral(0, 3, xg, yg, interp_point_weights, gaussWeight);
+    Ix2y2  = GaussIntegral(2, 2, xg, yg, interp_point_weights, gaussWeight);
+
+    std::cout << "Area0 = " << Area0 << std::endl;
+    std::cout << "Area = " << Area << std::endl;
+    std::cout << "Ix = " << Ix << std::endl;
+    std::cout << "Iy = " << Iy << std::endl;
+    std::cout << "Ix3 = " << Ix3 << std::endl;
+    std::cout << "Ix2y = " << Ix2y << std::endl;
+    std::cout << "Ixy2 = " << Ixy2 << std::endl;
+    std::cout << "Iy3 = " << Iy3 << std::endl;
+    std::cout << "Ix2y2 = " << Ix2y2 << std::endl;
+  }
+  else {
+    std::cout << "Search point not found in the Octree." << std::endl;
+  }
+
+  Type direct_area_00 = find_area_2intersection_formula<Type>(0, 0, 0, 0, 1, 4,  p1,  p2, p3);
+  Type direct_area_10 = find_area_2intersection_formula<Type>(1, 0, 0, 0, 1, 4,  p1,  p2, p3);
+  Type direct_area_01 = find_area_2intersection_formula<Type>(0, 1, 0, 0, 1, 4,  p1,  p2, p3);
+  cout << " area = " << direct_area_00 << endl;
+  cout << " area10 = " << direct_area_10 << endl;
+  cout << " area01 = " << direct_area_01 << endl;
 
 
 
@@ -153,8 +153,8 @@ int main() {
 //     std::vector<double> A = {1., 0., 1., 0., 0., -6.};      // Table 1 or 5 gives trouble when rotated.
 
     // trouble case nonlocal 1 . jg=6, jj=4
-      std::vector<std::vector<double>> xv = {{-0.4, -0.4, -0.5, -0.5}, {-0.4, -0.3, -0.3, -0.4}};
-      std::vector<double> A = {-1., 0., -1., -1.1774596669241479, -0.49999999999999994, -0.36910281680828139};
+//       std::vector<std::vector<double>> xv = {{-0.4, -0.4, -0.5, -0.5}, {-0.4, -0.3, -0.3, -0.4}};
+//       std::vector<double> A = {-1., 0., -1., -1.1774596669241479, -0.49999999999999994, -0.36910281680828139};
 
 //       std::vector<double> A = {-1., 0., -1., -0.82254033307585184, -0.22254033307585197, -0.14152419984551109};
 //       std::vector<double> A = {-1., 0., -1., -1.1, -0.42254033307585198, -0.30713508326896299};
@@ -172,6 +172,9 @@ int main() {
 
 //     std::vector<std::vector<double>> xv = {{0., 1., 1., 0.}, {0., 0., 1., 1.}};
 //     std::vector<double> A = {-2.3, 0., 0., 4.3, 1., -0.95};
+
+      std::vector<std::vector<double>> xv = {{-0.4, -0.4, -0.45, -0.45}, {-0.4, -0.35, -0.35, -0.4}};
+      std::vector<double> A = {-1., 0., -1., -0.94999999999999996, -0.41127016653792603, -0.22791078747103335};
 
     PointT <double> q1, q2, q3;
     Point3D searchP(0., 0., 0.);
@@ -473,104 +476,123 @@ int main() {
 
           std::vector<double>modified_weights(interp_point_weights.size());
 
-
-
-          if (table_number == 2 || table_number == 4){
-            if(normal == -1) {
-              int sqrt_size = sqrt(interp_point_weights.size());
-              for(unsigned ai = 0; ai < sqrt_size; ai++) {
-                for(unsigned aj = 0; aj < sqrt_size; aj++) {
-                  modified_weights[ai*sqrt_size + aj] = 1 - interp_point_weights[aj*sqrt_size + ai];
-                }
+          if(normal == -1) {
+            int sqrt_size = sqrt(interp_point_weights.size());
+            for(unsigned ai = 0; ai < sqrt_size; ai++) {
+              for(unsigned aj = 0; aj < sqrt_size; aj++) {
+                modified_weights[ai*sqrt_size + aj] = 1 - interp_point_weights[aj*sqrt_size + ai];
               }
-
-//               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-// // //                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];   // Originally I use this. I changed it to the bottom one.
-//                 modified_weights[aq] = 1 - interp_point_weights[aq];
-//               }
-
             }
-            else{
-//               modified_weights = interp_point_weights;
-
-              int sqrt_size = sqrt(interp_point_weights.size());
-              for(unsigned ai = 0; ai < sqrt_size; ai++) {
-               for(unsigned aj = 0; aj < sqrt_size; aj++) {
-                  modified_weights[ai*sqrt_size + aj] = interp_point_weights[aj*sqrt_size + ai];
-               }
+          }
+          else{
+            int sqrt_size = sqrt(interp_point_weights.size());
+            for(unsigned ai = 0; ai < sqrt_size; ai++) {
+              for(unsigned aj = 0; aj < sqrt_size; aj++) {
+                modified_weights[ai*sqrt_size + aj] = interp_point_weights[aj*sqrt_size + ai];
               }
-
-
-
-
-//               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-// //                   modified_weights[aq] = 1 - interp_point_weights[aq];
-// //                 modified_weights[aq] = 1- interp_point_weights[interp_point_weights.size()-1-aq];
-// //                 modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
-//               }
             }
           }
 
-//           else if (table_number == 0 || table_number == 6){
+
+
+
+
+//           if (table_number == 2 || table_number == 4){
 //             if(normal == -1) {
-//               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-//                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];
-// //                 modified_weights[aq] = 1 - interp_point_weights[aq];
+//               int sqrt_size = sqrt(interp_point_weights.size());
+//               for(unsigned ai = 0; ai < sqrt_size; ai++) {
+//                 for(unsigned aj = 0; aj < sqrt_size; aj++) {
+//                   modified_weights[ai*sqrt_size + aj] = 1 - interp_point_weights[aj*sqrt_size + ai];
+//                 }
 //               }
+//
+// //               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
+// // // //                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];   // Originally I use this. I changed it to the bottom one.
+// //                 modified_weights[aq] = 1 - interp_point_weights[aq];
+// //               }
+//
 //             }
 //             else{
 // //               modified_weights = interp_point_weights;
-//               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-//                 modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
+//
+//               int sqrt_size = sqrt(interp_point_weights.size());
+//               for(unsigned ai = 0; ai < sqrt_size; ai++) {
+//                for(unsigned aj = 0; aj < sqrt_size; aj++) {
+//                   modified_weights[ai*sqrt_size + aj] = interp_point_weights[aj*sqrt_size + ai];
+//                }
+//               }
+//
+//
+//
+//
+// //               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
+// // //                   modified_weights[aq] = 1 - interp_point_weights[aq];
+// // //                 modified_weights[aq] = 1- interp_point_weights[interp_point_weights.size()-1-aq];
+// // //                 modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
+// //               }
+//             }
+//           }
+//
+// //           else if (table_number == 0 || table_number == 6){
+// //             if(normal == -1) {
+// //               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
+// //                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];
+// // //                 modified_weights[aq] = 1 - interp_point_weights[aq];
+// //               }
+// //             }
+// //             else{
+// // //               modified_weights = interp_point_weights;
+// //               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
+// //                 modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
+// //               }
+// //             }
+// //           }
+//
+//
+//           else if (table_number == 0 || table_number == 6){
+//             if(normal == -1) {
+//               int sqrt_size = sqrt(interp_point_weights.size());
+//               for(unsigned ai = 0; ai < sqrt_size; ai++) {
+//                 for(unsigned aj = 0; aj < sqrt_size; aj++) {
+//                   modified_weights[ai*sqrt_size + aj] = 1 - interp_point_weights[aj*sqrt_size + ai];
+//                 }
+//               }
+//             }
+//             else{
+//               int sqrt_size = sqrt(interp_point_weights.size());
+//               for(unsigned ai = 0; ai < sqrt_size; ai++) {
+//                for(unsigned aj = 0; aj < sqrt_size; aj++) {
+//                   modified_weights[ai*sqrt_size + aj] = interp_point_weights[aj*sqrt_size + ai];
+//                }
 //               }
 //             }
 //           }
-
-
-          else if (table_number == 0 || table_number == 6){
-            if(normal == -1) {
-              int sqrt_size = sqrt(interp_point_weights.size());
-              for(unsigned ai = 0; ai < sqrt_size; ai++) {
-                for(unsigned aj = 0; aj < sqrt_size; aj++) {
-                  modified_weights[ai*sqrt_size + aj] = 1 - interp_point_weights[aj*sqrt_size + ai];
-                }
-              }
-            }
-            else{
-              int sqrt_size = sqrt(interp_point_weights.size());
-              for(unsigned ai = 0; ai < sqrt_size; ai++) {
-               for(unsigned aj = 0; aj < sqrt_size; aj++) {
-                  modified_weights[ai*sqrt_size + aj] = interp_point_weights[aj*sqrt_size + ai];
-               }
-              }
-            }
-          }
-
-
-
-
-
-
-
-          else if (table_number == 1) {
-
-            for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-//                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];
-                modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
+//
+//
+//
+//
+//
+//
+//
+//           else if (table_number == 1) {
+//
+//             for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
+// //                 modified_weights[aq] = 1 - interp_point_weights[interp_point_weights.size()-1-aq];
+//                 modified_weights[aq] = interp_point_weights[interp_point_weights.size()-1-aq];
+// //                 modified_weights[aq] = 1 - interp_point_weights[aq];
+//               }
+//           }
+//
+//           else{
+//             if(normal == -1) {
+//               for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
 //                 modified_weights[aq] = 1 - interp_point_weights[aq];
-              }
-          }
-
-          else{
-            if(normal == -1) {
-              for(unsigned aq = 0; aq < interp_point_weights.size(); aq++) {
-                modified_weights[aq] = 1 - interp_point_weights[aq];
-              }
-            }
-            else{
-              modified_weights = interp_point_weights;
-            }
-          }
+//               }
+//             }
+//             else{
+//               modified_weights = interp_point_weights;
+//             }
+//           }
 
 
 

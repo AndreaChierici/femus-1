@@ -38,10 +38,10 @@ void random_polynomial(std::vector <Type> &a1, std::vector <Type> &a2) {
   a1[0] = ((double(std::rand()) / double(RAND_MAX)) * (4)) - 2;
   a1[1] = ((double(std::rand()) / double(RAND_MAX)) * (4)) - 2;
   a1[2] = ((double(std::rand()) / double(RAND_MAX)) * (4)) - 2;
-  a2[0] = a1[0] ;
+  a2[0] = a1[0] ;                                               // this gives us a = 0 ;
 //   a2[1] = a1[1];
   a2[1] = ((double(std::rand()) / double(RAND_MAX)) * (4)) - 2;
-  a2[2] = ((double(std::rand()) / double(RAND_MAX)) * (4)) - 2;
+  a2[2] = a1[2];
 //             std::cout <<"\n ** k = "<<a2[0] << "; b = " << a2[1] << "; d = " << a2[2] << "; a = " << a1[1] - a2[1]<< "; c = " << a1[2] - a2[2] << ";" << std::endl;
 }
 
@@ -1081,19 +1081,383 @@ Type easy_integral_A3(const unsigned &m, const unsigned &n, const int &s, const 
 }
 
 
+template <class Type>
+Type trig_integral_A2(const unsigned &m, const unsigned &n, const int &s, const Type &a, const Type &c, const std::vector <Type> &pol1, const std::vector< std::pair<Type, Type> > &I2) {
+  Type A2(0);
+  if(a == 0) {
+    int rMax = s + n + 1;
+    for(unsigned i = 0; i < I2.size(); i++) {
+      unsigned r_pm_p1 = m + 1;
+      unsigned rMax_mr_pm_p1 = 2 * rMax + m + 1;
+
+//       BEGIN preevaluating
+        std::vector <Type> diff_x_pow(2 * rMax + m + 2, 0) ;
+//         Type x1pi = I2[i].first;
+//         Type x2pi = I2[i].second;
+        Type x1pi = pow(I2[i].first,m+1);
+        Type x2pi = pow(I2[i].second,m+1);
+        for(unsigned pwr = m+1; pwr <= 2 * rMax + m + 1 ; pwr++, x1pi *= I2[i].first, x2pi *= I2[i].second) {
+            diff_x_pow[pwr] = (x2pi - x1pi) / (pwr) ;
+        }
+//         END
+
+    Type pterm = pol1[0] * pol1[2];
+
+      for(int r = 0; r <= rMax; r++) {
+        Type term(1);
+        Type sum1 = pow(pol1[1], r);
+        Type sum2(0);
+        unsigned r_p1_m2p =  r + 1;
+        unsigned rMax_mr_pp = rMax - r;
+        for(int p = 1; p <= r / 2; p++) {
+          r_p1_m2p -= 2;
+          rMax_mr_pp += 1;
+  //           sum += (pow(pol1[0], p) * pow(pol1[1], r - 2 * p) * pow(pol1[2], rMax + p - r)) / (factorial<Type>(p) * factorial<Type>(r - 2 * p) * factorial<Type>(rMax + p - r));
+  //           term *= pol1[0] * pol1[2] *(r - 2 * p + 1)*(r - 2 * p + 2) / ( p * (rMax + p - r));
+          term *= pterm * r_p1_m2p * (r_p1_m2p + 1) / (p * rMax_mr_pp);
+          sum1 += term * pow(pol1[1], r - 2 * p);
+        }
+        sum1 = sum1 / (factorial<Type>(r) * factorial<Type>(rMax - r));
+        sum2 = (r == rMax) ? 0 : sum1 * pow(pol1[0], rMax - r);
+        sum1 *= pow(pol1[2], rMax - r);
+//         for(unsigned i = 0; i < I2.size(); i++) {
+
+        A2 += sum1 * diff_x_pow[r_pm_p1] +  sum2 * diff_x_pow[rMax_mr_pm_p1] ;
+//           A2 += sum1 * (pow(I2[i].second, r_pm_p1) - pow(I2[i].first, r_pm_p1)) / r_pm_p1 +  sum2 * (pow(I2[i].second, rMax_mr_pm_p1) - pow(I2[i].first, rMax_mr_pm_p1)) / rMax_mr_pm_p1 ;
+//         }
+        r_pm_p1 ++;
+        rMax_mr_pm_p1 --;
+      }
+    }
+//change the sign here. Why did I put -1 for even n before? I don't understand. But for now lets change the sign
+    A2 *= ((n % 2 == 0) ? -1 : 1) * factorial<Type>(n) / pow(c, n + 1);
+
+    return A2;
+  }
+
+  //Did not do any change in here.
+
+  else {
+    std::vector <Type> k(3);
+    std::cout.precision(20);
+
+    k[0] = pol1[0] / (a * a);
+    k[1] = pol1[1] / a;
+    k[2] = k[0] * c * c - k[1] * c + pol1[2];
+    k[1] -= 2 * c * k[0];
+
+    std::vector <Type> A(s + n + 2, 0);
+    std::vector <Type> B(s + n + 2, 0);
+
+    unsigned qMax = s + n + 1;
+
+    //BEGIN pre-evalate A[q] and B[q].
+    if(k[1] != 0) {  //regular
+      Type kterms = (k[0] * k[2]) / (k[1] * k[1]);
+      for(int q = 0; q <= qMax; q++) {
+        Type term(1);
+        A[q] = term;
+        unsigned q_p1_m2r = q + 1;
+        unsigned qMax_mq_pr = qMax - q;
+        for(int r = 1; r <= q / 2; r++) {
+          q_p1_m2r -= 2;
+          qMax_mq_pr += 1;
+          //term *= k[0] * k[2] * (q - 2 * r + 1) * (q - 2 * r + 2) / (r * (s + n + 1 + r - q) * k[1] * k[1]);
+          term *= kterms * q_p1_m2r * (q_p1_m2r + 1) / (r * qMax_mq_pr);
+          A[q] += term ;
+        }
+        A[q] *= pow(k[1], q) / (factorial<Type>(q) * factorial<Type>(qMax - q));
+        B[q] = A[q] * (pow(k[0], qMax - q));
+        A[q] *= pow(k[2], qMax - q) ;
+      }
+    }
+
+      //END pre-evalate A[q] and B[q].
+
+    else { // (special case if k[1] =  small )
+      for(unsigned w = 0; w < I2.size(); w++)  {
+        Type u1 = a * I2[w].first + c;
+        Type u2 = a * I2[w].second + c;
+//         k[2] = pol1[2] - pol1[1]*c /(2*a);
+        for(int p = 0; p <= m; p++) {
+          Type sum(0);
+          for(int q = 0; q <= qMax; q++) {
+            int pwr = 2 * q - n + p ;
+            sum += pow(k[2], qMax - q) * pow(k[0], q) / (factorial<Type>(q) * factorial<Type>(qMax - q)) * ((pwr == 0) ? log(u2 / u1) : ((pow(u2, pwr) - pow(u1, pwr)) / (pwr))) ;
+          }
+          A2 += sum * pow(-c, m - p) / (factorial<Type>(p) * factorial<Type>(m - p)) ;
+        }
+      }
+      A2 *= pow(-1, n + 1) * factorial<Type>(n) * factorial<Type>(m) / pow(a, m + 1) ;
+
+      return A2;
+    }
+
+
+    //integration starts from here.....
+    for(unsigned w = 0; w < I2.size(); w++)  {
+      Type u1 = a * I2[w].first + c;
+      Type u2 = a * I2[w].second + c;
+
+      if(u1 == 0 || u2 == 0) {   // TODO need to fix this. if we have double parts of any region. This is wrong .
+
+        Type A2i(0);
+        Type c_0 = (a * pol1[1] - pol1[0] * c) / (a * a);
+        int pMax = s + n + 1 ;
+        Type p_term(1);
+        Type p_sum(1);
+        for(int p = 1; p <= pMax; p++) {
+          Type q_term(1);
+          Type q_sum = q_term;
+
+          for(int q = 1; q <= s; q++) {
+            Type r_pm_p1 = p + q + 1;
+            q_term *= a * (s - q + 1) / (c * q);
+            q_sum += q_term * (pow(I2[w].second, r_pm_p1) - pow(I2[w].first, r_pm_p1)) / r_pm_p1;
+          }
+          q_sum *= pow(c, s) / factorial<Type>(s) ;
+          p_term *= pol1[0] * (pMax - p + 1) / (a * p * c_0);
+          p_sum += p_term * q_sum ;
+        }
+
+        A2 += p_sum * ((n % 2 == 0) ? -1 : 1) * factorial<Type>(n) * factorial<Type>(s) * pow(c_0, pMax) / factorial<Type>(pMax) ;
+      }
+      else {
+
+//        {
+// //         Type A2i(0);
+// //         for(unsigned p = 0; p <= m; p++) {
+// //           Type sum1(0);
+// //           for(unsigned q = 0; q <= qMax; q++) {
+// //             int pwr = p + q - n;
+// //             sum1 += A[q] * ((pwr== 0) ? log(u2 / u1) : (pow(u2, pwr) - pow(u1, pwr)) / (pwr));
+// //           }
+// //           Type sum2(0);
+// //           for(unsigned q = 0; q < qMax; q++) {
+// //             int pwr= 2 * s + n + 2 + p - q;
+// //             sum2 += B[q] * (pow(u2,pwr) - pow(u1,pwr)) / (pwr);
+// //           }
+// //           A2i += (sum1 + sum2) * pow(-c, m - p) / (factorial<Type>(p) * factorial<Type>(m - p));
+// //         }
+// //         A2 += A2i * pow(-1, n + 1) * factorial<Type>(n) * factorial<Type>(m) / pow(a, m + 1) ;
+//        }
+
+        // BEGIN pre evalution of power of U
+        std::vector <Type> diff_u_pow(2 * s + 2 * n + m + 3, 0) ;
+        Type u1pi = 1. / pow(u1, n);
+        Type u2pi = 1. / pow(u2, n);
+        for(int pwr = 0; pwr <= n - 1 ; pwr++, u1pi *= u1, u2pi *= u2) {
+          int actual_pwr = pwr - n;
+          diff_u_pow[pwr] = (u2pi - u1pi) / actual_pwr ;
+        }
+//             Type u1pi = 1./u1;
+//             Type u2pi = 1./u2;
+//             for(int pwr = n-1; pwr >= 0 ; pwr--, u1pi /= u1, u2pi /= u2) {
+//               int actual_pwr = pwr - n;
+//               diff_u_pow[pwr] = (u2pi - u1pi) / actual_pwr ;
+//             }
+
+        diff_u_pow[n] = log(u2 / u1) ;
+        u1pi = u1;
+        u2pi = u2;
+        for(int pwr = n + 1; pwr <= 2 * qMax + m ; pwr++, u1pi *= u1, u2pi *= u2) {
+          int actual_pwr = pwr - n;
+          diff_u_pow[pwr] = (u2pi - u1pi) / actual_pwr ;
+        }
+        // END pre evaluation of power
+
+
+        Type A2i(0);
+        for(int p = 0; p <= m; p++) {
+          Type sum1(0);
+          for(int q = 0; q <= qMax; q++) {
+//             int pwr = p + q;                       // added n with original power
+//             sum1 += A[q] * diff_u_pow[pwr] ;
+            sum1 += A[q] * diff_u_pow[p + q] ;
+
+          }
+          Type sum2(0);
+          for(int q = 0; q < qMax; q++) {
+//             int pwr = 2 * qMax + p - q;            // added n with original power
+//             sum2 += B[q] * diff_u_pow[pwr];
+            sum2 += B[q] * diff_u_pow[2 * qMax + p - q];
+          }
+          A2i += (sum1 + sum2) * pow(-c, m - p) / (factorial<Type>(p) * factorial<Type>(m - p));
+        }
+        A2 += A2i * ((n % 2 == 0) ? -1 : 1) */* pow(-1, n + 1) **/ factorial<Type>(n) * factorial<Type>(m) / pow(a, m + 1) ;
+      }
+
+    }
+    //total
+    //  A2 *= pow(-1, n + 1) * factorial<Type>(n) * factorial<Type>(m) / pow(a, m + 1);
+// //           std::cout << "final. A2= " << A2 << std::endl;
+    return A2;
+  }
+}
+
+
+template <class Type>
+Type trig_integral_A3(const unsigned &m, const unsigned &n, const int &s, const Type &a, const Type &c, const std::vector <Type> &pol1, const std::vector< std::pair<Type, Type> > &I3) {
+  Type A3(0);
+  if(a == 0) {
+    for(int i = 0; i <= s; i++) {
+      for(unsigned w = 0; w < I3.size(); w++) {
+        int pMax = s - i;
+        for(int r = 0; r <= pMax; r++) {
+          Type sum1 = pow(pol1[2], pMax - r)/factorial<Type>(pMax - r) ;
+          Type sum = sum1 * (pow(I3[w].second,2 * r + m + 1+n+1-i) - pow(I3[w].first, 2 * r + m + 1+n+1-i))/ (2 * r + m + 1+n+1-i);
+          for(int p = 1; p <= pMax - r; p++) {
+            sum1 *= pol1[1] * (pMax - r - p + 1) / (pol1[2] * p)   ;
+            sum += sum1 * (pow(I3[w].second,2 * r + m+p + 1) - pow(I3[w].first, 2 * r +p+ m + 1))/ (2 * r + m+p + 1) ;
+          }
+          A3 += sum * pow(pol1[0], r) / (factorial<Type>(r) * (n + i + 1) * factorial<Type>(i)) ;
+        }
+      }
+    }
+  }
+
+
+  //Did not change anything in here
+  else {
+    std::cout << " not a parabola. redo the code for trig_integral_A3" ;
+    std::vector <Type> k(3);
+    k[0] = pol1[0] / (a * a);
+    k[1] = pol1[1] / a;
+    k[2] = k[0] * c * c - k[1] * c + pol1[2];
+    k[1] -= 2 * c * k[0];
+
+    for(int i = 0; i <= s; i++) {
+      unsigned qMax = s - i;
+      if(k[1] == 0) {   // if k[1] is small
+        for(unsigned w = 0; w < I3.size(); w++) {
+          Type u1 = a * I3[w].first + c;
+          Type u2 = a * I3[w].second + c;
+
+          // BEGIN pre evalution of power of all
+          std::vector <Type> diff_u_pow(m + 2 * s + 2, 0) ;
+          Type u1pi = u1;
+          Type u2pi = u2;
+          for(unsigned pwr = 1; pwr <= m + 2 * s + 1 ; pwr++, u1pi *= u1, u2pi *= u2) {
+            //               diff_u_pow[pwr] = (pow(u2, pwr) - pow(u1, pwr)) / (pwr) ;
+            diff_u_pow[pwr] = (u2pi - u1pi) / (pwr) ; // TODO TOCHECK
+          }
+          std::vector <Type> pow_c(m + 1, 0) ;
+          pow_c[0] = 1;
+          for(unsigned pwr = 1; pwr <= m ; pwr++) {
+            pow_c[pwr] = (-c) * pow_c[pwr - 1] ;
+          }
+          std::vector <Type> pow_k0(s + 1, 0) ;
+          std::vector <Type> pow_k2(s + 1, 0);
+          pow_k0[0] = 1;
+          pow_k2[0] = 1;
+          for(unsigned pwr = 1; pwr <= s ; pwr++) {
+            pow_k0[pwr] = k[0] * pow_k0[pwr - 1] ;
+            pow_k2[pwr] = k[0] * pow_k2[pwr - 1] ;
+          }
+          // END pre evalution of power of all
+
+          //         k[2] = pol1[2] - pol1[1]*c /(2*a);
+          for(int p = 0; p <= m; p++) {
+            Type sum(0);
+            for(int q = 0; q <= qMax; q++) {
+              int pwr = 2 * q + i + p + 1 ;
+              sum += pow_k2[qMax - q] * pow_k0[q] * diff_u_pow[pwr] / (factorial<Type>(q) * factorial<Type>(qMax - q))  ;
+            }
+            A3 += sum * pow_c[m - p] / (factorial<Type>(p) * factorial<Type>(m - p)) ;
+          }
+        }
+      }
+
+      else { // main integral
+        // BEGIN pre evaluation A[q] and B[q]
+        std::vector <Type> A(s - i + 1, 0);  // size of all this vector changes.
+        std::vector <Type> B(s - i + 1, 0);
+        if(k[1] != 0) {
+          Type kterms = (k[0] * k[2]) / (k[1] * k[1]);
+          for(int q = 0; q <= qMax; q++) {
+            Type term(1);
+            A[q] = term;
+            unsigned q_p1_m2r = q + 1;
+            unsigned qMax_mq_pr = qMax - q;
+
+            for(int r = 1; r <= q / 2; r++) {
+              q_p1_m2r -= 2;
+              qMax_mq_pr += 1;
+              //term *= k[0] * k[2] * (q - 2 * r + 1) * (q - 2 * r + 2) / (r * (s + n + 1 + r - q) * k[1] * k[1]);
+              term *= kterms * q_p1_m2r * (q_p1_m2r + 1) / (r * qMax_mq_pr);
+              A[q] += term ;
+            }
+            //           B[q] = A[q] * (pow(k[1], q) * pow(k[0], qMax - q)) / (factorial<Type>(q) * factorial<Type>(qMax - q));
+            //           A[q] *= (pow(k[1], q) * pow(k[2], qMax - q)) / (factorial<Type>(q) * factorial<Type>(qMax - q));
+
+            A[q] *= pow(k[1], q) / (factorial<Type>(q) * factorial<Type>(qMax - q));
+            B[q] = A[q] * pow(k[0], qMax - q);
+            A[q] *= pow(k[2], qMax - q);
+
+            //         std::cout<<"A["<<q<<"] = " << A[q] <<"  B[] ="<< B[q] << std::endl;
+            //         std::cout << "A[" << q << "] = " << A[q] << "  B[] =" << B[q] << std::endl;
+          }
+        }
+        // END  pre evaluation
+
+        for(unsigned w = 0; w < I3.size(); w++) {
+          Type u1 = a * I3[w].first + c;
+          Type u2 = a * I3[w].second + c;
+
+          // BEGIN pre evalution of power of U
+          std::vector <Type> diff_u_pow(m + 2 * s + 2, 0) ;
+          Type u1pi = u1;
+          Type u2pi = u2;
+          for(unsigned pwr = 1; pwr <= m + 2 * s + 1 ; pwr++, u1pi *= u1, u2pi *= u2) {
+            //               diff_u_pow[pwr] = (pow(u2, pwr) - pow(u1, pwr)) / (pwr) ;
+            diff_u_pow[pwr] = (u2pi - u1pi) / (pwr) ;
+          }
+          // END
+          // BEGIN pre evalution of power of -c
+          std::vector <Type> pow_c(m + 1, 0) ;
+          pow_c[0] = 1;
+          for(unsigned pwr = 1; pwr <= m ; pwr++) {
+            pow_c[pwr] = (-c) * pow_c[pwr - 1] ;
+          }
+          // END pre evalution of power of -c
+
+          //Type A3i(0);
+          for(unsigned p = 0; p <= m; p++) {
+            Type sum1(0);
+            int pwr = p + i + 1;
+            for(unsigned q = 0; q <= qMax; q++, pwr++) {
+              //             int pwr = p + q + i + 1;
+              sum1 += A[q] * diff_u_pow[pwr];
+            }
+            Type sum2(0);
+            pwr = 2 * s - i + p + 1;
+            for(unsigned q = 0; q < qMax; q++, pwr--) {
+              //int pwr = 2 * s - i + p - q + 1;
+              sum2 += B[q] * diff_u_pow[pwr];
+            }
+            A3 += (sum1 + sum2) * pow_c[m - p] / (factorial<Type>(p) * factorial<Type>(m - p));
+          }
+        }
+      }
+      A3 /= ((n + i + 1) * factorial<Type>(i)) ;
+    }
+    A3 *= factorial<Type>(m) / pow(a, m + 1);
+    //     std::cout<< "final. A3= "<< A3 << std::endl;
+  }
+  return A3;
+}
 
 
 
 int main() {
-  unsigned int m = 2;
-  unsigned int n = 2;
+  unsigned int m = 0;
+  unsigned int n = 0;
   int s = 0;
 
   std::cout.precision(16);
 
   typedef cpp_bin_float_oct Type;
-  Type k, b, d, a, c, area1, area2, easy_area1, easy_area2;
-
+  Type k, b, d, a, c, area1, area2, easy_area1, easy_area2,Trig_area1,Trig_area2;
   std::vector <Type> pol1(3, 0);
   std::vector <Type> pol2(3, 0);
   clock_t t = clock();
@@ -1103,10 +1467,14 @@ int main() {
   for(unsigned int j = 0; j < 1; j++) {
     Type A1 = 0, A2 = 0, A3 = 0, Easy_A1 = 0,  Easy_A2 = 0, Easy_A3 = 0;
     Type B1 = 0, B2 = 0, B3 = 0, Easy_B1 = 0, Easy_B2 = 0, Easy_B3 = 0;
+    Type Trig_A1 = 0,  Trig_A2 = 0, Trig_A3 = 0,Trig_B1 = 0,  Trig_B2 = 0, Trig_B3 = 0;
+
+
 
 //     random_polynomial(pol1, pol2);
-//     a = pol1[1] - pol2[1];
-//     c = pol1[2] - pol2[2];
+// //     a = pol1[0] - pol2[0];
+//     a = 0;
+//     c = pol1[1] - pol2[1];
 
 //      k = 0.85764624125214572459; b = 0.54315816543212092071; d = 1.4313877017383407342; a = -0.0012779049581279622316; c = -1.5795148879194236269;
 //     std::vector<std::vector<Type>> sample{{1, -1, 0.25, 0.5, -0.1, 0,0,1}, {0, 0,0,0.5,0,1,0,0}, {1, 0,0,0.5,0,0,0,1},{0.1, 0.2,-1,2,0.1,0.251724386116496,0,0}, {1, -1, 0.25, 0, -0.25, 0,0.3333333333333333,0},{1, -1, 0.25, 0, -0.1, 0,0.2108185106778920348,0.36754446796632406214},{20,-8.4,0.6,-6.5,1.3,0.045806466059993167228,0.136242991647203604,0.5095766326720312378}, {-0.69657011083167508225, -0.69655399150054631008, 1.4832208284564414313, 1, -1.4513087502919645999,0,0.34978109786848710083,0.52319330960346455139}};
@@ -1121,29 +1489,20 @@ int main() {
 //       pol2[2] = sample[j][2];
 //       a = sample[j][3];
 //       c = sample[j][4];
-// 7.00881e-16, 2.51256, -1.75628, 1
-// k = static_cast<Type>(7.00881e-16);
-//     -0.16644x^2 + 0.332592 x + -1.13415
-//     -357.0432423423495x^2 + 716.3906311474898 x + -359.9080438381724 + y
-//3epsilon -52231.6x^2+ 388.287x+ -0.901638+y =0
-// 2ep    -117521x^2+ 582.43x+ -0.901638+y =0
-// 1.75ep    -153497x^2+ 665.634x+ -0.901638+y =0
-//    1.5ep -208927x^2+ 776.573x+ -0.901638+y =0
-//   1.25ep  -300854x^2+ 931.888x+ -0.901638+y =0
-// 1ep    -470085x^2+ 1164.86x+ -0.901638+y =0
-// 1/2 ep    -1.88034e+06x^2+ 2329.72x+ -0.901638+y =0
-
-// -12.4444x^2+ 2.33333x+ -0.125+y =0
-
-   k = 1.382;
-   b = -1;
-   d = -0.829178;
+// -3.2x^2+ 3.8x+ -1.1+y =0
+// 2A    14.4x^2+ -9.8x+ 1.3+ y =0
+// 2C  6.4x^2+ -6.8x+ 1.3+y =0
+// 2B    2.37037x^2+ -3.80741x+ 0.803704+y =0
+// 2D    -3.52x^2+ 3.64x+ -0.94+y =0
+// 2E    -4.8x^{2}+4.6x+-1.1+y=0
+   k = -4.8;
+   b = 4.6;
+   d = -1.1;
   a = 0;
   c = 1;
 
 
-//  a=0;
-    pol1[0] = k; pol1[1] = a + b; pol1[2] = c + d; pol2[0] = k; pol2[1] = b; pol2[2] = d;
+    pol1[0] = k+a; pol1[1] = b + c; pol1[2] = d; pol2[0] = k; pol2[1] = b; pol2[2] = d;
 
     std::vector< std::pair <Type, Type> > I1, I2, I3, nI1, nI2, nI3 ;
     GetIntervalall<Type, Type>(pol1, pol2, I1, I2, I3);
@@ -1154,48 +1513,53 @@ int main() {
               for(unsigned i = 0; i < I2.size(); i++) {std::cout << "I2_1 = " << I2[i].first << "; I2_2 = " << I2[i].second << ";" << std::endl;}
               for(unsigned i = 0; i < I3.size(); i++) {std::cout << "I3_1 = " << I3[i].first << "; I3_2 = " << I3[i].second << ";" << std::endl;}
 
-                  cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
+//                   cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
+
+//     if(I1.size() > 0) {
+//       A1 = integral_A3(m, n, s, a, c, pol2, I1) -  integral_A2(m, n, s, a, c, pol2, I1);
+//       Easy_A1 = easy_integral_A3(m, n, s, a, c, pol2, I1) -  easy_integral_A2(m, n, s, a, c, pol2, I1);
+//     }
+//     if(I2.size() > 0) {
+//       A2 = integral_A2(m, n, s, a, c, pol2, I2);
+//       Easy_A2 = easy_integral_A2(m, n, s, a, c, pol2, I2);
+//     }
+//     if(I3.size() > 0) {
+//       A3 = integral_A3(m, n, s, a, c, pol2, I3);
+//       Easy_A3 = easy_integral_A3(m, n, s, a, c, pol2, I3);
+//     }
+// cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
+//     area1 = A1 + A2 + A3;
+//     easy_area1 = Easy_A1 + Easy_A2 + Easy_A3;
+//     cout << "area = " << area1 << " "<< easy_area1 <<endl;
+
 
     if(I1.size() > 0) {
-      A1 = integral_A3(m, n, s, a, c, pol2, I1) -  integral_A2(m, n, s, a, c, pol2, I1);
-      Easy_A1 = easy_integral_A3(m, n, s, a, c, pol2, I1) -  easy_integral_A2(m, n, s, a, c, pol2, I1);
+      Trig_A1 = trig_integral_A3(m, n, s, a, c, pol2, I1) -  trig_integral_A2(m, n, s, a, c, pol2, I1);
     }
     if(I2.size() > 0) {
-      A2 = integral_A2(m, n, s, a, c, pol2, I2);
-      Easy_A2 = easy_integral_A2(m, n, s, a, c, pol2, I2);
+      Trig_A2 = trig_integral_A2(m, n, s, a, c, pol2, I2);
     }
     if(I3.size() > 0) {
-      A3 = integral_A3(m, n, s, a, c, pol2, I3);
-      Easy_A3 = easy_integral_A3(m, n, s, a, c, pol2, I3);
+      Trig_A3 = trig_integral_A3(m, n, s, a, c, pol2, I3);
     }
-cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
-    area1 = A1 + A2 + A3;
-    easy_area1 = Easy_A1 + Easy_A2 + Easy_A3;
-    cout << "area = " << area1 << " "<< easy_area1 <<endl;
+
+    Trig_area1 = Trig_A1 + Trig_A2 + Trig_A3;
+    cout << "Trig_A1 = " << Trig_A1 << "\n Trig_A2 = " << Trig_A2 << "\n Trig_A3 = " << Trig_A3 <<"\n trig area = " << Trig_area1 <<endl;
+
+    I1.resize(0);
+    I3.resize(0);
+    I1.resize(1, std::pair<Type, Type>(static_cast<Type>(0.25), static_cast<Type>(0.4583)));
+    I3.resize(1, std::pair<Type, Type>(static_cast<Type>(0.4583), static_cast<Type>(1)));
+
+  for(unsigned i = 0; i < I1.size(); i++) {std::cout << "I1_1 = " << I1[i].first << "; I1_2 = " << I1[i].second << ";" << std::endl;}
+  for(unsigned i = 0; i < I3.size(); i++) {std::cout << "I3_1 = " << I3[i].first << "; I3_2 = " << I3[i].second << ";" << std::endl;}
+  //When I do this I1 is resizing but it is not taking any value. Kept the original value. I don't know how my previous code worked.
 
 
-//         I1.resize(1);
-//         I3[0].second = 1 ;
-//         Type area = integral_A3(m, n, s, a, c, pol2, I1) -  integral_A2(m, n, s, a, c, pol2, I1) + easy_integral_A3(m, n, s, a, c, pol2, I3);
-//         cout << " two intersection area = " << area <<endl ;
 
-/*
-        I1[0].first = I1[1].first ;
-        I1[0].second = I1[1].second ;
-        cout<< " I1 = " << I1[0].first << " "<< I1[0].second << endl;
-        I1.resize(1);
-        Type area = easy_integral_A3(m, n, s, a, c, pol2, I1) -  easy_integral_A2(m, n, s, a, c, pol2, I1);
-        cout << " two intersection area = " << area <<endl ;*/
-
-//         I1[0].first = I1[1].first ;
-//         I1[0].second = I1[1].second ;
-//         cout<< " I1 = " << I1[0].first << " "<< I1[0].second << endl;
-//         I1.resize(1);
-//         I1.resize(1);
-//         I3[0].first = 0 ;
-//         Type area = integral_A3(m, n, s, a, c, pol2, I1) -  integral_A2(m, n, s, a, c, pol2, I1) + easy_integral_A3(m, n, s, a, c, pol2, I3);
-//         cout << " two intersection area = " << area <<endl ;
-
+  Type Trig_1A = trig_integral_A3(m, n, s, a, c, pol2, I1) -  trig_integral_A2(m, n, s, a, c, pol2, I1);
+  Type Trig_1B = trig_integral_A3(m, n, s, a, c, pol2, I3) ;
+  cout<< " -----------------Check area -----"<< Trig_1A << " "<<Trig_1B<<  " " <<Trig_1A+Trig_1B << endl;
 
 
     pol1[0] *= -1;
@@ -1207,6 +1571,19 @@ cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
     a *= -1;
     c *= -1;
     GetIntervalall<Type, double>(pol1, pol2, nI1, nI2, nI3);
+
+
+//     std::cout <<"\nm = "<< m << "; n = "<< n << "; s = " << s << "; k = "<<pol2[0] << "; b = " << pol2[1] << "; d = " << pol2[2] << "; a = " << a << "; c = " << c << ";" << std::endl;
+//     for(unsigned i = 0; i < nI1.size(); i++) {std::cout << "I1_1 = " << nI1[i].first << "; I1_2 = " << nI1[i].second << ";" << std::endl;}
+//     for(unsigned i = 0; i < nI2.size(); i++) {std::cout << "I2_1 = " << nI2[i].first << "; I2_2 = " << nI2[i].second << ";" << std::endl;}
+//     for(unsigned i = 0; i < nI3.size(); i++) {std::cout << "I3_1 = " << nI3[i].first << "; I3_2 = " << nI3[i].second << ";" << std::endl;}
+
+//     cout << "I_size = " << nI1.size() <<" "<<nI2.size()<<" "<< nI3.size() <<endl;
+
+
+
+
+/*
     if(nI1.size() > 0) {
       B1 = integral_A3(m, n, s, a, c, pol2, nI1) -  integral_A2(m, n, s, a, c, pol2, nI1);
       Easy_B1 = easy_integral_A3(m, n, s, a, c, pol2, nI1) -  easy_integral_A2(m, n, s, a, c, pol2, nI1);
@@ -1220,25 +1597,46 @@ cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
       Easy_B3 = easy_integral_A3(m, n, s, a, c, pol2, nI3);
     }
     area2 = B1 + B2 + B3;
-    easy_area2 = Easy_B1 + Easy_B2 + Easy_B3;
+    easy_area2 = Easy_B1 + Easy_B2 + Easy_B3;*/
 
-    Type err = 0.00000001;
-    if((fabs(area1 + area2 - 1. / ((m + 1.) * (n + 1.))) < err) || (fabs(easy_area1 + easy_area2 - 1. / ((m + 1.) * (n + 1.))) < err) || (fabs(Easy_A1 - A1) < err) || (fabs(Easy_A2 - A2) < err) || (fabs(Easy_A3 - A3) < err) /*|| (fabs(D1 - Easy_D1) > err ) || (fabs(D2 - Easy_D2) > err ) || (fabs(D3 - Easy_D3) > err)*/) {
+
+
+
+
+    if(nI1.size() > 0) {
+      Trig_B1 = trig_integral_A3(m, n, s, a, c, pol2, nI1) -  trig_integral_A2(m, n, s, a, c, pol2, nI1);
+    }
+    if(nI2.size() > 0) {
+      Trig_B2 = trig_integral_A2(m, n, s, a, c, pol2, nI2);
+    }
+    if(nI3.size() > 0) {
+      Trig_B3 = trig_integral_A3(m, n, s, a, c, pol2, nI3);
+    }
+
+    Trig_area2 = Trig_B1 + Trig_B2 + Trig_B3;
+
+//     cout << "Trig_B1 = " << Trig_B1 << "\nTrig_B2 = " << Trig_B2 << "\nTrig_B3 = " << Trig_B3 <<"\ntrig area = " << Trig_area2 <<endl;
+//     std::cout << "\n area1= " << Trig_area1 << " area2= " << Trig_area2 << "  total = " << Trig_area1 + Trig_area2 << " sum differance " << fabs(Trig_area1 + Trig_area2 - 1. / ((m + n + 2.) * (n + 1.)))  << std:: endl;
+
+//   return 2;
+
+    Type err = 0.0000000001;
+      if((fabs(Trig_area1 + Trig_area2 - 1. / ((m + n + 2.) * (n + 1.))) < err)) {
       std::cout << "................................ Failed...................................... " << std::endl;
       std::cout << "\nm = " << m << "; n = " << n << "; s = " << s << "; k = " << -pol2[0] << "; b = " << -pol2[1] << "; d = " << -pol2[2] << "; a = " << -a << "; c = " << -c << ";" << std::endl;
-      for(unsigned i = 0; i < I1.size(); i++) {
-        std::cout << "I1_1 = " << I1[i].first << "; I1_2 = " << I1[i].second << ";" << std::endl;
-      }
-      for(unsigned i = 0; i < I2.size(); i++) {
-        std::cout << "I2_1 = " << I2[i].first << "; I2_2 = " << I2[i].second << ";" << std::endl;
-      }
-      for(unsigned i = 0; i < I3.size(); i++) {
-        std::cout << "I3_1 = " << I3[i].first << "; I3_2 = " << I3[i].second << ";" << std::endl;
-      }
+//       for(unsigned i = 0; i < I1.size(); i++) {
+//         std::cout << "I1_1 = " << I1[i].first << "; I1_2 = " << I1[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < I2.size(); i++) {
+//         std::cout << "I2_1 = " << I2[i].first << "; I2_2 = " << I2[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < I3.size(); i++) {
+//         std::cout << "I3_1 = " << I3[i].first << "; I3_2 = " << I3[i].second << ";" << std::endl;
+//       }
 
-      std::cout << "Easy A1= " << Easy_A1 << "; oct A1= " << A1 << std::endl;
-      std::cout << "Easy A2= " << Easy_A2 << "; oct A2= " << A2 << std::endl;
-      std::cout << "Easy A3= " << Easy_A3 << "; oct A3= " << A3 << std::endl;
+      std::cout << "Trig A1= " << Trig_A1 <<  std::endl;
+      std::cout << "Trig A2= " << Trig_A2 <<  std::endl;
+      std::cout << "Trig A3= " << Trig_A3 <<  std::endl;
       std::cout << "\nm = " << m << "; n = " << n << "; s = " << s << "; k = " << pol2[0] << "; b = " << pol2[1] << "; d = " << pol2[2] << "; a = " << a << "; c = " << c << ";" << std::endl;
       for(unsigned i = 0; i < nI1.size(); i++) {
         std::cout << "nI1_1 = " << nI1[i].first << "; nI1_2 = " << nI1[i].second << ";" << std::endl;
@@ -1249,19 +1647,60 @@ cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
       for(unsigned i = 0; i < nI3.size(); i++) {
         std::cout << "nI3_1 = " << nI3[i].first << "; nI3_2 = " << nI3[i].second << ";" << std::endl;
       }
-      std::cout << " -A1= " << B1 << "; easy -A1= " << Easy_B1 << std::endl;
-      std::cout << " -A2= " << B2 << "; easy -A2= " << Easy_B2 << std::endl;
-      std::cout << " -A3= " << B3 << "; easy -A3= " << Easy_B3 << std::endl;
+      std::cout << "Trig B1= " << Trig_B1 <<  std::endl;
+      std::cout << "Trig B2= " << Trig_B2 <<  std::endl;
+      std::cout << "Trig B3= " << Trig_B3 <<  std::endl;
 
-      std::cout << "\n hard area1= " << area1 << " hard area2= " << area2 << " hard total = " << area1 + area2 << " sum differance " << fabs(area1 + area2 - (1. / ((m + 1.) * (n + 1.))))  << std:: endl;
-      std::cout << "easy area1= " << easy_area1 << " easy area2= " << easy_area2 << "; easy total = " << easy_area1 + easy_area2 << " sum differance " << fabs(easy_area1 + easy_area2 - 1. / ((m + 1.) * (n + 1.))) << std:: endl;
+      std::cout << "\n area1= " << Trig_area1 << " area2= " << Trig_area2 << "  total = " << Trig_area1 + Trig_area2 << " sum differance " << fabs(Trig_area1 + Trig_area2 - 1. / ((m + n + 2.) * (n + 1.)))  << std:: endl;
 //       std::cout << "\n differance quad vs oct " << fabs(D1 - A1) << " " << fabs(D2 - A2) << " " << fabs(D3 - A3) << " ---failed--- " << count + 1 << std::endl;
-      std::cout << "\n differance hard vs easy method " << fabs(A1 - Easy_A1) << " " << fabs(A2 - Easy_A2) << " " << fabs(A3 - Easy_A3) << " ---failed--- " << count + 1 << std::endl;
+      std::cout << " ---failed--- " << count + 1 << std::endl;
       count++;
     }
+
+
+//     if((fabs(area1 + area2 - 1. / ((m + 1.) * (n + 1.))) < err) || (fabs(easy_area1 + easy_area2 - 1. / ((m + 1.) * (n + 1.))) < err) || (fabs(Easy_A1 - A1) < err) || (fabs(Easy_A2 - A2) < err) || (fabs(Easy_A3 - A3) < err) /*|| (fabs(D1 - Easy_D1) > err ) || (fabs(D2 - Easy_D2) > err ) || (fabs(D3 - Easy_D3) > err)*/) {
+//       std::cout << "................................ Failed...................................... " << std::endl;
+//       std::cout << "\nm = " << m << "; n = " << n << "; s = " << s << "; k = " << -pol2[0] << "; b = " << -pol2[1] << "; d = " << -pol2[2] << "; a = " << -a << "; c = " << -c << ";" << std::endl;
+//       for(unsigned i = 0; i < I1.size(); i++) {
+//         std::cout << "I1_1 = " << I1[i].first << "; I1_2 = " << I1[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < I2.size(); i++) {
+//         std::cout << "I2_1 = " << I2[i].first << "; I2_2 = " << I2[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < I3.size(); i++) {
+//         std::cout << "I3_1 = " << I3[i].first << "; I3_2 = " << I3[i].second << ";" << std::endl;
+//       }
+//
+//       std::cout << "Easy A1= " << Easy_A1 << "; oct A1= " << A1 << std::endl;
+//       std::cout << "Easy A2= " << Easy_A2 << "; oct A2= " << A2 << std::endl;
+//       std::cout << "Easy A3= " << Easy_A3 << "; oct A3= " << A3 << std::endl;
+//       std::cout << "\nm = " << m << "; n = " << n << "; s = " << s << "; k = " << pol2[0] << "; b = " << pol2[1] << "; d = " << pol2[2] << "; a = " << a << "; c = " << c << ";" << std::endl;
+//       for(unsigned i = 0; i < nI1.size(); i++) {
+//         std::cout << "nI1_1 = " << nI1[i].first << "; nI1_2 = " << nI1[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < nI2.size(); i++) {
+//         std::cout << "nI2_1 = " << nI2[i].first << "; nI2_2 = " << nI2[i].second << ";" << std::endl;
+//       }
+//       for(unsigned i = 0; i < nI3.size(); i++) {
+//         std::cout << "nI3_1 = " << nI3[i].first << "; nI3_2 = " << nI3[i].second << ";" << std::endl;
+//       }
+//       std::cout << " -A1= " << B1 << "; easy -A1= " << Easy_B1 << std::endl;
+//       std::cout << " -A2= " << B2 << "; easy -A2= " << Easy_B2 << std::endl;
+//       std::cout << " -A3= " << B3 << "; easy -A3= " << Easy_B3 << std::endl;
+//
+//       std::cout << "\n hard area1= " << area1 << " hard area2= " << area2 << " hard total = " << area1 + area2 << " sum differance " << fabs(area1 + area2 - (1. / ((m + 1.) * (n + 1.))))  << std:: endl;
+//       std::cout << "easy area1= " << easy_area1 << " easy area2= " << easy_area2 << "; easy total = " << easy_area1 + easy_area2 << " sum differance " << fabs(easy_area1 + easy_area2 - 1. / ((m + 1.) * (n + 1.))) << std:: endl;
+// //       std::cout << "\n differance quad vs oct " << fabs(D1 - A1) << " " << fabs(D2 - A2) << " " << fabs(D3 - A3) << " ---failed--- " << count + 1 << std::endl;
+//       std::cout << "\n differance hard vs easy method " << fabs(A1 - Easy_A1) << " " << fabs(A2 - Easy_A2) << " " << fabs(A3 - Easy_A3) << " ---failed--- " << count + 1 << std::endl;
+//       count++;
+//     }
   }
   t = clock() - t;
   std::cout << "Time taken " << (Type)(t) / CLOCKS_PER_SEC << std::endl;
+
+
+
+
 
   return 1;
 
@@ -1325,6 +1764,8 @@ cout << "I_size = " << I1.size() <<" "<<I2.size()<<" "<< I3.size() <<endl;
     t = clock() - t;
     std::cout << "Time taken for hard integral" << (Type)(t) / CLOCKS_PER_SEC << std::endl;
   }
+
+
   return 1;
 }
 

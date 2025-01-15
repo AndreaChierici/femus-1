@@ -355,20 +355,20 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
 
 
 void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
-                               const OctTreeElement &octTreeElement1, const OctTreeElement &octTreeElement1CF,
-                               RefineElement &element1, Region &region2,
-                               const std::vector <unsigned> &jelIndexF, const vector < double >  &solu1,
-                               const double &kappa, const double &delta, const bool &printMesh) {
+                                const OctTreeElement &octTreeElement1, const OctTreeElement &octTreeElement1CF,
+                                RefineElement &element1, Region &region2,
+                                const std::vector <unsigned> &jelIndexF, const vector < double >  &solu1,
+                                const double &kappa, const double &delta, const bool &printMesh) {
 
 
   if(level < levelMin1) {
     element1.BuildElement1Prolongation(level, iFather);
     for(unsigned i = 0; i < element1.GetNumberOfChildren(); i++) {
       AssemblyCutFemI2(level + 1, levelMin1, levelMax1, i,
-                      *octTreeElement1.GetElement(std::vector<unsigned> {i}),
-                      *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
-                      element1, region2, jelIndexF,
-                      solu1, kappa, delta, printMesh);
+                       *octTreeElement1.GetElement(std::vector<unsigned> {i}),
+                       *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
+                       element1, region2, jelIndexF,
+                       solu1, kappa, delta, printMesh);
     }
   }
   else if(level == levelMax1 - 1) {
@@ -393,6 +393,7 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
       }
     }
 
+
     _weight1CF.resize(ng1CF);
     _xg1CF.assign(ng1CF, std::vector<double>(dim, 0));
     for(unsigned ig = 0; ig < ng1CF; ig++) {
@@ -407,6 +408,11 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
 
     //BEGIN NEW STUFF
 
+
+    std::vector < std::vector < std::vector <double > > > aP(1);
+    bool aPInit = false;
+
+
     std::vector < std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> > x1MinMax(dim);
     for(unsigned k = 0; k < dim; k++) {
       x1MinMax[k] = std::minmax_element(xv1[k].begin(), xv1[k].end());
@@ -414,6 +420,10 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
 
     for(unsigned jj = 0; jj < jelIndexF.size(); jj++) {
       unsigned jel = jelIndexF[jj];
+
+      unsigned jelReal = region2.GetElementNumber(jj);
+
+
       const std::vector<std::vector<double>>& x2MinMax = region2.GetMinMax(jel);
 
       const elem_type *fem2 = region2.GetFem(jel);
@@ -442,10 +452,19 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
               d2W1 += d2 * _weight1[ig];
               //d2W1 += _weight1[ig];
             }
+
+            //if(jelReal == 0 && jg==0) std::cout << d2W1 <<std::endl;
             region2.AddI2(jel, jg, d2W1);
           }
           else if(_cut == 1) { //cut element
             element1.GetCutFem()->clear();
+
+            unsigned ielType = element1.GetElementType();
+            if(!aPInit) {
+              ProjectNodalToPolynomialCoefficients(aP[0], xv1, ielType, 0);
+              aPInit = true;
+            }
+
             // // BEGIN Line integration
 //             element1.GetCutFem()->GetWeightWithMap(0, _a, _d, _eqPolyWeight);
 //             (*element1.GetCutFem())(0, _a, _d, _eqPolyWeight);
@@ -457,7 +476,7 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
 
             // BEGIN Parabola integration
             bool twoInt = false;
-            for (unsigned k = 0; k < xv1.size(); k++) xv1[k].resize(element1.GetNumberOfLinearNodes());
+            for(unsigned k = 0; k < xv1.size(); k++) xv1[k].resize(element1.GetNumberOfLinearNodes());
 
             // if(jj == 1 && jg == 6){
             //   int a  = 1;
@@ -473,41 +492,93 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
             A[3] = + 2 * xg2[jg][0];
             A[4] = + 2 * xg2[jg][1];
             A[5] = - xg2[jg][0] * xg2[jg][0] - xg2[jg][1] * xg2[jg][1] + delta * delta;
-            element1.GetCDWeightPar()->GetWeight(xv1,A,_eqPolyWeight,twoInt);
+            element1.GetCDWeightPar()->GetWeight(xv1, A, aP, _eqPolyWeight, twoInt);
             if(!twoInt) {
               std::cout << "not twoIntersections!\n";
               element1.GetCDweight()->GetWeight(_a, _d, _eqPolyWeight);
             }
             // END Parabola integration
 
+            /*
+                        // BEGIN EXAMPLE find the difference
+                        bool different = false;
+                        for(unsigned i = 0; i < _eqPolyWeight.size(); i++) {
+                          if(fabs(_eqPolyWeight[i] - weightsTMP[i]) > 0.02)  different = true;
+                        }
 
-            // BEGIN EXAMPLE find the difference
-//             bool different = false;
-//             for (unsigned i = 0; i < _eqPolyWeight.size(); i++){
-//               if(fabs(_eqPolyWeight[i] - weightsTMP[i])> 0.02)  different = true;
-//             }
-//
-//
-//             if(different){
-//             double AreaPar = 0.;
-//             double AreaLin = 0.;
-//             std::cout<<std::endl<<"parabola:\n";
-//             for (unsigned i = 0; i < _eqPolyWeight.size(); i++){
-//               std::cout << _eqPolyWeight[i] << "  ";
-//               AreaPar += _weight1CF[i] * _eqPolyWeight[i];
-//             }
-//             std::cout<<std::endl<<"line:\n";
-//             for (unsigned i = 0; i < _eqPolyWeight.size(); i++){
-//               std::cout << weightsTMP[i] << "  ";
-//               AreaLin += _weight1CF[i] * weightsTMP[i];
-//             }
-//             std::cout<<std::endl;
-//             std::cout<<AreaPar << " " << AreaLin << "\n";
-//             if (fabs(AreaPar-AreaLin)>0.0001){
-//               std::cout <<  " test case  " << std::endl;
-//
-//               }
-//             }
+
+                        if(different) {
+                          double AreaPar = 0.;
+                          double AreaLin = 0.;
+
+                          _weight1CF.resize(ng1CF);
+                          _xg1CF.assign(ng1CF, std::vector<double>(dim, 0));
+                          for(unsigned ig = 0; ig < ng1CF; ig++) {
+                            const double *phi;
+                            fem1CF->GetGaussQuantities(xv1, ig, _weight1CF[ig], phi);
+                            for(unsigned i = 0; i < nDof1; i++) {
+                              for(unsigned k = 0; k < dim; k++) {
+                                _xg1CF[ig][k] += phi[i] * xv1[k][i];
+                              }
+                            }
+                          }
+
+
+                          //std::cout << std::endl << "parabola:\n";
+                          for(unsigned i = 0; i < _eqPolyWeight.size(); i++) {
+                            //std::cout << _eqPolyWeight[i] << "  ";
+                            AreaPar += _weight1CF[i] * _eqPolyWeight[i];
+                          }
+                          //std::cout << std::endl << "line:\n";
+                          for(unsigned i = 0; i < _eqPolyWeight.size(); i++) {
+                            //std::cout << weightsTMP[i] << "  ";
+                            AreaLin += _weight1CF[i] * weightsTMP[i] ;
+                          }
+                          //std::cout << std::endl;
+
+
+                          double pIntegral = 0;
+                          double lIntegral = 0;
+                          for(unsigned ig = 0; ig < ng1CF; ig++) {
+                            pIntegral += _weight1CF[ig] * _eqPolyWeight[ig] * (_xg1CF[ig][0] *  _xg1CF[ig][0]  +  _xg1CF[ig][1] *  _xg1CF[ig][1]);
+                          }
+
+                          for(unsigned ig = 0; ig < ng1CF; ig++) {
+                            lIntegral += _weight1CF[ig] * weightsTMP[ig] * (_xg1CF[ig][0] *  _xg1CF[ig][0]  +  _xg1CF[ig][1] *  _xg1CF[ig][1]);
+                          }
+
+                          if(fabs((AreaPar - AreaLin) / AreaLin) > 0.2) {
+                            std::cout <<  " test case area  " << std::endl;
+                            std::cout << "parabola integral " << AreaPar << std::endl;
+                            std::cout << "line integral " << AreaLin << std::endl;
+                            //abort();
+                          }
+
+                          if(fabs((pIntegral - lIntegral) / lIntegral) > 0.2) {
+                            std::cout << "Jel = " << jel << endl;
+                            std::cout <<  " test case integral " << std::endl;
+                            std::cout << "parabola integral " << pIntegral << "\n";
+                            std::cout << "line integral " << lIntegral << "\n";
+
+                            std::cout << xg2[jg][0] << " " << xg2[jg][1] <<" "<< delta <<std::endl;
+                            std::cout << _a[0] <<" "<<_a[1]<<" "<<_d<<std::endl;
+
+                            std::cout << xv1[0][0] << " "<<xv1[1][0]<<std::endl;
+                            std::cout << xv1[0][1] << " "<<xv1[1][1]<<std::endl;
+                            std::cout << xv1[0][2] << " "<<xv1[1][2]<<std::endl;
+                            std::cout << xv1[0][3] << " "<<xv1[1][3]<<std::endl;
+
+
+
+                            //abort();
+
+                          }
+
+
+
+
+
+                        }*/
             // END example
 
 
@@ -558,6 +629,7 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
 
 
             double d2W1CF = 0.;
+//             cout<< " ng1cf = " << ng1CF << endl;
             for(unsigned ig = 0; ig < ng1CF; ig++) {
               double d2 = 0.;
               for(unsigned k = 0; k < dim; k++) {
@@ -566,7 +638,27 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
               d2W1CF += d2 * _weight1CF[ig] * _eqPolyWeight[ig];
               //d2W1CF += _weight1CF[ig] * _eqPolyWeight[ig];
             }
+            if(jelReal == 0 && jg == 0) {
+
+              std::cout << " d2W1CF " <<  d2W1CF << " , " << std::endl;
+
+//               std::cout << "     center" << xg2[jg][0]<<" " <<xg2[jg][1] << " delta "<<delta << std::endl;
+//             for(unsigned i = 0; i < _eqPolyWeight.size(); i++) {
+//                 std::cout << _eqPolyWeight[i] << " , ";
+//             }
+//             std::cout<<std::endl;
+
+//             std::cout<< " weight1CF size = " << _weight1CF.size()<<std::endl;
+//             for(unsigned i = 0; i < _weight1CF.size(); i++) {
+//                 std::cout << _weight1CF[i] << " , ";
+//             }
+//             std::cout<<std::endl;
+
+            }
             region2.AddI2(jel, jg, d2W1CF);
+
+
+
           }
         }
       }
@@ -669,10 +761,10 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
       element1.BuildElement1Prolongation(level, iFather);
       for(unsigned i = 0; i < element1.GetNumberOfChildren(); i++) {
         AssemblyCutFemI2(level + 1, levelMin1, levelMax1, i,
-                        *octTreeElement1.GetElement(std::vector<unsigned> {i}),
-                        *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
-                        element1, region2, _jelIndexR[level],
-                        solu1, kappa, delta, printMesh);
+                         *octTreeElement1.GetElement(std::vector<unsigned> {i}),
+                         *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
+                         element1, region2, _jelIndexR[level],
+                         solu1, kappa, delta, printMesh);
       }
     }
   }
@@ -720,7 +812,7 @@ void NonLocal::AssemblyCutFem1(const unsigned &level, const unsigned &levelMin1,
   }
   else if(level == levelMax1 - 1) {
     const unsigned &dim = element1.GetDimension();
-    std::vector < std::vector <double> >  xv1 = element1.GetElement1NodeCoordinates(level, iFather);
+    const std::vector < std::vector <double> >  & xv1 = element1.GetElement1NodeCoordinates(level, iFather);
 
     const unsigned &nDof1 = element1.GetNumberOfNodes();
     const elem_type *fem1 = element1.GetFem1();
@@ -769,6 +861,18 @@ void NonLocal::AssemblyCutFem1(const unsigned &level, const unsigned &levelMin1,
 
     //BEGIN NEW STUFF
 
+    unsigned ielType = element1.GetElementType();
+    std::vector < std::vector < std::vector <double > > > aP(1);
+    ProjectNodalToPolynomialCoefficients(aP[0], xv1, ielType, 0);
+
+    std::vector < std::vector <double> >  xv1l(xv1.size());
+    for(unsigned k = 0; k < xv1l.size(); k++) {
+      xv1l[k].resize(element1.GetNumberOfLinearNodes());
+      for(unsigned i = 0; i < xv1l[k].size(); i++) {
+        xv1l[k][i] = xv1[k][i];
+      }
+    }
+
     std::vector < std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> > x1MinMax(dim);
     for(unsigned k = 0; k < dim; k++) {
       x1MinMax[k] = std::minmax_element(xv1[k].begin(), xv1[k].end());
@@ -796,7 +900,9 @@ void NonLocal::AssemblyCutFem1(const unsigned &level, const unsigned &levelMin1,
         }
 
         if(coarseIntersectionTest) {
-          _ballAprx->GetNormal(element1.GetElementType(), xv1, xg2[jg], delta, _a, _d, _cut);
+
+          _ballAprx->CheckIntersection(element1.GetElementType(), xv1l, xg2[jg], delta, _cut);
+          //_ballAprx->GetNormal(element1.GetElementType(), xv1l, xg2[jg], delta, _a, _d, _cut);
 
           if(_cut == 0) { //interior element
             double W2 = 2. * weight2[jg] * _kernel * I2[jg];
@@ -805,16 +911,17 @@ void NonLocal::AssemblyCutFem1(const unsigned &level, const unsigned &levelMin1,
           }
           else if(_cut == 1) { //cut element
             element1.GetCutFem()->clear();
+
             //       element1.GetCutFem()->GetWeightWithMap(0, _a, _d, _eqPolyWeight);
 //             (*element1.GetCutFem())(0, _a, _d, _eqPolyWeight);
             // // BEGIN Line integration
-//             element1.GetCDweight()->GetWeight(_a, _d, _eqPolyWeight);
+            // element1.GetCDweight()->GetWeight(_a, _d, _eqPolyWeight);
             // // END line integration
 
 
             // BEGIN Parabola integration
             bool twoInt = false;
-            for (unsigned k = 0; k < xv1.size(); k++) xv1[k].resize(element1.GetNumberOfLinearNodes());
+            //for(unsigned k = 0; k < xv1.size(); k++) xv1[k].resize(element1.GetNumberOfLinearNodes());
 
             std::vector<double> A(6, 0.);
             A[0] = -1;
@@ -823,8 +930,12 @@ void NonLocal::AssemblyCutFem1(const unsigned &level, const unsigned &levelMin1,
             A[3] = + 2 * xg2[jg][0];
             A[4] = + 2 * xg2[jg][1];
             A[5] = - xg2[jg][0] * xg2[jg][0] - xg2[jg][1] * xg2[jg][1] + delta * delta;
-            element1.GetCDWeightPar()->GetWeight(xv1,A,_eqPolyWeight,twoInt);
-            if(!twoInt) element1.GetCDweight()->GetWeight(_a, _d, _eqPolyWeight);
+
+            element1.GetCDWeightPar()->GetWeight(xv1l, A, aP, _eqPolyWeight, twoInt);
+            if(!twoInt) {
+              _ballAprx->GetNormal(element1.GetElementType(), xv1l, xg2[jg], delta, _a, _d, _cut);
+              element1.GetCDweight()->GetWeight(_a, _d, _eqPolyWeight);
+            }
             // END Parabola integration
 
 
@@ -995,7 +1106,7 @@ void NonLocal::AssemblyCutFem2(const std::vector <double> &phi1W1,
   _phi2W1W2Begin = _phi2W1W2.begin();
   _phi2W1W2End = _phi2W1W2.end();
 
-  for( _phi2pt = phi2, _phi2W1W2It = _phi2W1W2Begin; _phi2W1W2It != _phi2W1W2End; ++_phi2pt, ++_phi2W1W2It) {
+  for(_phi2pt = phi2, _phi2W1W2It = _phi2W1W2Begin; _phi2W1W2It != _phi2W1W2End; ++_phi2pt, ++_phi2W1W2It) {
     *_phi2W1W2It = *_phi2pt * W1W2;
   }
 
