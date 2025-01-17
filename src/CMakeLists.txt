@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
 
 PROJECT(femus)
 
@@ -114,12 +114,17 @@ solution/output/GMVWriter.cpp
 solution/output/XDMFWriter.cpp
 utils/FemusInit.cpp
 utils/Files.cpp
-utils/input_parser/InputParser.cpp
-utils/input_parser/JsonInputParser.cpp
 uq/uq.cpp
 utils/eigen/MyEigenFunctions.cpp
 uq/sparseGrid.cpp
 )
+
+IF(HAVE_JSONCPP)
+SET(femus_src
+${femus_src}
+utils/input_parser/InputParser.cpp
+utils/input_parser/JsonInputParser.cpp)
+ENDIF(HAVE_JSONCPP)
 
 IF (NOT LIBRARY_OUTPUT_PATH)
   SET (LIBRARY_OUTPUT_PATH ${PROJECT_BINARY_DIR}/lib64 CACHE PATH

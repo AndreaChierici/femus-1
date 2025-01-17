@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
 
 PROJECT(femus)
 
@@ -139,9 +139,8 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 
 SET(EIGEN_SAFE_TO_USE_STANDARD_ASSERT_MACRO FALSE)
 
-find_package(Ceres NO_MODULE REQUIRED)
-
-find_package(glog NO_MODULE REQUIRED)
+#find_package(Ceres NO_MODULE REQUIRED)
+#find_package(glog NO_MODULE REQUIRED)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -153,13 +152,13 @@ set(CMAKE_CXX_STANDARD 14)
 OPTION(BUILD_DOCUMENTATION "Use Doxygen to create the HTML based API documentation" OFF)
 
 #-- build Adept library
-OPTION(BUILD_B64 "Build Adept library for automatic differentiation" ON)
+#OPTION(BUILD_B64 "Build Adept library for automatic differentiation" ON)
 
 #-- build Adept library
-OPTION(BUILD_JSONCPP "Build JsonCPP library for json input parsing" ON)
+OPTION(BUILD_JSONCPP "Build JsonCPP library for json input parsing" OFF)
 
 #-- build b64 library
-OPTION(BUILD_ADEPT "Build b64 library for 64-encoding" ON)
+#OPTION(BUILD_ADEPT "Build b64 library for 64-encoding" ON)
 
 # Ask the user which executable have to be built
 OPTION(BUILD_NAVIERSTOKESAPPS "Build the NavierStokes-line applications" OFF)
@@ -179,7 +178,7 @@ OPTION(BUILD_POISSON_AMR "Build the Poisson_AMR problem" OFF)
 OPTION(BUILD_WILLMORE "Build the Willmore problem" OFF)
 
 # --
-OPTION(BUILD_TUTORIAL "Build the tutorial problems" OFF)
+OPTION(BUILD_TUTORIAL "Build the tutorial problems" ON)
 
 # --
 OPTION(BUILD_MGAMR "Build the MGAMR" OFF)
@@ -219,7 +218,7 @@ OPTION(BUILD_NITSCHE "Build the Nitsche apps" OFF)
 
 OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" ON)
 
-OPTION(BUILD_TIME_OPTIMAL_CONTROL "Build Time Dependent Optimal Control apps" ON)
+OPTION(BUILD_TIME_OPTIMAL_CONTROL "Build Time Dependent Optimal Control apps" OFF)
 
 #############################################################################################
 ### Build documentation (Doxygen)
@@ -252,6 +251,7 @@ ENDIF(BUILD_DOCUMENTATION)
 #############################################################################################
 
 # Build the b64 library
+Set(BUILD_B64 ON)
 SET(HAVE_B64 0)
 IF(BUILD_B64)
   SET(HAVE_B64 1)
@@ -266,6 +266,7 @@ IF(BUILD_JSONCPP)
 ENDIF(BUILD_JSONCPP)
 
 # Build the Adept external library
+Set(BUILD_ADEPT ON)
 SET(HAVE_ADEPT 0)
 IF(BUILD_ADEPT)
   SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DADEPT_RECORDING_PAUSABLE")
