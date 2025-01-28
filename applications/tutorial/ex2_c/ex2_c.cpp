@@ -83,7 +83,7 @@ public:
 
   private: 
     
-   static constexpr double pi = acos(-1.);
+   static constexpr double pi = M_PI;
       
 };
 
