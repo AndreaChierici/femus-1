@@ -42,7 +42,7 @@ class OctTreeElement {
       }
       else {
         std::cout << "Error! Level max should be greater than 0" << std::endl;
-        abort;
+        abort();
       }
     }
 
@@ -107,7 +107,7 @@ class OctTreeElement {
       else {
         if(this->_haveChilderen == false) {
           std::cout << "Error! This level child is not available" << std::endl;
-          abort;
+          abort();
         }
         return this->_child[ genealogy[level] ].GetElement(genealogy, level + 1);
       }

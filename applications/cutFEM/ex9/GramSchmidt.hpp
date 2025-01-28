@@ -446,7 +446,7 @@ void GetMassMatrix(const unsigned &element, const unsigned &degree, std::vector<
 
   else {
     std::cout << " Not an appropriate element " << std::endl;
-    abort;
+    abort();
   }
 
 }

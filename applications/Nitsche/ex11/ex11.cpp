@@ -72,7 +72,7 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 
 int main(int argc, char** args) {
 
-  SlepcInitialize(&argc, &args, PETSC_NULL, PETSC_NULL);
+  SlepcInitialize(&argc, &args, PETSC_NULLPTR, PETSC_NULLPTR);
   FemusInit mpinit(argc, args, MPI_COMM_WORLD);
 
 
