@@ -259,6 +259,8 @@ ssh on the Odyssey server
     export UCX_WARN_UNUSED_ENV_VARS=n
     export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
 
+Repeat one of the MyFEMUS built above
+
 ======
 
 FEMuS automatic configuration, contact Giorgio Bornia for support.
