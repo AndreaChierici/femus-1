@@ -189,8 +189,8 @@ From the REPO folder
 
     git clone -b amd_tools https://github.com/eaulisa/MyFEMuS.git
 
-    cd MyFemus
-<!-- ### Add to CMakeLists.txt
+<!-- cd MyFemus
+     ### Add to CMakeLists.txt
      INCLUDE_DIRECTORIES($ENV{BOOST_ROOT}/include)
      ### Add to cmake-modules/FindPETSc.cmake at line 326
      set(PETSC_EXECUTABLE_RUNS YES) -->
