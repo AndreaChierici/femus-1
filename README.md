@@ -102,13 +102,11 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
 ### All libraries will be downloaded and configured into the REPO folder
 ### All libraries will be installed into the FEMUS_INSTALL folder
 
-    ssh on the Odyssey server
-
     bash
     source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
     module load openmpi
 
-    Create and export the FEMUS_INSTALL and the REPO folders
+Create and export the FEMUS_INSTALL and the REPO folders
 
     export PETSC_PATH=$FEMUS_INSTALL/petsc
     export SLEPC_PATH=$FEMUS_INSTALL/slepc
@@ -117,14 +115,14 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
     export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
 
 ### PETSC INSTALL
-### From the REPO folder
+From the REPO folder
 
     git clone -b release https://gitlab.com/petsc/petsc.git
     cd petsc
 
     ./configure --with-debugging=0 --with-x=0 COPTFLAGS="-O3 -march=native -mtune=native" CXXOPTFLAGS="-O3 -march=native -mtune=native" FOPTFLAGS="-O3 -march=native -mtune=native" HIPOPTFLAGS="-O3 -march=native -mtune=native" --download-fblaslapack=1 --download-hdf5=1 --download-metis=1 --download-parmetis=1 --with-shared-libraries=1 --download-blacs=1 --download-scalapack=1 --download-mumps=1 --download-suitesparse=1 --with-hip-arch=gfx942 --with-mpi=1 --with-mpi-dir=$OPENMPI_ROOT --prefix=$PETSC_PATH --with-hip=1 --with-hip-dir=$ROCM_PATH
 
-### The next three commands are given by PETSc after configuring. Copy and paste them from the terminal
+The next three commands are given by PETSc after configuring. Copy and paste them from the terminal
 
     make PETSC_DIR=$REPO/petsc PETSC_ARCH=arch-linux-c-opt all
     make PETSC_DIR=$REPO/petsc PETSC_ARCH=arch-linux-c-opt install
@@ -134,23 +132,14 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
 ### Expected output
 
 Running PETSc check examples to verify correct installation
-
 Using PETSC_DIR=$PETSC_PATH and PETSC_ARCH=
-
 C/C++ example src/snes/tutorials/ex19 run successfully with 1 MPI process
-
 C/C++ example src/snes/tutorials/ex19 run successfully with 2 MPI processes
-
 C/C++ example src/snes/tutorials/ex19 run successfully with HIP
-
 C/C++ example src/snes/tutorials/ex19 run successfully with MUMPS
-
 C/C++ example src/snes/tutorials/ex19 run successfully with SuiteSparse
-
 C/C++ example src/vec/vec/tests/ex47 run successfully with HDF5
-
 Fortran example src/snes/tutorials/ex5f run successfully with 1 MPI process
-
 Completed PETSc check examples
 
     export PETSC_DIR=$PETSC_PATH
