@@ -131,15 +131,15 @@ The next three commands are given by PETSc after configuring. Copy and paste the
 
 ### Expected output
 
-Running PETSc check examples to verify correct installation\\
-Using PETSC_DIR=$PETSC_PATH and PETSC_ARCH=\\
-C/C++ example src/snes/tutorials/ex19 run successfully with 1 MPI process\\
-C/C++ example src/snes/tutorials/ex19 run successfully with 2 MPI processes\\
-C/C++ example src/snes/tutorials/ex19 run successfully with HIP\\
-C/C++ example src/snes/tutorials/ex19 run successfully with MUMPS\\
-C/C++ example src/snes/tutorials/ex19 run successfully with SuiteSparse\\
-C/C++ example src/vec/vec/tests/ex47 run successfully with HDF5\\
-Fortran example src/snes/tutorials/ex5f run successfully with 1 MPI process\\
+Running PETSc check examples to verify correct installation<br>
+Using PETSC_DIR=$PETSC_PATH and PETSC_ARCH=<br>
+C/C++ example src/snes/tutorials/ex19 run successfully with 1 MPI process<br>
+C/C++ example src/snes/tutorials/ex19 run successfully with 2 MPI processes<br>
+C/C++ example src/snes/tutorials/ex19 run successfully with HIP<br>
+C/C++ example src/snes/tutorials/ex19 run successfully with MUMPS<br>
+C/C++ example src/snes/tutorials/ex19 run successfully with SuiteSparse<br>
+C/C++ example src/vec/vec/tests/ex47 run successfully with HDF5<br>
+Fortran example src/snes/tutorials/ex5f run successfully with 1 MPI process<br>
 Completed PETSc check examples
 
     export PETSC_DIR=$PETSC_PATH
