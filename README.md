@@ -107,8 +107,8 @@ ssh on the Odyssey server and load enviromental variables
     module load openmpi
 
 Create and export the FEMUS_INSTALL and the REPO folders. <br>
-All libraries will be downloaded and configured into the REPO (in my case \~/repos) folder <br>
-All libraries will be installed into the FEMUS_INSTALL (\~/install/femus) folder
+All libraries will be downloaded and configured into the REPO (in here \~/repos) folder <br>
+All libraries will be installed into the FEMUS_INSTALL (in here \~/install/femus) folder
 
     export PETSC_PATH=$FEMUS_INSTALL/petsc
     export SLEPC_PATH=$FEMUS_INSTALL/slepc
