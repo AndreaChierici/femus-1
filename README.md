@@ -17,7 +17,7 @@ Install PETSC
 
 From the directory $INSTALLATION_DIR clone petsc
 
-    git clone -b maint https://bitbucket.org/petsc/petsc petsc
+    git clone -b release https://gitlab.com/petsc/petsc.git
     
     cd petsc
     
@@ -35,7 +35,7 @@ Install SLEPC
 
 From the directory $INSTALLATION_DIR clone slepc
 
-    git clone -b maint https://bitbucket.org/slepc/slepc slepc
+    git clone -b release https://gitlab.com/slepc/slepc.git
 
     cd slepc
     
@@ -97,6 +97,148 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
     
 ======
     
+# MyFEMUS INSTALL WITH DEPENDENCIES ON ODYSSEY (UO), for the for the amd_tools hackathoon
+### For help contact Giacomo Capodaglio, Eugenio Aulisa, or Andrea Chierici
+### All libraries will be downloaded and configured into the REPO folder
+### All libraries will be installed into the FEMUS_INSTALL folder
+
+    ssh on the Odyssey server
+
+    bash
+    source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
+    module load openmpi
+
+    Create and export the FEMUS_INSTALL and the REPO folders
+
+    export PETSC_PATH=$FEMUS_INSTALL/petsc
+    export SLEPC_PATH=$FEMUS_INSTALL/slepc
+    export EIGEN3_PATH=$FEMUS_INSTALL/eigen3
+    export UCX_WARN_UNUSED_ENV_VARS=n
+    export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
+
+### PETSC INSTALL
+### From the REPO folder
+
+    git clone -b release https://gitlab.com/petsc/petsc.git
+    cd petsc
+
+    ./configure --with-debugging=0 --with-x=0 COPTFLAGS="-O3 -march=native -mtune=native" CXXOPTFLAGS="-O3 -march=native -mtune=native" FOPTFLAGS="-O3 -march=native -mtune=native" HIPOPTFLAGS="-O3 -march=native -mtune=native" --download-fblaslapack=1 --download-hdf5=1 --download-metis=1 --download-parmetis=1 --with-shared-libraries=1 --download-blacs=1 --download-scalapack=1 --download-mumps=1 --download-suitesparse=1 --with-hip-arch=gfx942 --with-mpi=1 --with-mpi-dir=$OPENMPI_ROOT --prefix=$PETSC_PATH --with-hip=1 --with-hip-dir=$ROCM_PATH
+
+### The next three commands are given by PETSc after configuring. Copy and paste them from the terminal
+
+    make PETSC_DIR=$REPO/petsc PETSC_ARCH=arch-linux-c-opt all
+    make PETSC_DIR=$REPO/petsc PETSC_ARCH=arch-linux-c-opt install
+
+    make PETSC_DIR=$PETSC_PATH PETSC_ARCH="" check
+
+### Expected output
+
+    Running PETSc check examples to verify correct installation
+    Using PETSC_DIR=$PETSC_PATH and PETSC_ARCH=
+    C/C++ example src/snes/tutorials/ex19 run successfully with 1 MPI process
+    C/C++ example src/snes/tutorials/ex19 run successfully with 2 MPI processes
+    C/C++ example src/snes/tutorials/ex19 run successfully with HIP
+    C/C++ example src/snes/tutorials/ex19 run successfully with MUMPS
+    C/C++ example src/snes/tutorials/ex19 run successfully with SuiteSparse
+    C/C++ example src/vec/vec/tests/ex47 run successfully with HDF5
+    Fortran example src/snes/tutorials/ex5f run successfully with 1 MPI process
+    Completed PETSc check examples
+
+    export PETSC_DIR=$PETSC_PATH
+
+
+### SLEPC INSTALL
+### From the REPO folder
+
+    git clone -b release https://gitlab.com/slepc/slepc.git
+    cd slepc
+
+    ./configure --prefix=$SLEPC_PATH
+
+### The next three commands are given by SLEPc after configuring. Copy and paste them from the terminal
+
+    make SLEPC_DIR=$REPO/slepc PETSC_DIR=$PETSC_PATH
+    make SLEPC_DIR=$REPO/slepc PETSC_DIR=$PETSC_PATH install
+
+    make SLEPC_DIR=$SLEPC_PATH PETSC_DIR=$PETSC_PATH PETSC_ARCH="" check
+
+### Expected output
+
+    Running SLEPc check examples to verify correct installation
+    Using SLEPC_DIR=$SLEPC_PATH, PETSC_DIR=$PETSC_PATH, and PETSC_ARCH=
+    C/C++ example src/eps/tests/test10 run successfully with 1 MPI process
+    C/C++ example src/eps/tests/test10 run successfully with 2 MPI processes
+    Fortran example src/eps/tests/test7f run successfully with 1 MPI process
+    C/C++ example src/eps/tests/test10 run successfully with HIP
+    Completed SLEPc check examples
+
+    export SLEPC_DIR=$SLEPC_PATH
+
+### EIGEN3 INSTALL
+### From the REPO folder
+
+    git clone -b 3.4.0 https://gitlab.com/libeigen/eigen.git
+    cd eigen
+    mkdir build
+    cd build
+    cmake -DCMAKE_INSTALL_PREFIX=$EIGEN3_PATH -DCHOLMOD_LIBRARIES=$PETSC_PATH/lib -DCHOLMOD_INCLUDES=$PETSC_PATH/include -DKLU_LIBRARIES=$PETSC_PATH/lib -DKLU_INCLUDES=$PETSC_PATH/include ../
+    make install
+
+### FEMUS INSTALL
+### From the REPO folder
+
+    git clone -b amd_tools https://github.com/eaulisa/MyFEMuS.git
+
+    cd MyFemus
+### Add to CMakeLists.txt
+
+    INCLUDE_DIRECTORIES($ENV{BOOST_ROOT}/include)
+
+### Add to cmake-modules/FindPETSc.cmake at line 326
+
+    set(PETSC_EXECUTABLE_RUNS YES)
+
+
+### Build with the gcc compiler
+### From the FEMUS_INSTALL folder
+
+    mkdir femus_gcc
+    cd femus_gcc
+
+    ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
+    [c] configure as many times as needed it for [g] to appear
+    [g] generate
+    make -j 12
+
+
+### Build with the amdclang compiler
+### From the FEMUS_INSTALL folder
+
+    mkdir femus_amd
+    cd femus_amd
+
+    module load amdclang
+
+    ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
+    [c] configure as many times as needed it for [g] to appear
+    [g] generate
+    make -j 12
+
+
+### Build with the hip compiler
+### From the FEMUS_INSTALL folder
+
+    mkdir femus_hip
+    cd femus_hip
+
+    export CC=$ROCM_PATH/bin/hipcc
+
+    ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
+    [c] configure as many times as needed it for [g] to appear
+    [g] generate
+    make -j 12
+
+======
 
 FEMuS automatic configuration, contact Giorgio Bornia for support.
 ======
