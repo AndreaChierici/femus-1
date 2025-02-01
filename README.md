@@ -99,14 +99,16 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
     
 # MyFEMUS INSTALL WITH DEPENDENCIES ON ODYSSEY (UO), for the for the amd_tools hackathoon
 ### For help contact Giacomo Capodaglio, Eugenio Aulisa, or Andrea Chierici
-### All libraries will be downloaded and configured into the REPO folder
-### All libraries will be installed into the FEMUS_INSTALL folder
+
+ssh on the Odyssey server and load enviromental variables
 
     bash
     source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
     module load openmpi
 
-Create and export the FEMUS_INSTALL and the REPO folders
+Create and export the FEMUS_INSTALL and the REPO folders. <br>
+All libraries will be downloaded and configured into the REPO (in my case ~/repos) folder <br>
+All libraries will be installed into the FEMUS_INSTALL (~/install/femus) folder
 
     export PETSC_PATH=$FEMUS_INSTALL/petsc
     export SLEPC_PATH=$FEMUS_INSTALL/slepc
@@ -129,7 +131,7 @@ The next three commands are given by PETSc after configuring. Copy and paste the
 
     make PETSC_DIR=$PETSC_PATH PETSC_ARCH="" check
 
-### Expected output
+Expected output:
 
 Running PETSc check examples to verify correct installation<br>
 Using PETSC_DIR=$PETSC_PATH and PETSC_ARCH=<br>
@@ -146,34 +148,34 @@ Completed PETSc check examples
 
 
 ### SLEPC INSTALL
-### From the REPO folder
+From the REPO folder
 
     git clone -b release https://gitlab.com/slepc/slepc.git
     cd slepc
 
     ./configure --prefix=$SLEPC_PATH
 
-### The next three commands are given by SLEPc after configuring. Copy and paste them from the terminal
+The next three commands are given by SLEPc after configuring. Copy and paste them from the terminal
 
     make SLEPC_DIR=$REPO/slepc PETSC_DIR=$PETSC_PATH
     make SLEPC_DIR=$REPO/slepc PETSC_DIR=$PETSC_PATH install
 
     make SLEPC_DIR=$SLEPC_PATH PETSC_DIR=$PETSC_PATH PETSC_ARCH="" check
 
-### Expected output
+Expected output:
 
-    Running SLEPc check examples to verify correct installation
-    Using SLEPC_DIR=$SLEPC_PATH, PETSC_DIR=$PETSC_PATH, and PETSC_ARCH=
-    C/C++ example src/eps/tests/test10 run successfully with 1 MPI process
-    C/C++ example src/eps/tests/test10 run successfully with 2 MPI processes
-    Fortran example src/eps/tests/test7f run successfully with 1 MPI process
-    C/C++ example src/eps/tests/test10 run successfully with HIP
-    Completed SLEPc check examples
+Running SLEPc check examples to verify correct installation <br>
+Using SLEPC_DIR=$SLEPC_PATH, PETSC_DIR=$PETSC_PATH, and PETSC_ARCH= <br>
+C/C++ example src/eps/tests/test10 run successfully with 1 MPI process <br>
+C/C++ example src/eps/tests/test10 run successfully with 2 MPI processes <br>
+Fortran example src/eps/tests/test7f run successfully with 1 MPI process <br>
+C/C++ example src/eps/tests/test10 run successfully with HIP <br>
+Completed SLEPc check examples <br>
 
     export SLEPC_DIR=$SLEPC_PATH
 
 ### EIGEN3 INSTALL
-### From the REPO folder
+From the REPO folder
 
     git clone -b 3.4.0 https://gitlab.com/libeigen/eigen.git
     cd eigen
@@ -183,7 +185,7 @@ Completed PETSc check examples
     make install
 
 ### FEMUS INSTALL
-### From the REPO folder
+From the REPO folder
 
     git clone -b amd_tools https://github.com/eaulisa/MyFEMuS.git
 
@@ -195,19 +197,21 @@ Completed PETSc check examples
 
 
 ### Build with the gcc compiler
-### From the FEMUS_INSTALL folder
+From the FEMUS_INSTALL folder
 
     mkdir femus_gcc
     cd femus_gcc
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
-    [c] configure as many times as needed it for [g] to appear
-    [g] generate
+
+[c] configure as many times as needed it for [g] to appear
+[g] generate
+
     make -j 12
 
 
 ### Build with the amdclang compiler
-### From the FEMUS_INSTALL folder
+From the FEMUS_INSTALL folder
 
     mkdir femus_amd
     cd femus_amd
@@ -215,13 +219,15 @@ Completed PETSc check examples
     module load amdclang
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
-    [c] configure as many times as needed it for [g] to appear
-    [g] generate
+
+[c] configure as many times as needed it for [g] to appear
+[g] generate
+
     make -j 12
 
 
 ### Build with the hip compiler
-### From the FEMUS_INSTALL folder
+From the FEMUS_INSTALL folder
 
     mkdir femus_hip
     cd femus_hip
@@ -229,14 +235,16 @@ Completed PETSc check examples
     export CXX=$ROCM_PATH/bin/hipcc
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
-    [c] configure as many times as needed it for [g] to appear
-    [g] generate
+
+[c] configure as many times as needed it for [g] to appear
+[g] generate
+
     make -j 12
 
 
 ### Set up the enviroment on a new ssh
 
-    ssh on the Odyssey server
+ssh on the Odyssey server
 
     bash
     source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
