@@ -184,7 +184,7 @@ From the REPO folder
     cmake -DCMAKE_INSTALL_PREFIX=$EIGEN3_PATH -DCHOLMOD_LIBRARIES=$PETSC_PATH/lib -DCHOLMOD_INCLUDES=$PETSC_PATH/include -DKLU_LIBRARIES=$PETSC_PATH/lib -DKLU_INCLUDES=$PETSC_PATH/include ../
     make install
 
-### FEMUS INSTALL
+### MyFEMuS INSTALL
 From the REPO folder
 
     git clone -b amd_tools https://github.com/eaulisa/MyFEMuS.git
@@ -196,7 +196,7 @@ From the REPO folder
      set(PETSC_EXECUTABLE_RUNS YES) -->
 
 
-### Build with the gcc compiler
+### Build MyFEMuS with the gcc compiler
 From the FEMUS_INSTALL folder
 
     mkdir femus_gcc
@@ -210,7 +210,7 @@ From the FEMUS_INSTALL folder
     make -j 12
 
 
-### Build with the amdclang compiler
+### Build MyFEMuS with the amdclang compiler
 From the FEMUS_INSTALL folder
 
     mkdir femus_amd
@@ -226,7 +226,7 @@ From the FEMUS_INSTALL folder
     make -j 12
 
 
-### Build with the hip compiler
+### Build MyFEMuS with the hip compiler
 From the FEMUS_INSTALL folder
 
     mkdir femus_hip
