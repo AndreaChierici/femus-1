@@ -190,13 +190,10 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
     git clone -b amd_tools https://github.com/eaulisa/MyFEMuS.git
 
     cd MyFemus
-### Add to CMakeLists.txt
-
-    INCLUDE_DIRECTORIES($ENV{BOOST_ROOT}/include)
-
-### Add to cmake-modules/FindPETSc.cmake at line 326
-
-    set(PETSC_EXECUTABLE_RUNS YES)
+<!-- ### Add to CMakeLists.txt
+     INCLUDE_DIRECTORIES($ENV{BOOST_ROOT}/include)
+     ### Add to cmake-modules/FindPETSc.cmake at line 326
+     set(PETSC_EXECUTABLE_RUNS YES) -->
 
 
 ### Build with the gcc compiler
@@ -231,12 +228,30 @@ Run. All applications are built in the folder $INSTALLATION_DIR/femusbin/applica
     mkdir femus_hip
     cd femus_hip
 
-    export CC=$ROCM_PATH/bin/hipcc
+    export CXX=$ROCM_PATH/bin/hipcc
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
     [c] configure as many times as needed it for [g] to appear
     [g] generate
     make -j 12
+
+
+### Set up the enviroment on a new ssh
+
+    ssh on the Odyssey server
+
+    bash
+    source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
+    module load openmpi
+
+    export FEMUS_INSTALL=~/install/femus/
+    export REPO=~/repos
+
+    export PETSC_DIR=$FEMUS_INSTALL/petsc
+    export SLEPC_DIR=$FEMUS_INSTALL/slepc
+
+    export UCX_WARN_UNUSED_ENV_VARS=n
+    export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
 
 ======
 
