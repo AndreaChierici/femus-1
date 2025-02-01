@@ -204,7 +204,7 @@ From the FEMUS_INSTALL folder
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
 
-[c] configure as many times as needed it for [g] to appear
+[c] configure as many times as needed it for [g] to appear <br>
 [g] generate
 
     make -j 12
@@ -220,7 +220,7 @@ From the FEMUS_INSTALL folder
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
 
-[c] configure as many times as needed it for [g] to appear
+[c] configure as many times as needed it for [g] to appear <br>
 [g] generate
 
     make -j 12
@@ -236,7 +236,7 @@ From the FEMUS_INSTALL folder
 
     ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
 
-[c] configure as many times as needed it for [g] to appear
+[c] configure as many times as needed it for [g] to appear <br>
 [g] generate
 
     make -j 12
