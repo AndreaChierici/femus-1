@@ -15,7 +15,8 @@
 #include "slepceps.h"
 
 unsigned lmax1 = 3; // consistency form 3 -> 7
-const bool correctConstant = !false;
+bool correctConstant = !false;
+bool cutFem = !true;
 
 #include "./include/nonlocal_assembly_adaptive.hpp"
 #include "CDWeights.hpp"
@@ -63,7 +64,25 @@ unsigned numberOfUniformLevelsFine = 1;
 
 int main(int argc, char** argv) {
 
-  if(argc == 3) {
+  if(argc == 5) {
+
+    numberOfUniformLevels = atoi(argv[1]);
+
+    lmax1 = atoi(argv[2]);
+
+    cutFem = atoi(argv[3]);
+
+    correctConstant = atoi(argv[4]) * cutFem;
+  }
+  if(argc == 4) {
+
+    numberOfUniformLevels = atoi(argv[1]);
+
+    lmax1 = atoi(argv[2]);
+
+    cutFem = atoi(argv[3]);
+  }
+  else if(argc == 3) {
     numberOfUniformLevels = atoi(argv[1]);
 
     lmax1 = atoi(argv[2]);
@@ -126,7 +145,7 @@ int main(int argc, char** argv) {
   mlMshFine.ReadCoarseMesh(fileName, "fifth", scalingFactor);
   mlMshFine.RefineMesh(numberOfUniformLevelsFine + numberOfSelectiveLevels, numberOfUniformLevelsFine, NULL);
 
-  mlMsh.EraseCoarseLevels (numberOfUniformLevels - 1);
+  if(cutFem) mlMsh.EraseCoarseLevels (numberOfUniformLevels - 1);
 //   mlMshFine.EraseCoarseLevels (numberOfUniformLevelsFine - 1);
 
   unsigned dim = mlMsh.GetDimension();

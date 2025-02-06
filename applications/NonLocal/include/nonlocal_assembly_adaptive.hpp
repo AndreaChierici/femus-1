@@ -371,8 +371,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
     //nonlocal = new NonLocalBox();
   }
 
-  // nonlocal->SetKernel(kappa1, delta1, eps);
-  nonlocal->SetKernel(kappa1, delta1, 0);
+  nonlocal->SetKernel(kappa1, delta1, eps);
+  //nonlocal->SetKernel(kappa1, delta1, 0);
 
 //   fout.open("mesh.txt");
 //   fout.close();
