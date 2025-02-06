@@ -15,7 +15,7 @@
 #include "slepceps.h"
 
 unsigned lmax1 = 3; // consistency form 3 -> 7
-bool correctConstant = !false;
+bool correctConstant = true;
 bool cutFem = !true;
 
 #include "./include/nonlocal_assembly_adaptive.hpp"
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 
     cutFem = atoi(argv[3]);
 
-    correctConstant = atoi(argv[4]) * cutFem;
+    correctConstant = atoi(argv[4]);
   }
   if(argc == 4) {
 

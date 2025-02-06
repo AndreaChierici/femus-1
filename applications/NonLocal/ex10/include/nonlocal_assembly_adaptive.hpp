@@ -402,7 +402,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
     //nonlocal = new NonLocalBox();
   }
 
-  nonlocal->SetKernel(kappa1, delta1, eps);
+  nonlocal->SetKernel(kappa1, delta1, correctConstant * eps);
 
   unsigned offset = msh->_elementOffset[iproc];
   unsigned offsetp1 = msh->_elementOffset[iproc + 1];
