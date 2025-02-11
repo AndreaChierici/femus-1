@@ -38,8 +38,8 @@ namespace femus
       
 //  EXPLICIT INSTANTIATION
  template class elem_type_templ_base<double, double>;
- template class elem_type_templ_base<adept::adouble, double>;
- template class elem_type_templ_base<adept::adouble, adept::adouble>;
+// template class elem_type_templ_base<adept::adouble, double>;
+// template class elem_type_templ_base<adept::adouble, adept::adouble>;
     
 
     

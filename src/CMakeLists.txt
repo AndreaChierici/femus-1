@@ -29,7 +29,7 @@ algebra/ParsedFunction.cpp
 algebra/SlepcSVD.cpp
 equations/assemble/Quantity.cpp
 equations/assemble/DofMap.cpp
-equations/assemble/Assemble_jacobian.cpp
+#equations/assemble/Assemble_jacobian.cpp
 equations/assemble/Assemble_unknown.cpp
 equations/assemble/BoundaryConditions.cpp
 equations/assemble/CurrentElem.cpp

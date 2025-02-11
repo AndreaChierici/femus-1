@@ -6,7 +6,7 @@
 #include "NonLinearImplicitSystem.hpp"
 
 #include "NumericVector.hpp"
-#include "adept.h"
+//#include "adept.h"
 
 #include "petsc.h"
 #include "petscmat.h"
@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
 
 // ******* Solution *******
 
-  system2.MGsolve();
+  //system2.MGsolve();
 
   //END assemble and solve local problem
 
