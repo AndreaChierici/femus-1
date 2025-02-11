@@ -63,6 +63,8 @@ MARK_AS_ADVANCED (
 FIND_PACKAGE(PETSc REQUIRED)
 MESSAGE(STATUS "PETSC_FOUND = ${PETSC_FOUND}")
 
+find_package(OpenMP REQUIRED)
+
 SET(HAVE_PETSC 0)
 IF(PETSC_FOUND)
   SET(HAVE_PETSC 1)
@@ -386,7 +388,7 @@ INCLUDE_DIRECTORIES(/opt/ohpc/pub/libs/gnu/openmpi/boost/1.63.0/include/)
 
 #ODYSSEY OU
 INCLUDE_DIRECTORIES($ENV{BOOST_ROOT}/include)
-
+INCLUDE_DIRECTORIES(/opt/rocm-6.3.0/include/hip/)
 
 # Include Fparser files
 IF(FPARSER_FOUND)
