@@ -114,7 +114,6 @@ All libraries will be installed into the FEMUS_INSTALL (in here \~/install/femus
     export SLEPC_PATH=$FEMUS_INSTALL/slepc
     export EIGEN3_PATH=$FEMUS_INSTALL/eigen3
     export UCX_WARN_UNUSED_ENV_VARS=n
-    export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
 
 ### PETSC INSTALL
 From the REPO folder
@@ -195,6 +194,7 @@ From the REPO folder
      ### Add to cmake-modules/FindPETSc.cmake at line 326
      set(PETSC_EXECUTABLE_RUNS YES) -->
 
+     module load boost/1.79.0-openmpi
 
 ### Build MyFEMuS with the gcc compiler
 From the FEMUS_INSTALL folder
@@ -257,7 +257,7 @@ ssh on the Odyssey server
     export SLEPC_DIR=$FEMUS_INSTALL/slepc
 
     export UCX_WARN_UNUSED_ENV_VARS=n
-    export BOOST_ROOT=/storage/packages/e4s/24.11/mvapich-4.0-rocm6.3.0/spack/opt/spack/linux-rhel8-x86_64_v3/gcc-11.2.0/boost-1.79.0-t6mg37revd5l3fbtewvyie3wndqxxadk
+    module load boost/1.79.0-openmpi
 
 Repeat one of the MyFEMUS built above
 
