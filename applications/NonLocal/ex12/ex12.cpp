@@ -1,97 +1,92 @@
-#pragma omp requires unified_shared_memory
+/*
+Copyright (c) 2023 Advanced Micro Devices, Inc. All rights reserved.
 
-#include "FemusInit.hpp"
-#include "MultiLevelSolution.hpp"
-#include "MultiLevelProblem.hpp"
-#include "CurrentElem.hpp"
-#include "LinearImplicitSystem.hpp"
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-#include "PolynomialBases.hpp"
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-#include "CutFemWeight.hpp"
-
-#include "CDWeights.hpp"
-
-#include <vector>
-#include <cmath>
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
 #include <iostream>
-
-#include "Fem.hpp"
-#include "BestFitPlane.hpp"
-#include "GenerateTriangles.hpp"
-
-using namespace std;
-using namespace femus;
-
-// HIP header
-#include <hip/hip_runtime.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-
-//OpenMP header
+#include <iomanip>
+#include <algorithm>
 #include <omp.h>
 
-#define NUM_THREADS 16
-#define CHECK(cmd) \
-{\
-    hipError_t error  = cmd;\
-    if (error != hipSuccess) { \
-        fprintf(stderr, "error: '%s'(%d) at %s:%d\n", hipGetErrorString(error), error,__FILE__, __LINE__); \
-        exit(EXIT_FAILURE);\
-	  }\
-}
+#define NTIMERS 1
 
-__global__ void
-hip_helloworld(unsigned omp_id, int* A_d)
-{
-    // Note: the printf command will only work if printf is enabled in your build.
-    printf("Hello World... from HIP thread = %u\n", omp_id);
+using namespace std;
 
-    A_d[omp_id] = omp_id;
-}
+void daxpy(int n, double a, double *__restrict__ x, double *__restrict__ y, double *__restrict__ z);
 
 int main(int argc, char* argv[])
 {
-FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
-	
-    int* A_h, * A_d;
-    size_t Nbytes = NUM_THREADS * sizeof(int);
+   int num_iteration=NTIMERS;   
+   int n = 100000;
+   double main_timer = 0.0;
+   double main_start = omp_get_wtime();
+   if (argc > 1) {
+      n=atoi(argv[1]);
+   }
+   double a = 3.0;
+   double *x = new double[n];
+   double *y = new double[n];
+   double *z = new double[n];
 
-    hipDeviceProp_t props;
-    CHECK(hipGetDeviceProperties(&props, 0/*deviceID*/));
-    printf("info: running on device %s\n", props.name);
+   for (int i = 0; i < n; i++) {
+        x[i] = 2.0;
+        y[i] = 1.0;
+   }
 
-    A_h = (int*)malloc(Nbytes);
-    CHECK(hipMalloc(&A_d, Nbytes));
-    for (int i = 0; i < NUM_THREADS; i++) {
-        A_h[i] = 0;
-    }
-    CHECK(hipMemcpy(A_d, A_h, Nbytes, hipMemcpyHostToDevice));
+   double * timers = (double *)calloc(num_iteration,sizeof(double));
+   for (int iter=0;iter<num_iteration; iter++)
+   {
+        double start = omp_get_wtime();
 
-    // Beginning of parallel region
-    #pragma omp parallel num_threads(NUM_THREADS)
-    {
-        fprintf(stderr, "Hello World... from OMP thread = %d\n",
-               omp_get_thread_num());
+        daxpy(n, a, x, y, z);
 
-//        hipLaunchKernelGGL(hip_helloworld, dim3(1), dim3(1), 0, 0, omp_get_thread_num(), A_d);
-    }
-    // Ending of parallel region
+	timers[iter] = omp_get_wtime()-start;
+   }
 
-    hipStreamSynchronize(0);
-    CHECK(hipMemcpy(A_h, A_d, Nbytes, hipMemcpyDeviceToHost));
-    printf("Device Results:\n");
-    for (int i = 0; i < NUM_THREADS; i++) {
-        printf("  A_d[%d] = %d\n", i, A_h[i]);
-    }
+   double sum_time =  0.0;
+   double max_time = -1.0e10;
+   double min_time =  1.0e10;
+   for (int iter=0; iter<num_iteration; iter++) {
+        sum_time += timers[iter];
+        max_time  = max(max_time,timers[iter]);
+        min_time  = min(min_time,timers[iter]);
+   }
 
-    printf ("PASSED!\n");
+   double avg_time = sum_time / (double)num_iteration;
 
-    free(A_h);
-    CHECK(hipFree(A_d));
-    return 0;
+   cout << "-Timing in Seconds: min=" << fixed << setprecision(6) << min_time << ", max=" <<max_time << ", avg=" << avg_time << endl;
+
+   main_timer = omp_get_wtime()-main_start;
+   cout << "-Overall time is " << main_timer << endl;
+
+   cout << "Last Value: z[" << n-1 << "]=" << z[n-1] << endl;
+
+   delete [] x;
+   delete [] y;
+   delete [] z;
+
+   return 0;
 }
 
-
-
+void daxpy(int n, double a, double *__restrict__ x, double *__restrict__ y, double *__restrict__ z)
+{
+#pragma omp target teams distribute parallel for simd map(to: x[0:n], y[0:n]) map(from: z[0:n])
+        for (int i = 0; i < n; i++)
+                z[i] = a*x[i] + y[i];
+}

@@ -63,7 +63,7 @@ MARK_AS_ADVANCED (
 FIND_PACKAGE(PETSc REQUIRED)
 MESSAGE(STATUS "PETSC_FOUND = ${PETSC_FOUND}")
 
-find_package(OpenMP REQUIRED)
+# find_package(OpenMP REQUIRED)
 
 SET(HAVE_PETSC 0)
 IF(PETSC_FOUND)
@@ -144,7 +144,7 @@ SET(EIGEN_SAFE_TO_USE_STANDARD_ASSERT_MACRO FALSE)
 #find_package(Ceres NO_MODULE REQUIRED)
 #find_package(glog NO_MODULE REQUIRED)
 
-set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_STANDARD 14)
 
 #############################################################################################
 ### Build options
