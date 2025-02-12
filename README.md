@@ -145,6 +145,9 @@ Completed PETSc check examples
 
     export PETSC_DIR=$PETSC_PATH
 
+In the PETSC_PATH/include folder
+
+    ln -s /opt/rocm-6.2.3/include/hip/amd_detail/amd_hip_math_constants.h ./math_constants.h
 
 ### SLEPC INSTALL
 From the REPO folder
