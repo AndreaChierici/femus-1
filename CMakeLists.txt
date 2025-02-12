@@ -180,7 +180,7 @@ OPTION(BUILD_POISSON_AMR "Build the Poisson_AMR problem" OFF)
 OPTION(BUILD_WILLMORE "Build the Willmore problem" OFF)
 
 # --
-OPTION(BUILD_TUTORIAL "Build the tutorial problems" ON)
+OPTION(BUILD_TUTORIAL "Build the tutorial problems" OFF)
 
 # --
 OPTION(BUILD_MGAMR "Build the MGAMR" OFF)
@@ -218,7 +218,7 @@ OPTION(BUILD_QUASICONFORMAL "Build the QuasiConformal mesh apps" OFF)
 
 OPTION(BUILD_NITSCHE "Build the Nitsche apps" OFF)
 
-OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" ON)
+OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" OFF)
 
 OPTION(BUILD_TIME_OPTIMAL_CONTROL "Build Time Dependent Optimal Control apps" OFF)
 

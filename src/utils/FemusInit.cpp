@@ -46,7 +46,7 @@ FemusInit::FemusInit(
 
 
     if ( i != 0) {
-      //  std::cout.rdbuf(NULL);
+      std::cout.rdbuf(NULL);
     }
 #endif
 
