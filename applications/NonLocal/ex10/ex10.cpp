@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
 
 // ******* Solution *******
 
-  //system2.MGsolve();
+  system2.MGsolve();
 
   //END assemble and solve local problem
 
