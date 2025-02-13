@@ -1,7 +1,7 @@
 MyFEMuS
 ======
 
-Welcome to the MyFEMuS project! MyFEMuS is a fork of the FEMuS project administered mainly by Eugenio Aulisa.
+Welcome to the MyFEMuS project!! MyFEMuS is a fork of the FEMuS project administered mainly by Eugenio Aulisa.
 The manual intallation, will also work with the FEMuS project.
 
 For the FEMuS project automatic installation, as well as the Mac-specific installation, see below.
