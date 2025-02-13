@@ -2,16 +2,12 @@
 # Adept
 #-----------------------------------------------------------------------------
 
-SET(ADEPT_VERSION 1.1)
-SET(ADEPT_SOURCE_DIR ${PROJECT_SOURCE_DIR}/external/adept/adept-${ADEPT_VERSION})
+SET(ADEPT_VERSION 2.0)
 
-#look if there is a package for adept
-IF (EXISTS "${ADEPT_SOURCE_DIR}")   
-  MESSAGE(STATUS "ADEPT_FOUND = TRUE")
-ENDIF (EXISTS "${ADEPT_SOURCE_DIR}")
+# Adept-2 has been built and moved to this repo in include and lib //porchetta
 
-SET (ADEPT_INCLUDE_DIRS  ${ADEPT_SOURCE_DIR}/include)
-SET (ADEPT_LIBRARIES     ${PROJECT_BINARY_DIR}/lib64/libadept.a)
+SET (ADEPT_INCLUDE_DIRS  ${CMAKE_SOURCE_DIR}/include/adept-2.0/)
+SET (ADEPT_LIBRARIES     ${CMAKE_SOURCE_DIR}/lib/adept-2.0/libadept.a)
 
 INCLUDE_DIRECTORIES(${ADEPT_INCLUDE_DIRS})
 
@@ -22,4 +18,3 @@ INCLUDE_DIRECTORIES(${ADEPT_INCLUDE_DIRS})
 #  BUILD_IN_SOURCE 1
 #  INSTALL_COMMAND ""
 #) 
-ADD_SUBDIRECTORY(${ADEPT_SOURCE_DIR})

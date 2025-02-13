@@ -38,12 +38,6 @@ IF(HDF5_FOUND)
   TARGET_LINK_LIBRARIES(${appname} ${HDF5_LIBRARIES})
 ENDIF(HDF5_FOUND)
 
-if(OpenMP_FOUND)
-  include_directories(${OpenMP_INCLUDE_DIRS})
-  target_link_libraries(${appname} OpenMP::OpenMP_CXX)
-  set_property(TARGET ${appname} PROPERTY COMPILE_FLAGS "-fopenmp --offload-arch=gfx942")
-endif()
-
 IF(TARGET_CERES_LIBRARY)
   TARGET_LINK_LIBRARIES(${appname} Ceres::ceres)
   TARGET_LINK_LIBRARIES(${appname} glog::glog)

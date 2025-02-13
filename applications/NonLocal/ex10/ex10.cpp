@@ -6,7 +6,7 @@
 #include "NonLinearImplicitSystem.hpp"
 
 #include "NumericVector.hpp"
-#include "adept.h"
+//#include "adept.h"
 
 #include "petsc.h"
 #include "petscmat.h"
@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
   // ******* Set Preconditioner *******
   system.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetSparsityPatternMinimumSize(60000u);    //TODO tune
+  system.SetSparsityPatternMinimumSize(30000u);    //TODO tune
 
   system.init();
 

@@ -86,8 +86,6 @@ if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
      set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 endif()
 
-find_package(OpenMP REQUIRED)
-
 # Find FParser
 FIND_PACKAGE(FParser)
 MESSAGE(STATUS "FPARSER_FOUND = ${FPARSER_FOUND}")
@@ -143,7 +141,7 @@ SET(EIGEN_SAFE_TO_USE_STANDARD_ASSERT_MACRO FALSE)
 #find_package(Ceres NO_MODULE REQUIRED)
 #find_package(glog NO_MODULE REQUIRED)
 
-set(CMAKE_CXX_STANDARD 14)
+#set(CMAKE_CXX_STANDARD 14)
 
 #############################################################################################
 ### Build options
@@ -217,7 +215,7 @@ OPTION(BUILD_QUASICONFORMAL "Build the QuasiConformal mesh apps" OFF)
 
 OPTION(BUILD_NITSCHE "Build the Nitsche apps" OFF)
 
-OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" ON)
+OPTION(BUILD_MULTI_PHASE "Build the Multi Phase apps" OFF)
 
 OPTION(BUILD_TIME_OPTIMAL_CONTROL "Build Time Dependent Optimal Control apps" OFF)
 
