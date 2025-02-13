@@ -219,9 +219,11 @@ From the FEMUS_INSTALL folder
     mkdir femus_amd
     cd femus_amd
 
+    export HSA_XNACK=1
     module load amdclang
+    module load boost/1.79.0-openmpi
 
-    ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes
+    ccmake -B ./ -S $REPO/MyFEMuS/ -DPETSC_EXECUTABLE_RUNS=yes -DCMAKE_CXX_FLAGS="-fopenmp --offload-arch=gfx942"
 
 [c] configure as many times as needed it for [g] to appear <br>
 [g] generate
@@ -260,7 +262,11 @@ ssh on the Odyssey server
     export SLEPC_DIR=$FEMUS_INSTALL/slepc
 
     export UCX_WARN_UNUSED_ENV_VARS=n
+    export HSA_XNACK=1
+
     module load boost/1.79.0-openmpi
+    module load amdclang
+
 
 Repeat one of the MyFEMUS built above
 
