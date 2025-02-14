@@ -253,7 +253,6 @@ ssh on the Odyssey server
 
     bash
     source /storage/packages/Modules/amd-hpc-training-modulefiles/setup-env.sh
-    module load openmpi
 
     export FEMUS_INSTALL=~/install/femus/
     export REPO=~/repos
@@ -266,6 +265,8 @@ ssh on the Odyssey server
 
     module load boost/1.79.0-openmpi
     module load amdclang
+    module load openmpi
+
 
 
 Repeat one of the MyFEMUS built above
