@@ -263,9 +263,8 @@ ssh on the Odyssey server
     export UCX_WARN_UNUSED_ENV_VARS=n
     export HSA_XNACK=1
 
-    module load boost/1.79.0-openmpi
     module load amdclang
-    module load openmpi
+    module load boost/1.79.0-openmpi
 
 
 
