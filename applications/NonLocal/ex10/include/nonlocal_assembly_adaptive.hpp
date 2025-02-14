@@ -751,7 +751,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
         }
         pAssemblyTime += clock() - start;
       }//end iel loop
-      std::cout << std::endl;
+      if(orGeomRecv[kproc].size()!=0) std::cout << std::endl;
 
     }
 
@@ -929,7 +929,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
       }
       pAssemblyTime += clock() - start;
     }//end iel loop
-    std::cout << std::endl;
+    if(orGeomRecv[kproc].size()!=0) std::cout << std::endl;
     KK->flush();
   }
 
