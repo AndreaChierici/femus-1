@@ -106,7 +106,6 @@ int main(int argc, char** argv) {
   }
   return 0;*/
 
-  std::cout << "USING VARIABLES " << numberOfUniformLevels << "  " << lmax1 << std::endl;
 
   clock_t total_time = clock();
 
@@ -119,7 +118,7 @@ int main(int argc, char** argv) {
   double scalingFactor = 1.;
   unsigned numberOfSelectiveLevels = 0;
 
-
+  std::cout << "USING VARIABLES " << numberOfUniformLevels << "  " << lmax1 << std::endl;
 
 
 
