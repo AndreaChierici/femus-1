@@ -1,41 +1,91 @@
-#include "FemusInit.hpp"
-#include "MultiLevelSolution.hpp"
-#include "MultiLevelProblem.hpp"
-#include "CurrentElem.hpp"
-#include "LinearImplicitSystem.hpp"
-
-#include "PolynomialBases.hpp"
-
-#include "CutFemWeight.hpp"
-
-#include "CDWeights.hpp"
-
-#include <vector>
-#include <cmath>
-#include <iostream>
-
-#include "Fem.hpp"
-
-using namespace std;
-using namespace femus;
+#pragma once
 
 #include <iostream>
 #include <omp.h>
-#include <unistd.h>
-#define THREAD_NUM 8
+#include<vector>
+
+#pragma omp requires unified_shared_memory
+
+class Shape {
+  public:
+    Shape() {};
+    virtual ~Shape() {};
+    #pragma omp begin declare target
+    virtual double GetPerimeter(const std::vector<double>& sides) const = 0;
+    #pragma omp end declare target
+  protected:
+    unsigned nSides;
+};
+
+class Square : public Shape {
+  public:
+    Square(): Shape() {
+      nSides = 4;
+    };
+    ~Square() {};
+
+    #pragma omp begin declare target
+    double GetPerimeter(const std::vector<double>& sides) const {
+      double p = 0;
+      for(unsigned i = 0; i < nSides; i++) {
+        p += sides[i];
+      }
+      return p;
+    }
+    #pragma omp end declare target
+};
+
+
+class Triangle : public Shape {
+  public:
+    Triangle(): Shape() {
+      nSides = 3;
+    };
+    ~Triangle() {};
+
+    #pragma omp begin declare target
+    double GetPerimeter(const std::vector<double>& sides) const {
+      double p = 0;
+      for(unsigned i = 0; i < nSides; i++) {
+        p += sides[i];
+      }
+      return p;
+    }
+    #pragma omp end declare target
+};
+
+
+//#define THREAD_NUM 8
 int main(int argc, char* argv[])
 {
-    FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
 
-    #pragma omp parallel num_threads(THREAD_NUM)
-     //omp_set_thread_num(THREAD_NUM); // set number of threads in "parallel" blocks
-    // #pragma omp parallel
-    {
- //       usleep(5000 * omp_get_thread_num()); // do this to avoid race condition while printing
-      //  std::cerr << "Number of available threads: " << omp_get_num_threads() << std::endl;
-        // each thread can also get its own number
-//	std::cerr << "Current thread number: " << omp_get_thread_num() << std::endl;
-        std::cerr << "Hello, World!" << std::endl;
+  unsigned nobj = 1000;
+  std::vector<std::vector<double>> sides(nobj);
+  std::vector<Shape*> shape(nobj);
+
+
+  Triangle* tri = new Triangle();
+
+  for(unsigned i = 0; i < nobj; i++) {
+    if(i % 2 == 0) {
+      sides[i].assign(4, 1);
+      shape[i] =  new Square();
     }
-    return 0;
+    else {
+      sides[i].assign(3, 1);
+      shape[i] =  new Triangle();
+    }
+  }
+
+//#pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
+  for(unsigned i = 0; i < nobj; i++) {
+    double p = shape[i]->GetPerimeter(sides[i]);
+    std::cerr << p << " ";
+  }
+  std::cerr << std::endl;
+
+
+  for(unsigned i = 0; i < nobj; i++) delete shape[i];
+
+  return 0;
 }
