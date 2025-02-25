@@ -55,7 +55,7 @@ class Triangle : public Shape {
 };
 
 
-//#define THREAD_NUM 8
+#define NUM_THREADS 8
 int main(int argc, char* argv[])
 {
 
@@ -77,12 +77,13 @@ int main(int argc, char* argv[])
     }
   }
 
-//#pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
+#pragma omp target teams distribute parallel for //num_teams(8) thread_limit(8)
   for(unsigned i = 0; i < nobj; i++) {
+    printf("tms=%d_thr=%d  ", omp_get_team_num(), omp_get_thread_num());
     double p = shape[i]->GetPerimeter(sides[i]);
-    std::cerr << p << " ";
+    printf("%f ",p);
   }
-  std::cerr << std::endl;
+  std::cout << std::endl;
 
 
   for(unsigned i = 0; i < nobj; i++) delete shape[i];
