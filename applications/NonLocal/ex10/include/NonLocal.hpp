@@ -1035,9 +1035,9 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     phi2[jg] = fem->GetPhi(jg);
   }
 
-//#pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
+#pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
   //#pragma omp distribute parallel for
-  #pragma omp loop parallel for
+  //#pragma omp loop parallel for
   for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
     //std::cout << "nft=" << omp_get_num_threads() <<" "<<omp_get_num_teams()<<" ";
     const double *phi2pt;
