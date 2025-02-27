@@ -63,14 +63,17 @@ int main(int argc, char** argv)
 
   Nom nom;
   std::vector<double> lengths{1.};
-  std::vector<unsigned> nPoints{41};
+  std::vector<unsigned> nPoints{11};
   unsigned dim = lengths.size();
-  nom.InitializeSimplestPointStructure(lengths,nPoints);
+  // nom.InitializeSimplestPointStructure(lengths,nPoints);
+
+  std::vector<std::vector<double>> points = {{0,0.15,0.2,0.27,0.42,0.51,0.54,0.69,0.80,0.94,1.}};
+  nom.InitializeGivenPointStructureWithRef(points, 5);
   // nom.InitPointStructureNLBC(lengths,nPoints,1);
   nom.SetConstDeltaV(lengths);
-  unsigned order = 4;
+  unsigned order = 3;
   unsigned np = (nom.factorial(order+dim)/(nom.factorial(order)*nom.factorial(dim))) - 1;
-  unsigned nNeigh = /*5 * order +*/ np + dim * order;
+  unsigned nNeigh = /*5 * order +*/ np + 3  /*+ dim * order*/   ;
   std::cout<< "dim = " << dim << " | order = " << order << " | np = " << np << " | nNeigh = " << nNeigh << "\n";
   
   unsigned midPoint = 1;
@@ -113,59 +116,59 @@ int main(int argc, char** argv)
   std::map<int, std::vector<std::vector<double>>> dist = nom.GetDist();
   std::map<int, std::vector<std::pair<int,double>>> mapN = nom.GetMapN();
 
-  // std::cout<<"___________MAP______________________\n";
-  // for(unsigned i = 0; i < map.size(); i++){
-  //     std::cout<< i << " | ";
-  //     for(unsigned j = 0; j < map[i].size(); j++) std::cout << map[i][j] << " ";
-  //     std::cout<<std::endl;
-  // }
-  std::cout<<"___________MAP_N____________________\n";
-  for(unsigned i = 0; i < mapN.size(); i++){
-      std::cout<< i << " | ";
-      for(unsigned j = 0; j < mapN[i].size(); j++) std::cout << mapN[i][j].first << " ";
-      std::cout<<std::endl;
-  }
-  std::cout<<"___________DIST______________________\n";
-  for(unsigned i = 0; i < dist.size(); i++){
-      std::cout<< i << " | ";
-      for(unsigned j = 0; j < dist[i].size(); j++) {
-          for(unsigned k = 0; k < dim; k++) std::cout << dist[i][j][k] << " ";
-          std::cout <<" / ";
-      }
-      std::cout<<std::endl;
-  }
+//   // std::cout<<"___________MAP______________________\n";
+//   // for(unsigned i = 0; i < map.size(); i++){
+//   //     std::cout<< i << " | ";
+//   //     for(unsigned j = 0; j < map[i].size(); j++) std::cout << map[i][j] << " ";
+//   //     std::cout<<std::endl;
+//   // }
+//   std::cout<<"___________MAP_N____________________\n";
+//   for(unsigned i = 0; i < mapN.size(); i++){
+//       std::cout<< i << " | ";
+//       for(unsigned j = 0; j < mapN[i].size(); j++) std::cout << mapN[i][j].first << " ";
+//       std::cout<<std::endl;
+//   }
+//   std::cout<<"___________DIST______________________\n";
+//   for(unsigned i = 0; i < dist.size(); i++){
+//       std::cout<< i << " | ";
+//       for(unsigned j = 0; j < dist[i].size(); j++) {
+//           for(unsigned k = 0; k < dim; k++) std::cout << dist[i][j][k] << " ";
+//           std::cout <<" / ";
+//       }
+//       std::cout<<std::endl;
+//   }
+//
+//   // Testing the class Nom - compuiting the operator K
+//   nom.ComputeOperatorK(0);
+//   std::vector<std::vector<double>> K = nom.GetK();
+//   std::cout<<"_______________________________________\n";
+//   std::cout<<"K = \n";
+//   for(unsigned d1 = 0; d1 < dim; d1++){
+//     std::cout<<"{ ";
+//     for(unsigned d2 = 0; d2 < dim; d2++){
+//       std::cout<< K[d1][d2] ;
+//       if(d2 < dim-1) std::cout << ", ";
+//     }
+//     std::cout<<" }";
+//     if(d1 < dim-1) std::cout << ", ";
+//     std::cout<< std::endl;
+//   }
   
-  // Testing the class Nom - compuiting the operator K
-  nom.ComputeOperatorK(0);
-  std::vector<std::vector<double>> K = nom.GetK();
-  std::cout<<"_______________________________________\n";
-  std::cout<<"K = \n";
-  for(unsigned d1 = 0; d1 < dim; d1++){
-    std::cout<<"{ ";
-    for(unsigned d2 = 0; d2 < dim; d2++){
-      std::cout<< K[d1][d2] ;
-      if(d2 < dim-1) std::cout << ", ";
-    }
-    std::cout<<" }";
-    if(d1 < dim-1) std::cout << ", ";
-    std::cout<< std::endl;
-  }
-  
-// Testing the class Nom - compuiting inverse of the operator K
-  nom.ComputeInvK(0);
-  std::vector<std::vector<double>> Kinv = nom.GetKinv();
-  std::cout<<"_______________________________________\n";
-  std::cout<<"K inverse = \n";
-  for(unsigned d1 = 0; d1 < dim; d1++){
-    std::cout<<"{ ";
-    for(unsigned d2 = 0; d2 < dim; d2++){
-      std::cout << Kinv[d1][d2];
-      if(d2 < dim-1) std::cout << ", ";
-    }
-    std::cout<<" }";
-    if(d1 < dim-1) std::cout << ", ";
-    std::cout<< std::endl;
-  }
+// // Testing the class Nom - compuiting inverse of the operator K
+//   nom.ComputeInvK(0);
+//   std::vector<std::vector<double>> Kinv = nom.GetKinv();
+//   std::cout<<"_______________________________________\n";
+//   std::cout<<"K inverse = \n";
+//   for(unsigned d1 = 0; d1 < dim; d1++){
+//     std::cout<<"{ ";
+//     for(unsigned d2 = 0; d2 < dim; d2++){
+//       std::cout << Kinv[d1][d2];
+//       if(d2 < dim-1) std::cout << ", ";
+//     }
+//     std::cout<<" }";
+//     if(d1 < dim-1) std::cout << ", ";
+//     std::cout<< std::endl;
+//   }
   
 //   // Testing matrix-vector multiplication in the class SimpleMatrix
 //   SimpleMatrix mat(Kinv);
@@ -285,19 +288,27 @@ int main(int argc, char** argv)
   nom.AssembleLaplacian();
   nom.SetEigenRhs(rhs);
 
-  // nom.PrinMatRhsMatlabFormat();
+  nom.PrinMatRhsMatlabFormat();
   
-//   Solve the system
-  nom.SolveEigen();
-//   nom.SolveEigenSparse();
+// //   Solve the system
+//   nom.SolveEigen();
+//   std::cout << "L2 error = " << nom.L2Error();
+
+// //   nom.SolveEigenSparse();
+
   nom.SolveEigenPPLU();
-  nom.SolveEigenQR();
-  nom.SolveEigenAINVPrecond();
+  // std::cout << "L2 error = " << nom.L2Error();
+
+  // nom.SolveEigenQR();
+  // std::cout << "L2 error = " << nom.L2Error();
+
+  // nom.SolveEigenAINVPrecond();
+  // std::cout << "L2 error = " << nom.L2Error();
 
 // //   Printing matrix, rhs and solution
 //   nom.PrintGlobalEigenMatrix();
   // nom.PrintGlobalEigenRhs();
-  nom.PrintGlobalEigenSolution();
+  // nom.PrintGlobalEigenSolution();
 
   std::cout<<"____________ERROR_____________\n";
   std::cout << "L2 error = " << nom.L2Error();

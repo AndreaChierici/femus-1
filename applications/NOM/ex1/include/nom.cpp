@@ -53,6 +53,43 @@ void Nom::InitializeSimplestPointStructure(const std::vector<double> &lengths, /
   return;
 }
 
+
+void Nom::InitializeGivenPointStructureWithRef(std::vector<std::vector<double>> &points, //given points as {{x1,x2,...},{y1,y2,...},...}
+                                      const  unsigned &nLev //number of levels of refinement
+                                     ){
+
+    unsigned dim = points.size();
+    unsigned totNodes = 1.;
+    for(unsigned d = 0; d < dim; d++) totNodes *= points[d].size();
+
+    std::vector<std::vector<double>> coord(dim);
+    coord = points;
+
+    for(unsigned lev = 1; lev < nLev; lev++){
+      totNodes = 1;
+      for(unsigned d = 0; d < dim; d++){
+        unsigned size = coord[d].size();
+        coord[d].resize(2 * size - 1);
+        totNodes *= 2 * size - 1;
+        for(unsigned i = 0; i < coord[d].size(); i++){
+          if(i%2==0) coord[d][i] = points[d][i/2];
+          else coord[d][i] = 0.5*(points[d][(i+1)/2]+points[d][(i-1)/2]);
+        }
+      }
+      points = coord;
+    }
+
+    SetNumberOfNodes(totNodes);
+    SetDimension(dim);
+    xResize();
+
+    comb(coord);
+
+  return;
+}
+
+
+
 // This function initialized an Hyperrectangle domain with nPoints per dimension
 void Nom::InitPointStructureNLBC(const std::vector<double> &lengths, //lenght of the side of the domain in any direction
                                  const  std::vector<unsigned> &nPoints, //number of points per direction
@@ -605,6 +642,7 @@ void Nom::ComputeOperatorB(unsigned i){
 
   ComputeHighOrdKAndPolyOperators(i);
   prodKP = _KHOE * _PolyE;
+
   for(unsigned j = 0; j < prodKP.cols(); j++){
     for(unsigned i = 0; i < prodKP.rows(); i++){
       colSum(i) -= prodKP(i,j);

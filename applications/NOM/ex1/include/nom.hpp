@@ -33,6 +33,7 @@ namespace femus {
       void InitializeDistMap();
       
       void InitializeSimplestPointStructure(const std::vector<double> &lengths, const  std::vector<unsigned> &nPoints);
+      void InitializeGivenPointStructureWithRef(std::vector<std::vector<double>> &points, const  unsigned &nLev);
       void InitPointStructureNLBC(const std::vector<double> &lengths, const  std::vector<unsigned> &nPoints, const int &pointsD);
       void PrintX();
       void GetCoords(std::vector<std::vector<double>> &x);

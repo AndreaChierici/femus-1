@@ -8,7 +8,7 @@ ENDIF(SLEPC_FOUND)
   
 
 
-FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/applications/NOM/input/)
-FILE(COPY           ${PROJECT_SOURCE_DIR}/applications/NOM/input/ DESTINATION ${PROJECT_BINARY_DIR}/NOM/NonLocal/input/)
+# FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/applications/NOM/input/)
+# FILE(COPY           ${PROJECT_SOURCE_DIR}/applications/NOM/input/ DESTINATION ${PROJECT_BINARY_DIR}/NOM/NonLocal/input/)
 
 
