@@ -955,6 +955,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
 //   KK->draw();
 
+  abort();
+
   delete nonlocal;
   if (dim == 3) {
     delete refineElement[0][0];

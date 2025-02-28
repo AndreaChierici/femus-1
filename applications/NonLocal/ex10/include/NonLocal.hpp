@@ -1035,69 +1035,102 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     phi2[jg] = fem->GetPhi(jg);
   }
 
-#pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
-  //#pragma omp distribute parallel for
+// #pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
+  #pragma omp parallel for
+  // #pragma omp parallel for schedule(dynamic, 10)
   //#pragma omp loop parallel for
-  for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
-    //std::cout << "nft=" << omp_get_num_threads() <<" "<<omp_get_num_teams()<<" ";
-    const double *phi2pt;
+for (unsigned jj = 0; jj < jelIndex.size(); jj++) {
     const unsigned jel = jelIndex[jj];
 
+    // Avoid unnecessary copying of vectors
     const unsigned &dim = region2.GetDimension(jel);
     const std::vector<std::vector<double>>& x2MinMax = region2.GetMinMax(jel);
 
     bool coarseIntersectionTest = true;
-    for(unsigned k = 0; k < dim; k++) {
-      if((xg1[k]  - x2MinMax[k][1]) > delta + eps  || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
-        coarseIntersectionTest = false;
-        break;
-      }
+    for (unsigned k = 0; k < dim; k++) {
+        if ((xg1[k] - x2MinMax[k][1]) > delta + eps || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
+            coarseIntersectionTest = false;
+            break;
+        }
     }
 
+    if (coarseIntersectionTest) {
+        const unsigned &nDof2 = region2.GetDofNumber(jel);
+        const elem_type *fem = region2.GetFem(jel);
+        const std::vector<double> &solu2g = region2.GetGaussSolution(jel);
+        const std::vector<double> &weight2 = region2.GetGaussWeight(jel);
+        const std::vector<std::vector<double>> &xg2 = region2.GetGaussCoordinates(jel);
 
 
-    if(coarseIntersectionTest) {
-      const unsigned &nDof2 = region2.GetDofNumber(jel);
-      const elem_type *fem = region2.GetFem(jel);
-      const std::vector <double >  &solu2g = region2.GetGaussSolution(jel);
-      //region2.GetGaussSolution(jel).data();
-      const std::vector <double >  &weight2 = region2.GetGaussWeight(jel);
-      const std::vector < std::vector <double> >  &xg2 = region2.GetGaussCoordinates(jel);
+    //       for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
+    // //std::cout << "nft=" << omp_get_num_threads() <<" "<<omp_get_num_teams()<<" ";
+    //
+    // const double *phi2pt;
+    // const unsigned jel = jelIndex[jj];
+    //
+    // const unsigned &dim = region2.GetDimension(jel);
+    // const std::vector<std::vector<double>>& x2MinMax = region2.GetMinMax(jel);
+    //
+    // bool coarseIntersectionTest = true;
+    // for(unsigned k = 0; k < dim; k++) {
+    //   if((xg1[k]  - x2MinMax[k][1]) > delta + eps  || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
+    //     coarseIntersectionTest = false;
+    //     break;
+    //   }
+    // }
+    //
+    //
+    //
+    // if(coarseIntersectionTest) {
+    //   const unsigned &nDof2 = region2.GetDofNumber(jel);
+    //   const elem_type *fem = region2.GetFem(jel);
+    //   const std::vector <double >  &solu2g = region2.GetGaussSolution(jel);
+    //   //region2.GetGaussSolution(jel).data();
+    //   const std::vector <double >  &weight2 = region2.GetGaussWeight(jel);
+    //   const std::vector < std::vector <double> >  &xg2 = region2.GetGaussCoordinates(jel);
+
 
       double C, *jac22pt, *jac21pt, *res2pt;
       unsigned i,j;
 
-      for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
-        if(U[jj][jg] > 0.) {
-//          double C =  U[jj] * GetGamma(xg1, xg2[jg]) *  weight2[jg] * twoWeigh1Kernel;
-          // C =  U[jj][jg] * weight2[jg] * twoWeigh1Kernel;
-          //jac22pt = &_jac22[jel][0];
-          // res2pt = &_res2[jel][0];
+       int a = 0;
+    for(int i = 0; i < 1000; i++ ){
+      a += sqrt(i)*i;
+    }
+    double b = 1.2 * a;
 
-          for(i = 0, res2pt = &_res2[jel][0],  jac22pt = &_jac22[jel][0], C =  U[jj][jg] * weight2[jg] * twoWeigh1Kernel; i < nDof2; i++, res2pt++) {
-            double cPhi2i = C * phi2[jg][i];
-            mCphi2iSum[jj][i] -= cPhi2i;
-            for(j = 0, phi2pt = phi2[jg]; j < nDof2; j++, phi2pt++, jac22pt++) {
-              *jac22pt -= cPhi2i * (*phi2pt);
-            }
-            //_res2[jel][i] += cPhi2i * solu2g[jg];
-            *res2pt += cPhi2i * solu2g[jg];
-          }
-        }//end if U > 0.
-      }//end jg loop
-
-
-      jac21pt = &_jac21[jel][0];
-      res2pt = &_res2[jel][0];
-      unsigned ijIndex = 0;
-      for(unsigned i = 0; i < nDof2; i++, res2pt++) {
-        for(unsigned j = 0; j < nDof1; j++, ijIndex++, jac21pt++) {
-          //_jac21[jel][ijIndex] -= mCphi2iSum[jj][i] * phi1[j];
-          *jac21pt -= mCphi2iSum[jj][i] * phi1[j];
-        }
-        // _res2[jel][i] += mCphi2iSum[jj][i] * solu1g;
-        *res2pt += mCphi2iSum[jj][i] * solu1g;
-      }
+//
+//       for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
+//         if(U[jj][jg] > 0.) {
+// //          double C =  U[jj] * GetGamma(xg1, xg2[jg]) *  weight2[jg] * twoWeigh1Kernel;
+//           // C =  U[jj][jg] * weight2[jg] * twoWeigh1Kernel;
+//           //jac22pt = &_jac22[jel][0];
+//           // res2pt = &_res2[jel][0];
+//
+//           for(i = 0, res2pt = &_res2[jel][0],  jac22pt = &_jac22[jel][0], C =  U[jj][jg] * weight2[jg] * twoWeigh1Kernel; i < nDof2; i++, res2pt++) {
+//             double cPhi2i = C * phi2[jg][i];
+//             mCphi2iSum[jj][i] -= cPhi2i;
+//             for(j = 0, phi2pt = phi2[jg]; j < nDof2; j++, phi2pt++, jac22pt++) {
+//               *jac22pt -= cPhi2i * (*phi2pt);
+//             }
+//             //_res2[jel][i] += cPhi2i * solu2g[jg];
+//             *res2pt += cPhi2i * solu2g[jg];
+//           }
+//         }//end if U > 0.
+//       }//end jg loop
+//
+//
+//       jac21pt = &_jac21[jel][0];
+//       res2pt = &_res2[jel][0];
+//       unsigned ijIndex = 0;
+//       for(unsigned i = 0; i < nDof2; i++, res2pt++) {
+//         for(unsigned j = 0; j < nDof1; j++, ijIndex++, jac21pt++) {
+//           //_jac21[jel][ijIndex] -= mCphi2iSum[jj][i] * phi1[j];
+//           *jac21pt -= mCphi2iSum[jj][i] * phi1[j];
+//         }
+//         // _res2[jel][i] += mCphi2iSum[jj][i] * solu1g;
+//         *res2pt += mCphi2iSum[jj][i] * solu1g;
+//       }
     }
   }
 
