@@ -98,7 +98,7 @@ public:
 
     type value(const std::vector < type >& x) const {
 
-        return  -12. *x[0] * x[1];
+        return  -12.0 *x[0] * x[1];
     }
 
 
@@ -106,8 +106,8 @@ public:
 
         std::vector < type > solGrad(x.size(), 0.);
 
-        solGrad[0]  = -12. * x[1];
-        solGrad[1]  = -12. * x[0];
+        solGrad[0]  = -12.0 * x[1];
+        solGrad[1]  = -12.0 * x[0];
 
         return solGrad;
     }
