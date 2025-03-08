@@ -82,7 +82,10 @@ public:
 
 };
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> ba8f5a6b9 (merging with master)
 }
 
 
@@ -189,13 +192,7 @@ public:
 
 
 
-
-
-
 }
-
-
-
 
 }
 
@@ -222,36 +219,6 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
 
 //====Set boundary condition-END==============================
 
-
-// // // //====Set boundary condition Dirichlet-Neumann-BEGIN==============================
-// // //
-// // // bool SetBoundaryCondition_bc_all_neumann_dirichlet(const MultiLevelProblem* ml_prob, const std::vector<double>& x, const char SolName[], double& value, const int facename, const double time) {
-// // //     bool is_dirichlet = true;
-// // //
-// // //     if (!strcmp(SolName, "u")) {
-// // //         // Assuming "u" corresponds to your first variable
-// // //         Math::Function<double>* u = ml_prob->get_ml_solution()->get_analytical_function(SolName);
-// // //            is_dirichlet = true;
-// // //            value = u->value(x);
-// // //     } else if (!strcmp(SolName, "v")) {
-// // //         // Assuming "v" corresponds to your second variable
-// // //            is_dirichlet = true;
-// // //         Math::Function<double>* v = ml_prob->get_ml_solution()->get_analytical_function(SolName);
-// // //         Math::Function<double>* u = ml_prob->get_ml_solution()->get_analytical_function("u");
-// // //         // Set Dirichlet condition for "v" as the Laplacian of "u"
-// // //         // value = u->laplacian(x);
-// // //         value = v->value(x);
-// // //     }
-// // //
-// // //     return is_dirichlet;
-// // // }
-// // // //====Set boundary condition Dirichlet-Neumann-END==============================
-
-
-
-
-
-
 int main(int argc, char** args) {
 
   // init Petsc-MPI communicator
@@ -274,11 +241,6 @@ int main(int argc, char** args) {
   std::string fe_quad_rule("seventh");
 
 
-
-
-
-// // //   std::string system_common_name1 = "Coupled_Biharmonic1";
-// // //   std::string system_common_name2 = "Coupled_Biharmonic2";
 
   std::vector <system_specifics>  my_specifics;
 
@@ -440,7 +402,6 @@ int main(int argc, char** args) {
     ml_mesh.PrintInfo();
 
 
-
     l2Norm[i].resize( feOrder.size() );
     semiNorm[i].resize( feOrder.size() );
 
@@ -456,7 +417,6 @@ int main(int argc, char** args) {
       ml_prob.SetMultiLevelMeshAndSolution(& mlSol);
 
 
-
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("u",  my_specifics[app]._true_solution_function);
 
@@ -465,7 +425,6 @@ int main(int argc, char** args) {
       mlSol.set_analytical_function("v",  my_specifics[app]._assemble_function_for_rhs);
 
       mlSol.Initialize("All");
-
 
 
       // define the multilevel problem attach the mlSol object to it
@@ -480,14 +439,11 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("v", "Steady", & ml_prob);
 
 
-
       ml_prob.clear_systems();
 
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (my_specifics[app]._system_name);
 
-
       system.SetDebugNonlinear(true);
-
 
       // add solution "u" to system
       system.AddSolutionToSystemPDE("u");
