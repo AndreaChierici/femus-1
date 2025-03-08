@@ -83,9 +83,12 @@ public:
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 =======
 >>>>>>> ba8f5a6b9 (merging with master)
+=======
+>>>>>>> ba8f5a6b93abb14b0f59cf9a877da2a376a19a75
 }
 
 
@@ -191,6 +194,59 @@ public:
 
 
 
+<<<<<<< HEAD
+=======
+template <class type = double>
+class Function_NonZero_on_boundary_2 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+// // //         double xx = x[0];
+// // //         double yy = x[1];
+
+        return x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+
+// // //         double xx = x[0];
+// // //         double yy = x[1];
+
+        solGrad[0] = x[1] * cos(x[0] * x[0] + x[1] * x[1]) - 2. * x[0] * x[0] * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
+        solGrad[1] = x[0] * cos(x[0] * x[0] + x[1] * x[1]) - 2. * x[0] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
+
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+
+        return -8. * x[0] * x[1] * x[1] * x[1] * cos( x[0] * x[0]+ x[1] * x[1]) - 12. * x[0]*x[1]*sin(x[0] * x[0] + x[1] * x[1]);
+    }
+};
+
+template <class type = double>
+class Function_NonZero_on_boundary_2_Laplacian : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -8. * x[0] * x[1] * x[1] * x[1] * cos( x[0] * x[0]+ x[1] * x[1]) - 12. * x[0]*x[1]*sin(x[0] * x[0] + x[1] * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+
+        solGrad[0] = 16. * x[0] * x[0] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 8. * x[1] * x[1] * x[1] * cos(x[0] * x[0] + x[1] * x[1]) - 24. * x[0] * x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1])- 12. * x[1] * sin(x[0] * x[0] + x[1] * x[1]);
+        solGrad[1] = 16. * x[0] * x[1] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 48. * x[0] * x[1] * x[1] * cos(x[0] * x[0] + x[1] * x[1])- 12. * x[0] * sin(x[0] * x[0] + x[1] * x[1]);
+
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 64. * x[0] * x[1] * x[1] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) + 320. * x[0] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 240. * x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1]);
+    }
+};
+>>>>>>> ba8f5a6b93abb14b0f59cf9a877da2a376a19a75
 
 }
 
