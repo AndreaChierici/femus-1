@@ -82,16 +82,9 @@ public:
 
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-=======
->>>>>>> ba8f5a6b9 (merging with master)
-=======
->>>>>>> ba8f5a6b93abb14b0f59cf9a877da2a376a19a75
+
 }
-
-
 
 namespace  quarter_circle_centered_at_0_by_0  {
 template < class type = double >
@@ -101,7 +94,7 @@ public:
 
     type value(const std::vector < type >& x) const {
 
-        return  -12.0 *x[0] * x[1];
+        return  -12. *x[0] * x[1];
     }
 
 
@@ -109,8 +102,8 @@ public:
 
         std::vector < type > solGrad(x.size(), 0.);
 
-        solGrad[0]  = -12.0 * x[1];
-        solGrad[1]  = -12.0 * x[0];
+        solGrad[0]  = -12. * x[1];
+        solGrad[1]  = -12. * x[0];
 
         return solGrad;
     }
@@ -135,8 +128,10 @@ public:
 
     // for a quarter-circle in Quadrant 1
 
+    double xx = x[0];
+    double yy = x[1];
 
-    return  x[0] * x[1] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ); // forced to be zero on the x and y axis, and the circle edge
+    return  xx * yy * (1.0 + (xx*xx + yy*yy) ); // forced to be zero on the x and y axis, and the circle edge
     }
 
 
@@ -144,9 +139,11 @@ public:
 
         std::vector < type > solGrad(x.size(), 0.);
 
+    double xx = x[0];
+    double yy = x[1];
 
-        solGrad[0]  = x[1] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ) + x[0] * x[1] * (2. * x[0]);
-        solGrad[1]  = x[0] * (1.0 + (x[0]*x[0] + x[1]*x[1]) ) + x[1] * x[0] * (2. * x[1]);
+        solGrad[0]  = yy * (1.0 + (xx*xx + yy*yy) ) + xx * yy * (2. * xx);
+        solGrad[1]  = xx * (1.0 + (xx*xx + yy*yy) ) + yy * xx * (2. * yy);
 
         return solGrad;
     }
@@ -154,7 +151,10 @@ public:
 
     type laplacian(const std::vector < type >& x) const {
 
-    return  12. * x[0] * x[1];
+    double xx = x[0];
+    double yy = x[1];
+
+    return  12. * xx * yy;
     }
 
 
@@ -194,8 +194,6 @@ public:
 
 
 
-<<<<<<< HEAD
-=======
 template <class type = double>
 class Function_NonZero_on_boundary_2 : public Math::Function<type> {
 
@@ -246,9 +244,14 @@ public:
         return 64. * x[0] * x[1] * x[1] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) + 320. * x[0] * x[1] * x[1] * x[1] * sin(x[0] * x[0] + x[1] * x[1]) - 240. * x[0] * x[1] * cos(x[0] * x[0] + x[1] * x[1]);
     }
 };
->>>>>>> ba8f5a6b93abb14b0f59cf9a877da2a376a19a75
+
+
+
 
 }
+
+
+
 
 }
 
@@ -275,6 +278,36 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
 
 //====Set boundary condition-END==============================
 
+
+// // // //====Set boundary condition Dirichlet-Neumann-BEGIN==============================
+// // //
+// // // bool SetBoundaryCondition_bc_all_neumann_dirichlet(const MultiLevelProblem* ml_prob, const std::vector<double>& x, const char SolName[], double& value, const int facename, const double time) {
+// // //     bool is_dirichlet = true;
+// // //
+// // //     if (!strcmp(SolName, "u")) {
+// // //         // Assuming "u" corresponds to your first variable
+// // //         Math::Function<double>* u = ml_prob->get_ml_solution()->get_analytical_function(SolName);
+// // //            is_dirichlet = true;
+// // //            value = u->value(x);
+// // //     } else if (!strcmp(SolName, "v")) {
+// // //         // Assuming "v" corresponds to your second variable
+// // //            is_dirichlet = true;
+// // //         Math::Function<double>* v = ml_prob->get_ml_solution()->get_analytical_function(SolName);
+// // //         Math::Function<double>* u = ml_prob->get_ml_solution()->get_analytical_function("u");
+// // //         // Set Dirichlet condition for "v" as the Laplacian of "u"
+// // //         // value = u->laplacian(x);
+// // //         value = v->value(x);
+// // //     }
+// // //
+// // //     return is_dirichlet;
+// // // }
+// // // //====Set boundary condition Dirichlet-Neumann-END==============================
+
+
+
+
+
+
 int main(int argc, char** args) {
 
   // init Petsc-MPI communicator
@@ -287,7 +320,7 @@ int main(int argc, char** args) {
 
   // ======= Files - BEGIN  ========================
   const bool use_output_time_folder = false; // This allows you to run the code multiple times without overwriting. This will generate an output folder each time you run.
-  const bool redirect_cout_to_file = false; // puts the output in a log file instead of the term
+  const bool redirect_cout_to_file = true; // puts the output in a log file instead of the term
   Files files;
         files.CheckIODirectories(use_output_time_folder);
         files.RedirectCout(redirect_cout_to_file);
@@ -298,6 +331,11 @@ int main(int argc, char** args) {
 
 
 
+
+
+// // //   std::string system_common_name1 = "Coupled_Biharmonic1";
+// // //   std::string system_common_name2 = "Coupled_Biharmonic2";
+
   std::vector <system_specifics>  my_specifics;
 
   system_specifics app_square_m05p05_1;
@@ -305,7 +343,6 @@ int main(int argc, char** args) {
   system_specifics app_square_m05p05_2;
 
   system_specifics quarter_circle;
-
   system_specifics quarter_circle_Nzero;
 
 
@@ -383,8 +420,8 @@ int main(int argc, char** args) {
 
    quarter_circle_Nzero._boundary_conditions_types_and_values         = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
-   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_1<>     app_quarter_circle_function_nonzero_on_boundary_1;
-   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_1_Laplacian<>   app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
+   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_2<>     app_quarter_circle_function_nonzero_on_boundary_1;
+   Domains::quarter_circle_centered_at_0_by_0::Function_NonZero_on_boundary_2_Laplacian<>   app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
 
    quarter_circle_Nzero._assemble_function_for_rhs        = & app_quarter_circle_function_nonzero_on_boundary_1_laplacian;
    quarter_circle_Nzero._true_solution_function           = & app_quarter_circle_function_nonzero_on_boundary_1;
@@ -458,6 +495,7 @@ int main(int argc, char** args) {
     ml_mesh.PrintInfo();
 
 
+
     l2Norm[i].resize( feOrder.size() );
     semiNorm[i].resize( feOrder.size() );
 
@@ -473,6 +511,7 @@ int main(int argc, char** args) {
       ml_prob.SetMultiLevelMeshAndSolution(& mlSol);
 
 
+
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("u",  my_specifics[app]._true_solution_function);
 
@@ -481,6 +520,7 @@ int main(int argc, char** args) {
       mlSol.set_analytical_function("v",  my_specifics[app]._assemble_function_for_rhs);
 
       mlSol.Initialize("All");
+
 
 
       // define the multilevel problem attach the mlSol object to it
@@ -495,11 +535,14 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("v", "Steady", & ml_prob);
 
 
+
       ml_prob.clear_systems();
 
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (my_specifics[app]._system_name);
 
+
       system.SetDebugNonlinear(true);
+
 
       // add solution "u" to system
       system.AddSolutionToSystemPDE("u");
@@ -611,9 +654,3 @@ int main(int argc, char** args) {
 
   return 0;
 }
-
-
-
-
-
-
