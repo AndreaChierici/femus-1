@@ -1,5 +1,5 @@
-#ifndef __femus_biharmonic_coupled_hpp__
-#define __femus_biharmonic_coupled_hpp__
+#ifndef __femus_biharmonic_HM_hpp__
+#define __femus_biharmonic_HM_hpp__
  
 #include "FemusInit.hpp"  //for the adept stack
 
@@ -39,7 +39,7 @@ using namespace femus;
 
 namespace karthik {
   
-  class biharmonic_coupled_equation {
+  class biharmonic_HM {
     
   public:
 

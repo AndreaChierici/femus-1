@@ -1,6 +1,6 @@
 #ifndef __femus_biharmonic_coupled_hpp__
 #define __femus_biharmonic_coupled_hpp__
- 
+
 #include "FemusInit.hpp"  //for the adept stack
 
 #include "MultiLevelProblem.hpp"
@@ -38,9 +38,9 @@ using namespace femus;
 
 
 namespace karthik {
-  
+
   class biharmonic_coupled_equation {
-    
+
   public:
 
 
@@ -577,14 +577,14 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
-    short unsigned ielGeom = msh->GetElementType(iel); 
+    short unsigned ielGeom = msh->GetElementType(iel);
 // // //     unsigned nDofs  = msh->GetElementDofNumber(iel, soluType);    // number of solution element dofs
 
     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
 
 
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
-    
+
     // resize local arrays
     sysDof.resize(2 * nDofs);
     solu.resize(nDofs);
@@ -707,7 +707,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
 
   };
-  
+
 
 }
 
