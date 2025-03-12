@@ -1064,15 +1064,17 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
           for (unsigned ii = 0; ii < J21.size(); ii++) { // assembly only if one of the entries is different from zero
             if (fabs(J21[ii]) > 1.0e-12 * areaEl) {
-              KK->add_matrix_blocked(J21, rowMapping, l2GMap1);
+              //KK->add_matrix_blocked(J21, rowMapping, l2GMap1);
+              KK->add_matrix_blocked(J21, l2GMap1, rowMapping);
               break;
             }
           }
 
-          KK->add_matrix_blocked(nonlocal->GetJac22(jel), rowMapping, rowMapping);
+          //KK->add_matrix_blocked(nonlocal->GetJac22(jel), rowMapping, rowMapping);
           RES->add_vector_blocked(nonlocal->GetRes2(jel), rowMapping);
         }
 
+        KK->add_matrix_blocked(nonlocal->GetJac11(), l2GMap1, l2GMap1);
       }
 
       pAssemblyTime += clock() - start;
@@ -1105,7 +1107,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
 //   KK->draw();
 
-  // abort();
+  //abort();
 
   delete nonlocal;
 

@@ -25,9 +25,9 @@ class NonLocal {
       return sqrt(distance);
 
     };
-  //  #pragma omp begin declare target
+    //  #pragma omp begin declare target
     virtual double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size) {};
-  //  #pragma omp end declare target
+    //  #pragma omp end declare target
 
     virtual void SetKernel(const double  &kappa, const double &delta, const double &eps) = 0;
     const double & GetKernel() const {
@@ -83,10 +83,16 @@ class NonLocal {
       return _jac22[jel];
     };
 
+    std::vector < double > & GetJac11() {
+      return _jac11;
+    };
+
+
   private:
     std::vector < std::vector < double > > _res2;
     std::vector < std::vector < double > > _jac21;
     std::vector < std::vector < double > > _jac22;
+    std::vector < double > _jac11;
 
     std::vector <unsigned> _jelIndexI;
     std::vector < std::vector <unsigned> >_jelIndexR;
@@ -142,6 +148,7 @@ void NonLocal::ZeroLocalQuantities(const unsigned &nDof1, const Region &region2,
     _jac22[jel].assign(nDof2 * nDof2, 0.);
     _res2[jel].assign(nDof2, 0.);
   }
+  _jac11.assign(nDof1 * nDof1, 0.);
 
   _jelIndexI.reserve(region2.size());
   _jelIndexR.resize(levelMax1);
@@ -283,20 +290,20 @@ void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const
 
 
 void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
-                               const OctTreeElement &octTreeElement1, const OctTreeElement &octTreeElement1CF,
-                               RefineElement &element1, Region &region2,
-                               const std::vector <unsigned> &jelIndexF, const vector < double >  &solu1,
-                               const double &kappa, const double &delta, const bool &printMesh) {
+                                const OctTreeElement &octTreeElement1, const OctTreeElement &octTreeElement1CF,
+                                RefineElement &element1, Region &region2,
+                                const std::vector <unsigned> &jelIndexF, const vector < double >  &solu1,
+                                const double &kappa, const double &delta, const bool &printMesh) {
 
 
   if(level < levelMin1) {
     element1.BuildElement1Prolongation(level, iFather);
     for(unsigned i = 0; i < element1.GetNumberOfChildren(); i++) {
       AssemblyCutFemI2(level + 1, levelMin1, levelMax1, i,
-                      *octTreeElement1.GetElement(std::vector<unsigned> {i}),
-                      *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
-                      element1, region2, jelIndexF,
-                      solu1, kappa, delta, printMesh);
+                       *octTreeElement1.GetElement(std::vector<unsigned> {i}),
+                       *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
+                       element1, region2, jelIndexF,
+                       solu1, kappa, delta, printMesh);
     }
   }
   else if(level == levelMax1 - 1) {
@@ -490,10 +497,10 @@ void NonLocal::AssemblyCutFemI2(const unsigned &level, const unsigned &levelMin1
       element1.BuildElement1Prolongation(level, iFather);
       for(unsigned i = 0; i < element1.GetNumberOfChildren(); i++) {
         AssemblyCutFemI2(level + 1, levelMin1, levelMax1, i,
-                        *octTreeElement1.GetElement(std::vector<unsigned> {i}),
-                        *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
-                        element1, region2, _jelIndexR[level],
-                        solu1, kappa, delta, printMesh);
+                         *octTreeElement1.GetElement(std::vector<unsigned> {i}),
+                         *octTreeElement1CF.GetElement(std::vector<unsigned> {i}),
+                         element1, region2, _jelIndexR[level],
+                         solu1, kappa, delta, printMesh);
       }
     }
   }
@@ -868,7 +875,7 @@ class NonLocalBall3D: public NonLocal {
     NonLocalBall3D(): NonLocal() {};
     ~NonLocalBall3D() {};
 
-  //  #pragma omp begin declare target
+    //  #pragma omp begin declare target
     double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) const {
       double distance  = 0.;
       for(unsigned k = 0; k < xc.size(); k++) {
@@ -904,7 +911,7 @@ class NonLocalBall1: public NonLocal {
     NonLocalBall1(): NonLocal() {};
     ~NonLocalBall1() {};
 
- //   #pragma omp begin declare target
+//   #pragma omp begin declare target
     double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) const {
       double distance  = 0.;
       for(unsigned k = 0; k < xc.size(); k++) {
@@ -913,7 +920,7 @@ class NonLocalBall1: public NonLocal {
       distance = radius - sqrt(distance);
       return distance;
     }
- //   #pragma omp end declare target
+//   #pragma omp end declare target
 
     void SetKernel(const double  &kappa, const double &delta, const double &eps) {
       _kernel = 3. * kappa / (M_PI  * delta * delta * delta)
@@ -941,40 +948,40 @@ class NonLocalBox: public NonLocal {
   public:
     NonLocalBox(): NonLocal() {};
     ~NonLocalBox() {};
- //   #pragma omp begin declare target
-    double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &halfSide) const{
-    double distance = 0.;
-  unsigned dim = xc.size();
-  std::vector < double > din(2 * dim); // used only if the point is inside
-  std::vector < double > dout(dim, 0.); // used only if the point is outside
+//   #pragma omp begin declare target
+    double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &halfSide) const {
+      double distance = 0.;
+      unsigned dim = xc.size();
+      std::vector < double > din(2 * dim); // used only if the point is inside
+      std::vector < double > dout(dim, 0.); // used only if the point is outside
 
-  bool inside = true;
-  for(unsigned k = 0; k < dim; k++) {
-    din[2 * k] = xp[k] - (xc[k] - halfSide); // point minus box left-side:  < 0 -> point is outside
-    din[2 * k + 1] = (xc[k] + halfSide) - xp[k]; // box right-side minus point: < 0 -> point is outside
-    if(din[2 * k] < 0.) {
-      dout[k] = din[2 * k];
-      inside = false;
-    }
-    else if(din[2 * k + 1] < 0.) {
-      dout[k] = din[2 * k + 1];
-      inside = false;
-    }
-  }
+      bool inside = true;
+      for(unsigned k = 0; k < dim; k++) {
+        din[2 * k] = xp[k] - (xc[k] - halfSide); // point minus box left-side:  < 0 -> point is outside
+        din[2 * k + 1] = (xc[k] + halfSide) - xp[k]; // box right-side minus point: < 0 -> point is outside
+        if(din[2 * k] < 0.) {
+          dout[k] = din[2 * k];
+          inside = false;
+        }
+        else if(din[2 * k + 1] < 0.) {
+          dout[k] = din[2 * k + 1];
+          inside = false;
+        }
+      }
 
-  if(inside) {
-    distance = *std::min_element(din.begin(), din.end());
-  }
-  else {
-    distance = 0.;
-    for(unsigned k = 0; k < dim; k++) {
-      distance += dout[k] * dout[k];
-    }
-    distance = -sqrt(distance);
-  }
-  return distance;
+      if(inside) {
+        distance = *std::min_element(din.begin(), din.end());
+      }
+      else {
+        distance = 0.;
+        for(unsigned k = 0; k < dim; k++) {
+          distance += dout[k] * dout[k];
+        }
+        distance = -sqrt(distance);
+      }
+      return distance;
     };
-  //  #pragma omp end declare target
+    //  #pragma omp end declare target
 
     void SetKernel(const double  &kappa, const double &delta, const double &eps) {
       _kernel = 0.75 * kappa / (delta * delta * delta * delta);
@@ -1022,12 +1029,12 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   std::vector<double> mCphi2iSum(offsets[jelIndex.size()], 0.);
 
   const double& eps = element1.GetEps();
-  NonLocalBall* thisBall=dynamic_cast<NonLocalBall*> (this);
+  NonLocalBall* thisBall = dynamic_cast<NonLocalBall*> (this);
 
   const elem_type *fem = region2.GetFem(0);
   std::vector<double*> phi2(fem->GetGaussPointNumber());
 
-  std::vector<std::vector<double>> U(jelIndex.size(),std::vector<double>(fem->GetGaussPointNumber(),0.));
+  std::vector<std::vector<double>> U(jelIndex.size(), std::vector<double>(fem->GetGaussPointNumber(), 0.));
 
   for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
     unsigned jel = jelIndex[jj];
@@ -1041,110 +1048,72 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   }
 
 // #pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
-  #pragma omp parallel for
+  #pragma omp parallel for reduction(+:area)
   // #pragma omp parallel for schedule(dynamic, 5)
-for (unsigned jj = 0; jj < jelIndex.size(); jj++) {
+  for (unsigned jj = 0; jj < jelIndex.size(); jj++) {
 
     const unsigned jel = jelIndex[jj];
-
     const unsigned &dim = region2.GetDimension(jel);
     const std::vector<std::vector<double>>& x2MinMax = region2.GetMinMax(jel);
 
-    const double *phi2pt;
-
-
     bool coarseIntersectionTest = true;
     for (unsigned k = 0; k < dim; k++) {
-        if ((xg1[k] - x2MinMax[k][1]) > delta + eps || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
-            coarseIntersectionTest = false;
-            break;
-        }
+      if ((xg1[k] - x2MinMax[k][1]) > delta + eps || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
+        coarseIntersectionTest = false;
+        break;
+      }
     }
 
-    //       for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
-    // //std::cout << "nft=" << omp_get_num_threads() <<" "<<omp_get_num_teams()<<" ";
-    //
-    // const double *phi2pt;
-    // const unsigned jel = jelIndex[jj];
-    //
-    // const unsigned &dim = region2.GetDimension(jel);
-    // const std::vector<std::vector<double>>& x2MinMax = region2.GetMinMax(jel);
-    //
-    // bool coarseIntersectionTest = true;
-    // for(unsigned k = 0; k < dim; k++) {
-    //   if((xg1[k]  - x2MinMax[k][1]) > delta + eps  || (x2MinMax[k][0] - xg1[k]) > delta + eps) {
-    //     coarseIntersectionTest = false;
-    //     break;
-    //   }
-    // }
-
-
     if (coarseIntersectionTest) {
-        const unsigned &nDof2 = region2.GetDofNumber(jel);
-        const elem_type *fem = region2.GetFem(jel);
-        const std::vector<double> &solu2g = region2.GetGaussSolution(jel);
-        const std::vector<double> &weight2 = region2.GetGaussWeight(jel);
-        const std::vector<std::vector<double>> &xg2 = region2.GetGaussCoordinates(jel);
+      const unsigned &nDof2 = region2.GetDofNumber(jel);
+      const elem_type *fem = region2.GetFem(jel);
+      const std::vector<double> &solu2g = region2.GetGaussSolution(jel);
+      const std::vector<double> &weight2 = region2.GetGaussWeight(jel);
+      const std::vector<std::vector<double>> &xg2 = region2.GetGaussCoordinates(jel);
 
-
-      double C, *jac22pt, *jac21pt, *res2pt;
-      unsigned i,j;
-
+      double C, *jac21pt, *res2pt;
+      unsigned i, j;
 
       for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
 
-            const double weight2_jg = weight2[jg];
-            const double solu2g_jg = solu2g[jg];
-            const double* phi2_jg = phi2[jg];
+        const double &weight2_jg = weight2[jg];
+        const double &solu2g_jg = solu2g[jg];
+        const double *phi2_jg = phi2[jg];
+        const double &U_jg = U[jj][jg];
 
-            const double U_jg = U[jj][jg];
+        if (U_jg > 0.) {
+          C = U_jg * weight2_jg * twoWeigh1Kernel;
+          area += C;
 
-            if (U_jg > 0.) {
-                C = U_jg * weight2_jg * twoWeigh1Kernel;
-
-          // double C =  U[jj] * GetGamma(xg1, xg2[jg]) *  weight2[jg] * twoWeigh1Kernel;
-          // C =  U[jj][jg] * weight2[jg] * twoWeigh1Kernel;
-          //jac22pt = &_jac22[jel][0];
-          // res2pt = &_res2[jel][0];
-
-          for(i = 0, res2pt = &_res2[jel][0],  jac22pt = &_jac22[jel][0]; i < nDof2; i++, res2pt++) {
-            // if(U[jj][jg] > 0.) {
+          res2pt = _res2[jel].data();
+          for(i = 0; i < nDof2; i++) {
             double cPhi2i = C * phi2_jg[i];
-            // #pragma omp atomic
-            // mCphi2iSum[jj][i] -= cPhi2i;
             mCphi2iSum[offsets[jj] + i] -= cPhi2i;
-            for(j = 0, phi2pt = phi2_jg; j < nDof2; j++, phi2pt++, jac22pt++) {
-
-              // *jac22pt -= cPhi2i * (*phi2pt);
-              *jac22pt -= cPhi2i * phi2_jg[j];
-            }
-            //_res2[jel][i] += cPhi2i * solu2g[jg];
-            *res2pt += cPhi2i * solu2g_jg;
+            *res2pt++ += cPhi2i * solu2g_jg;
           }
         }//end if U > 0.
       }//end jg loop
 
-      // unsigned ijIndex = 0;
-      for(i = 0, res2pt = &_res2[jel][0], jac21pt = &_jac21[jel][0]; i < nDof2; i++, res2pt++) {
-        // double mCphi2iSum_i = mCphi2iSum[jj][i];
-        double mCphi2iSum_i = mCphi2iSum[offsets[jj] + i];
-        for(j = 0; j < nDof1; j++, /*ijIndex++,*/ jac21pt++) {
-          //_jac21[jel][ijIndex] -= mCphi2iSum[jj][i] * phi1[j];
-          *jac21pt -= mCphi2iSum_i * phi1[j];
+      res2pt = _res2[jel].data();
+      for(j = 0; j < nDof2; j++) {
+        *res2pt++ += mCphi2iSum[offsets[jj] + j] * solu1g;
+      }
+
+      jac21pt = _jac21[jel].data();
+      for(i = 0; i < nDof1; i++) {
+        for(j = 0; j < nDof2; j++) {
+          *jac21pt++ -= mCphi2iSum[offsets[jj] + j] * phi1[i];
         }
-      //   // _res2[jel][i] += mCphi2iSum[jj][i] * solu1g;
-        *res2pt += mCphi2iSum_i * solu1g;
       }
     }
   }
 
-
-
-
-
-
-
-
+  double *jac11pt = _jac11.data();
+  for(unsigned i = 0; i < nDof1; i++) {
+    for(unsigned j = 0; j < nDof1; j++) {
+      *jac11pt++ -= phi1[i] * phi1[j] * area;
+    }
+  }
 
   return area;
 }
