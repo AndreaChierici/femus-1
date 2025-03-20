@@ -147,6 +147,7 @@ int main(int argc, char** args) {
     l2Norm[i].resize( feOrder.size() );
     semiNorm[i].resize( feOrder.size() );
 
+
     for (unsigned j = 0; j < feOrder.size(); j++) {   // loop on the FE Order
 
       // define the multilevel solution and attach the mlMsh object to it
@@ -198,7 +199,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
       std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
-
+/*
 
       l2Norm[i][j]  = norm.first;
       semiNorm[i][j] = norm.second;
@@ -213,13 +214,15 @@ int main(int argc, char** args) {
       VTKWriter vtkIO(&mlSol);
       vtkIO.Write(an_func, Files::_application_output_directory, "biquadratic", variablesToBePrinted, i);
 
+      */
+
     }
   }
 
 
   // FE_convergence::output_convergence_order();
 
-
+/*
   // ======= L2 - BEGIN  ========================
   std::cout << std::endl;
   std::cout << std::endl;
@@ -283,7 +286,7 @@ int main(int argc, char** args) {
   }
 
   // ======= H1 - END  ========================
-
+*/
       std::cout <<"Program executed"<< std::endl;
 
   return 0;

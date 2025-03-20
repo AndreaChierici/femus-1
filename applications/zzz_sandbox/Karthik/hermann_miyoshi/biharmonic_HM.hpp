@@ -83,8 +83,6 @@ static void natural_loop_1dU(const MultiLevelProblem *    ml_prob,
 
              if ( !(is_dirichlet)  &&  (grad_u_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
 
-
-
                    unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_u);
 
                   for (unsigned i = 0; i < n_dofs_face; i++) {
@@ -230,9 +228,6 @@ static void natural_loop_2d3dU(const MultiLevelProblem *    ml_prob,
          for (unsigned i_bdry = 0; i_bdry < phi_u_bdry.size(); i_bdry ++) {
            grad_u_dot_n_qp +=  grad_u_dot_n_at_dofs[i_bdry] * phi_u_bdry[i_bdry];
          }
-
-// quadrature point based
- // // // ml_sol->GetBdcFunctionMLProb()(ml_prob, x_qp_bdry, solname_u.c_str(), grad_u_dot_n_qp, face, 0.);
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -419,7 +414,6 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 		for(unsigned ig_bdry = 0; ig_bdry < n_gauss_bdry; ig_bdry++) {
 
      elem_all[ielGeom_bdry][solType_coords]->JacJacInv(geom_element.get_coords_at_dofs_bdry_3d(), ig_bdry, Jac_iqp_bdry, JacI_iqp_bdry, detJac_iqp_bdry, space_dim);
-//      elem_all[ielGeom_bdry][solType_coords]->compute_normal(Jac_iqp_bdry, normal);
 
     weight_iqp_bdry = detJac_iqp_bdry * ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussWeightsPointer()[ig_bdry];
 
@@ -445,9 +439,6 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
          for (unsigned i_bdry = 0; i_bdry < phi_v_bdry.size(); i_bdry ++) {
            grad_v_dot_n_qp +=  grad_v_dot_n_at_dofs[i_bdry] * phi_v_bdry[i_bdry];
          }
-
-// quadrature point based
- // // // ml_sol->GetBdcFunctionMLProb()(ml_prob, x_qp_bdry, solname_u.c_str(), grad_u_dot_n_qp, face, 0.);
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -508,7 +499,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   //solution variable
   unsigned soluIndex = ml_sol->GetIndex(solname_u.c_str());    // get the position of "u" in the ml_sol object
-// // //   unsigned soluType = ml_sol->GetSolutionType(soluIndex);    // get the finite element type for "u"
+
   unsigned solFEType_u = ml_sol->GetSolutionType(soluIndex);    // get the finite element type for "u"
 
   unsigned soluPdeIndex = mlPdeSys->GetSolPdeIndex(solname_u.c_str());    // get the position of "u" in the pdeSys object
@@ -521,13 +512,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   const std::string solname_v = ml_sol->GetSolName_string_vec()[1];
 
   unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());    // get the position of "v" in the ml_sol object
-// // //   unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());    // get the position of "v" in the ml_sol object
-// // // // ---------------------------------------------------------------------
-// // //   const std::string solname_v = ml_sol->GetSolName_string_vec()[1];
-// // //   unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());
-// // // //----------------------------------------------------------------------
 
-// // //   unsigned solvType = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
   unsigned solFEType_v = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
 
 // // //   unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex("v");    // get the position of "v" in the pdeSys object
@@ -582,7 +567,6 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
 
-
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
     
     // resize local arrays
@@ -599,7 +583,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
-// // //       unsigned solDof = msh->GetSolutionDof(i, iel, soluType);    // global to global mapping between solution node and solution dof
+
       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
@@ -621,11 +605,10 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     s.new_recording();
 
     // *** Gauss point loop ***
-// // //     for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][soluType]->GetGaussPointNumber(); ig++) {
 
     for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
 // *** get gauss point weight, test function and test function partial derivatives ***
-// // //       msh->_finiteElement[ielGeom][soluType]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
+
       msh->_finiteElement[ielGeom][solFEType_u]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
 
