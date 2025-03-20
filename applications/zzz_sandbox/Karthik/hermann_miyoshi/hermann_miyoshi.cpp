@@ -51,18 +51,23 @@ using namespace femus;
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  if (!strcmp(SolName, "u")) {
+  if (!strcmp(SolName, "u") || !strcmp(SolName, "u2")) {
       Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
       // strcmp compares two string in lexiographic sense.
     Value = u -> value(x);
   }
-  else if (!strcmp(SolName, "v")) {
+  else if (!strcmp(SolName, "v") || !strcmp(SolName, "v2")) {
       Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     Value = v -> value(x);
   }
   return dirichlet;
 }
 //====Set boundary condition-END==============================
+
+
+
+
+
 
 
 
@@ -155,12 +160,18 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-
       mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-
       mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+
+
+
+      mlSol.AddSolution("u2", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("u2", & system_biharmonic_HM_function_zero_on_boundary_1);
+
+      mlSol.AddSolution("v2", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("v2", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
 
 
       mlSol.Initialize("All");
@@ -179,12 +190,21 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("u", "Steady", & ml_prob);
       mlSol.GenerateBdc("v", "Steady", & ml_prob);
 
+
+      mlSol.GenerateBdc("u2", "Steady", & ml_prob);
+      mlSol.GenerateBdc("v2", "Steady", & ml_prob);
+
       // add system Biharmonic in ml_prob as a Linear Implicit System
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM._system_name);
 
       // add solution "u" to system
       system.AddSolutionToSystemPDE("u");
       system.AddSolutionToSystemPDE("v");
+
+
+      system.AddSolutionToSystemPDE("u2");
+      system.AddSolutionToSystemPDE("v2");
+
 
       // attach the assembling function to system
       system.SetAssembleFunction( system_biharmonic_HM._assemble_function );
@@ -197,9 +217,14 @@ int main(int argc, char** args) {
 
 
 // // //       // convergence for u
+
+
       std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
-/*
+
+
+
+
 
       l2Norm[i][j]  = norm.first;
       semiNorm[i][j] = norm.second;
@@ -214,7 +239,7 @@ int main(int argc, char** args) {
       VTKWriter vtkIO(&mlSol);
       vtkIO.Write(an_func, Files::_application_output_directory, "biquadratic", variablesToBePrinted, i);
 
-      */
+
 
     }
   }
@@ -222,7 +247,7 @@ int main(int argc, char** args) {
 
   // FE_convergence::output_convergence_order();
 
-/*
+
   // ======= L2 - BEGIN  ========================
   std::cout << std::endl;
   std::cout << std::endl;
@@ -286,7 +311,7 @@ int main(int argc, char** args) {
   }
 
   // ======= H1 - END  ========================
-*/
+
       std::cout <<"Program executed"<< std::endl;
 
   return 0;

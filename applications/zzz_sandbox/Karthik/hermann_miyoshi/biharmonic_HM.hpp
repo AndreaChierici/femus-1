@@ -535,6 +535,23 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   std::vector < adept::adouble > aResv; // local redidual vector
 
 
+
+  //******************* added here ******************
+
+
+  std::vector < adept::adouble > aResu2; // local redidual vector
+  std::vector < adept::adouble > aResv2; // local redidual vector
+  std::vector < adept::adouble >  solu2; // local solution
+  std::vector < adept::adouble >  solv2; // local solution
+
+
+  //**************************************************
+
+
+
+
+
+
   // reserve memory for the local standar vectors
   const unsigned maxSize = static_cast< unsigned >(ceil(pow(3, dim)));          // conservative: based on line3, quad9, hex27
   solu.reserve(maxSize);
@@ -570,9 +587,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
     
     // resize local arrays
-    sysDof.resize(2 * nDofs);
+    sysDof.resize(4 * nDofs);
     solu.resize(nDofs);
     solv.resize(nDofs);
+
+
+    solu2.resize(nDofs);
+    solv2.resize(nDofs);
+
+
+
 
     for (int i = 0; i < dim; i++) {
       x[i].resize(nDofs2);
@@ -581,6 +605,19 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     aResu.assign(nDofs, 0.);    //resize
     aResv.assign(nDofs, 0.);    //resize
 
+
+    //*******************added here*********************
+
+    aResu2.assign(nDofs, 0.0);
+    aResv2.assign(nDofs, 0.0);
+
+    //************************************************
+
+
+
+
+
+
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
 
@@ -588,8 +625,22 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
       solv[i]          = (*sol->_Sol[solvIndex])(solDof);      // global extraction and local storage for the solution
+
+
+
+     solu2[i] = solu[i]; // Assign u2 = u
+     solv2[i] = solv[i]; // Assign v2 = v
+
+
+
+
+
       sysDof[i]         = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
       sysDof[nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+
+
+    sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel); // u2
+    sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel); // v2
     }
 
     // local storage of coordinates
@@ -646,6 +697,13 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         double pi = acos(-1.);
         aResv[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
         aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
+
+
+
+        aResu2[i] = aResu[i];  // u2 block identical
+        aResv2[i] = aResv[i];  // v2 block identical
+
+
       } // end phi_i loop
     } // end gauss point loop
 
@@ -653,29 +711,57 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     // Add the local Matrix/Vector into the global Matrix/Vector
 
     //copy the value of the adept::adoube aRes in double Res and store
-    Res.resize(2 * nDofs);
+   /////////////// Res.resize(2 * nDofs);
+
+   Res.resize(4 * nDofs);
 
     for (int i = 0; i < nDofs; i++) {
       Res[i]         = -aResu[i].value();
       Res[nDofs + i] = -aResv[i].value();
+
+
+
+          Res[2 * nDofs + i] = -aResu2[i].value(); // u2
+          Res[3 * nDofs + i] = -aResv2[i].value(); // v2
+
+
+
     }
 
     RES->add_vector_blocked(Res, sysDof);
 
-    Jac.resize( 4 * nDofs * nDofs );
+    /////////Jac.resize( 4 * nDofs * nDofs );
+
+    Jac.resize(16 * nDofs * nDofs);
+
 
     // define the dependent variables
     s.dependent(&aResu[0], nDofs);
     s.dependent(&aResv[0], nDofs);
 
+    s.dependent(&aResu2[0], nDofs);
+    s.dependent(&aResv2[0], nDofs);
+
     // define the independent variables
     s.independent(&solu[0], nDofs);
     s.independent(&solv[0], nDofs);
 
+
+    s.independent(&solu2[0], nDofs);
+    s.independent(&solv2[0], nDofs);
+
+
+
+
+
+
+
     // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);
 
+
     KK->add_matrix_blocked(Jac, sysDof, sysDof);
+
 
     s.clear_independents();
     s.clear_dependents();
