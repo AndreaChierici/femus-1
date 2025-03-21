@@ -557,6 +557,10 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   solu.reserve(maxSize);
   solv.reserve(maxSize);
 
+  solu2.reserve(maxSize);
+  solv2.reserve(maxSize);
+
+
   for (unsigned i = 0; i < dim; i++)
     x[i].reserve(maxSize);
 
@@ -587,7 +591,9 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
 
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
-    
+
+
+ // // // // // //   std::cout<<"the number of nDofs are: "<<nDofs<<std::endl;
 
         std::vector<unsigned> Sol_n_el_dofs_Mat_vol(4, nDofs);
 
@@ -648,6 +654,11 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
     sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel); // u2
     sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel); // v2
+
+// // //       sysDof[2 * i]     = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel); // u2
+// // //       sysDof[2 * i + 1] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel); // v2
+
+
     }
 
     // local storage of coordinates
@@ -720,18 +731,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     //copy the value of the adept::adoube aRes in double Res and store
    /////////////// Res.resize(2 * nDofs);
 
-   Res.resize(4 * nDofs);
+
+   Res.resize(4 * nDofs,0.0);
 
     for (int i = 0; i < nDofs; i++) {
       Res[i]         = -aResu[i].value();
       Res[nDofs + i] = -aResv[i].value();
 
 
-
-          Res[2 * nDofs + i] = -aResu2[i].value(); // u2
-          Res[3 * nDofs + i] = -aResv2[i].value(); // v2
-
-
+      Res[i + 2 * nDofs ] = -aResu2[i].value(); // u2
+      Res[i + 3 * nDofs ] = -aResv2[i].value(); // v2
 
     }
 
@@ -746,20 +755,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     s.dependent(&aResu[0], nDofs);
     s.dependent(&aResv[0], nDofs);
 
-    s.dependent(&aResu2[0], nDofs);
-    s.dependent(&aResv2[0], nDofs);
-
-    // define the independent variables
+        // define the independent variables
     s.independent(&solu[0], nDofs);
     s.independent(&solv[0], nDofs);
+
+    s.dependent(&aResu2[0], nDofs);
+    s.dependent(&aResv2[0], nDofs);
 
 
     s.independent(&solu2[0], nDofs);
     s.independent(&solv2[0], nDofs);
-
-
-
-
 
 
 
