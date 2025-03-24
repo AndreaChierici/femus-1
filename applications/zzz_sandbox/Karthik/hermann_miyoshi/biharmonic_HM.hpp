@@ -760,7 +760,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
      if (print_algebra_local) {
 
            assemble_jacobian<double,double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
-  //       assemble_jacobian<double,double>::print_element_residual(iel, Res, Sol_n_el_dofs_Mat_vol, 10, 5);
+         assemble_jacobian<double,double>::print_element_residual(iel, Res, Sol_n_el_dofs_Mat_vol, 10, 5);
 
      }
 
