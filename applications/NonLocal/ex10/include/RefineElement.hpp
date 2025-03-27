@@ -17,12 +17,18 @@ class RefineElement {
     void SetConstants(const double &eps);
 
 #pragma omp begin declare target
-    static double GetSmoothStepFunction(const double &dg1){
-      if(dg1 < - _eps)
+    static double GetSmoothStepFunction(const double &dg1, const double &eps, const double &a0, const double &a1, const double &a3, const double &a5, const double &a7, const double &a9){
+      // if(dg1 < - _eps)
+      //   return 0.;
+      // else if(dg1 < _eps) {
+      //   double dg2 = dg1 * dg1;
+      //   return (_a0 + dg1 * (_a1 + dg2 * (_a3 + dg2 * (_a5 + dg2 * (_a7 + dg2 * _a9)))));
+      // }
+      if(dg1 < - eps)
         return 0.;
-      else if(dg1 < _eps) {
+      else if(dg1 < eps) {
         double dg2 = dg1 * dg1;
-        return (_a0 + dg1 * (_a1 + dg2 * (_a3 + dg2 * (_a5 + dg2 * (_a7 + dg2 * _a9)))));
+        return (a0 + dg1 * (a1 + dg2 * (a3 + dg2 * (a5 + dg2 * (a7 + dg2 * a9)))));
       }
       else
         return 1.;
@@ -82,6 +88,25 @@ class RefineElement {
     const double &GetEps() const {
       return _eps;
     }
+    const double &Geta0() const {
+      return _a0;
+    }
+    const double &Geta1() const {
+      return _a1;
+    }
+    const double &Geta3() const {
+      return _a3;
+    }
+    const double &Geta5() const {
+      return _a5;
+    }
+    const double &Geta7() const {
+      return _a7;
+    }
+    const double &Geta9() const {
+      return _a9;
+    }
+
 
     const unsigned &GetElementType() {
       return _elType;
@@ -123,17 +148,10 @@ class RefineElement {
     std::vector< std::vector < std::vector < std::vector <double> > > > _xi1l;*/
     unsigned _elType;
 
-    static double _a0, _a1, _a3, _a5, _a7, _a9, _eps;
+    double _a0, _a1, _a3, _a5, _a7, _a9, _eps;
 
 };
 
-double RefineElement::_a0 = 0.;
-double RefineElement::_a1 = 0.;
-double RefineElement::_a3= 0.;
-double RefineElement::_a5= 0.;
-double RefineElement::_a7 = 0.;
-double RefineElement::_a9 = 0.;
-double RefineElement::_eps = 0.;
 
 
 RefineElement::RefineElement(unsigned const &lmax, const char* geom_elem, const char* fe_order,

@@ -1050,6 +1050,13 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   std::vector<double> mCphi2iSum(offsets[jelIndex.size()], 0.);
 
   const double& eps = element1.GetEps();
+  const double& a0 = element1.Geta0();
+  const double& a1 = element1.Geta1();
+  const double& a3 = element1.Geta3();
+  const double& a5 = element1.Geta5();
+  const double& a7 = element1.Geta7();
+  const double& a9 = element1.Geta9();
+
  // NonLocalBall* thisBall = dynamic_cast<NonLocalBall*> (this);
 
   const elem_type *fem = region2.GetFem(0);
@@ -1061,7 +1068,7 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     unsigned jel = jelIndex[jj];
     const std::vector < std::vector <double> >  &xg2 = region2.GetGaussCoordinates(jel);
     for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
-      U[jj][jg] = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta));
+      U[jj][jg] = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta), eps, a0, a1, a3, a5, a7,a9);
     }
   }
   for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
@@ -1104,7 +1111,7 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
         const double *phi2_jg = phi2[jg];
         //const double &U_jg = U[jj][jg];
 
-        double U_jg = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta));
+        double U_jg = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta), eps, a0, a1, a3, a5, a7, a9);
 
         if (U_jg > 0.) {
           C = U_jg * weight2_jg * twoWeigh1Kernel;
