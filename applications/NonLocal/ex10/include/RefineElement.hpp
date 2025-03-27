@@ -16,8 +16,8 @@ class RefineElement {
     void BuildElement1Prolongation(const unsigned &level, const unsigned &i);
     void SetConstants(const double &eps);
 
-  //  #pragma omp begin declare target
-    double GetSmoothStepFunction(const double &dg1) const {
+#pragma omp begin declare target
+    static double GetSmoothStepFunction(const double &dg1){
       if(dg1 < - _eps)
         return 0.;
       else if(dg1 < _eps) {
@@ -27,7 +27,7 @@ class RefineElement {
       else
         return 1.;
     };
-//#pragma omp end declare target
+#pragma omp end declare target
 
     const elem_type *GetFem1() const {
       return _finiteElement1;
@@ -123,9 +123,17 @@ class RefineElement {
     std::vector< std::vector < std::vector < std::vector <double> > > > _xi1l;*/
     unsigned _elType;
 
-    double _a0, _a1, _a3, _a5, _a7, _a9, _eps;
+    static double _a0, _a1, _a3, _a5, _a7, _a9, _eps;
 
 };
+
+double RefineElement::_a0 = 0.;
+double RefineElement::_a1 = 0.;
+double RefineElement::_a3= 0.;
+double RefineElement::_a5= 0.;
+double RefineElement::_a7 = 0.;
+double RefineElement::_a9 = 0.;
+double RefineElement::_eps = 0.;
 
 
 RefineElement::RefineElement(unsigned const &lmax, const char* geom_elem, const char* fe_order,

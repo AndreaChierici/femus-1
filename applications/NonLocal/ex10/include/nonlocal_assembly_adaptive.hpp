@@ -230,7 +230,7 @@ class Region {
 void Region::InitializeJacobian(NonLocal *nonlocal) {
 
 
-  std::sort(_b2Gmap.begin(),_b2Gmap.end());
+  std::sort(_b2Gmap.begin(), _b2Gmap.end());
 
   _J.assign(_count * _count, 0.);
 
@@ -242,7 +242,7 @@ void Region::InitializeJacobian(NonLocal *nonlocal) {
       for(unsigned j = 0; j < jelSize; j++) {
         unsigned jrow = _l2Bmap[jel][j];
         _J[irow * _count + jrow] += J22[i * jelSize + j];
-       }
+      }
     }
   }
 }
@@ -1038,11 +1038,52 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
           nonlocal->Assembly1(0, lmin1, lmax1, 0, refineElement[ielGeom][soluType]->GetOctTreeElement1(),
                               *refineElement[ielGeom][soluType], region2, jelIndex,
                               solu1, kappa1, delta1, printMesh);
+
+          std::vector < double > &res11 = nonlocal->GetRes11();
+
+          for (unsigned jel = 0; jel < region2.size(); jel++) {
+            /* The rows of J21, J22 and Res2 are mostly own by iproc, while the columns of J21 and J22 are mostly own by kproc
+               This is okay, since the rows of the global matrix KK and residual RES belong to iproc, and this should optimize
+               the bufferization and exchange of information when closing the KK matrix and the RES vector */
+
+            std::vector<double> & J21 = nonlocal->GetJac21(jel);
+            const std::vector<unsigned>& rowMapping = region2.GetMapping(jel);
+
+            for (unsigned ii = 0; ii < J21.size(); ii++) { // assembly only if one of the entries is different from zero
+              if (fabs(J21[ii]) > 1.0e-12 * areaEl) {
+                KK->add_matrix_blocked(J21, l2GMap1, rowMapping);
+                break;
+              }
+            }
+            std::vector < double > &res1j = nonlocal->GetRes1(jel);
+            for(unsigned i = 0; i < l2GMap1.size(); i++) res11[i] += res1j[i];
+          }
+          RES->add_vector_blocked(res11, l2GMap1);
+          KK->add_matrix_blocked(nonlocal->GetJac11(), l2GMap1, l2GMap1);
         }
         else {
           nonlocal->AssemblyCutFem1(0, lmin1, lmax1, 0,
                                     refineElement[ielGeom][soluType]->GetOctTreeElement1(), refineElement[ielGeom][soluType]->GetOctTreeElement1CF(),
                                     *refineElement[ielGeom][soluType], region2, jelIndex, solu1, kappa1, delta1, printMesh);
+
+          for (unsigned jel = 0; jel < region2.size(); jel++) {
+            /* The rows of J21, J22 and Res2 are mostly own by iproc, while the columns of J21 and J22 are mostly own by kproc
+               This is okay, since the rows of the global matrix KK and residual RES belong to iproc, and this should optimize
+               the bufferization and exchange of information when closing the KK matrix and the RES vector */
+
+            std::vector<double> & J21 = nonlocal->GetJac21(jel);
+            const std::vector<unsigned>& rowMapping = region2.GetMapping(jel);
+
+            for (unsigned ii = 0; ii < J21.size(); ii++) { // assembly only if one of the entries is different from zero
+              if (fabs(J21[ii]) > 1.0e-12 * areaEl) {
+                KK->add_matrix_blocked(J21, rowMapping, l2GMap1);
+                break;
+              }
+            }
+
+            KK->add_matrix_blocked(nonlocal->GetJac22(jel), rowMapping, rowMapping);
+            RES->add_vector_blocked(nonlocal->GetRes2(jel), rowMapping);
+          }
         }
 
 
@@ -1054,27 +1095,6 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
 
 
-        for (unsigned jel = 0; jel < region2.size(); jel++) {
-          /* The rows of J21, J22 and Res2 are mostly own by iproc, while the columns of J21 and J22 are mostly own by kproc
-             This is okay, since the rows of the global matrix KK and residual RES belong to iproc, and this should optimize
-             the bufferization and exchange of information when closing the KK matrix and the RES vector */
-
-          std::vector<double> & J21 = nonlocal->GetJac21(jel);
-          const std::vector<unsigned>& rowMapping = region2.GetMapping(jel);
-
-          for (unsigned ii = 0; ii < J21.size(); ii++) { // assembly only if one of the entries is different from zero
-            if (fabs(J21[ii]) > 1.0e-12 * areaEl) {
-              //KK->add_matrix_blocked(J21, rowMapping, l2GMap1);
-              KK->add_matrix_blocked(J21, l2GMap1, rowMapping);
-              break;
-            }
-          }
-
-          //KK->add_matrix_blocked(nonlocal->GetJac22(jel), rowMapping, rowMapping);
-          RES->add_vector_blocked(nonlocal->GetRes2(jel), rowMapping);
-        }
-
-        KK->add_matrix_blocked(nonlocal->GetJac11(), l2GMap1, l2GMap1);
       }
 
       pAssemblyTime += clock() - start;

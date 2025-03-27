@@ -3,7 +3,7 @@
 
 #include "GetNormal.hpp"
 
-//#pragma omp requires unified_shared_memory
+#pragma omp requires unified_shared_memory
 
 std::ofstream fout;
 
@@ -11,7 +11,7 @@ class NonLocalBall;
 
 class NonLocal {
   public:
-    NonLocal() {
+    NonLocal(): getInterfaceDistance(nullptr) {
       _ballAprx = new BallApproximation();
     };
     ~NonLocal() {
@@ -25,9 +25,11 @@ class NonLocal {
       return sqrt(distance);
 
     };
-    //  #pragma omp begin declare target
-    virtual double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size) {};
-    //  #pragma omp end declare target
+    #pragma omp begin declare target
+    double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size) {
+      return (*getInterfaceDistance)(xc, xp, size);
+    };
+    #pragma omp end declare target
 
     virtual void SetKernel(const double  &kappa, const double &delta, const double &eps) = 0;
     const double & GetKernel() const {
@@ -76,6 +78,14 @@ class NonLocal {
       return _res2[jel];
     };
 
+    std::vector < double > & GetRes1(const unsigned &jel) {
+      return _res1[jel];
+    };
+
+    std::vector < double > & GetRes11() {
+      return _res11;
+    };
+
     std::vector < double > & GetJac21(const unsigned &jel) {
       return _jac21[jel];
     };
@@ -89,9 +99,12 @@ class NonLocal {
 
 
   private:
+    std::vector < std::vector < double > > _res1;
     std::vector < std::vector < double > > _res2;
     std::vector < std::vector < double > > _jac21;
     std::vector < std::vector < double > > _jac22;
+
+    std::vector < double > _res11;
     std::vector < double > _jac11;
 
     std::vector <unsigned> _jelIndexI;
@@ -134,10 +147,12 @@ class NonLocal {
 
   protected:
     double _kernel;
+    double (*getInterfaceDistance)(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size);
 
 };
 
 void NonLocal::ZeroLocalQuantities(const unsigned &nDof1, const Region &region2, const unsigned &levelMax1) {
+  _res1.resize(region2.size());
   _res2.resize(region2.size());
   _jac21.resize(region2.size());
   _jac22.resize(region2.size());
@@ -146,8 +161,10 @@ void NonLocal::ZeroLocalQuantities(const unsigned &nDof1, const Region &region2,
     unsigned nDof2 = region2.GetDofNumber(jel);
     _jac21[jel].assign(nDof2 * nDof1, 0.);
     _jac22[jel].assign(nDof2 * nDof2, 0.);
+    _res1[jel].assign(nDof1, 0.);
     _res2[jel].assign(nDof2, 0.);
   }
+  _res11.assign(nDof1, 0.);
   _jac11.assign(nDof1 * nDof1, 0.);
 
   _jelIndexI.reserve(region2.size());
@@ -837,11 +854,13 @@ void NonLocal::PrintElement(const std::vector < std::vector < double> > &xv, con
 
 class NonLocalBall: public NonLocal {
   public:
-    NonLocalBall(): NonLocal() {};
+    NonLocalBall(): NonLocal() {
+      getInterfaceDistance = &NonLocalBall::GetInterfaceDistance;
+    };
     ~NonLocalBall() {};
 
-//#pragma omp begin declare target
-    double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) const {
+#pragma omp begin declare target
+    static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
       double distance  = 0.;
       for(unsigned k = 0; k < xc.size(); k++) {
         distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
@@ -849,7 +868,7 @@ class NonLocalBall: public NonLocal {
       distance = radius - sqrt(distance);
       return distance;
     };
-//    #pragma omp end declare target
+#pragma omp end declare target
 
 
     void SetKernel(const double  &kappa, const double &delta, const double &eps) {
@@ -872,11 +891,13 @@ class NonLocalBall: public NonLocal {
 
 class NonLocalBall3D: public NonLocal {
   public:
-    NonLocalBall3D(): NonLocal() {};
+    NonLocalBall3D(): NonLocal() {
+      getInterfaceDistance = &NonLocalBall3D::GetInterfaceDistance;
+    };
     ~NonLocalBall3D() {};
 
-    //  #pragma omp begin declare target
-    double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) const {
+#pragma omp begin declare target
+    static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
       double distance  = 0.;
       for(unsigned k = 0; k < xc.size(); k++) {
         distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
@@ -884,7 +905,7 @@ class NonLocalBall3D: public NonLocal {
       distance = radius - sqrt(distance);
       return distance;
     };
-//#pragma omp end declare target
+#pragma omp end declare target
 
     void SetKernel(const double  &kappa, const double &delta, const double &eps) {
       _kernel = 15. * kappa / (4. * M_PI  * delta * delta * delta * delta * delta)
@@ -905,7 +926,7 @@ class NonLocalBall3D: public NonLocal {
 };
 
 
-
+/*
 class NonLocalBall1: public NonLocal {
   public:
     NonLocalBall1(): NonLocal() {};
@@ -996,7 +1017,7 @@ class NonLocalBox: public NonLocal {
     double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
       return 1.;
     }
-};
+};*/
 
 
 double NonLocal::Assembly2(const RefineElement & element1, const Region & region2, const std::vector<unsigned> &jelIndex,
@@ -1029,7 +1050,7 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   std::vector<double> mCphi2iSum(offsets[jelIndex.size()], 0.);
 
   const double& eps = element1.GetEps();
-  NonLocalBall* thisBall = dynamic_cast<NonLocalBall*> (this);
+ // NonLocalBall* thisBall = dynamic_cast<NonLocalBall*> (this);
 
   const elem_type *fem = region2.GetFem(0);
   std::vector<double*> phi2(fem->GetGaussPointNumber());
@@ -1040,15 +1061,15 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     unsigned jel = jelIndex[jj];
     const std::vector < std::vector <double> >  &xg2 = region2.GetGaussCoordinates(jel);
     for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
-      U[jj][jg] = element1.GetSmoothStepFunction(thisBall->GetInterfaceDistance(xg1, xg2[jg], delta));
+      U[jj][jg] = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta));
     }
   }
   for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
     phi2[jg] = fem->GetPhi(jg);
   }
 
-// #pragma omp target teams distribute parallel for //num_teams(192) thread_limit(192)
-  #pragma omp parallel for reduction(+:area)
+  #pragma omp target teams distribute parallel for reduction(+:area) //num_teams(192) thread_limit(192)
+ // #pragma omp parallel for reduction(+:area)
   // #pragma omp parallel for schedule(dynamic, 5)
   for (unsigned jj = 0; jj < jelIndex.size(); jj++) {
 
@@ -1071,45 +1092,46 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
       const std::vector<double> &weight2 = region2.GetGaussWeight(jel);
       const std::vector<std::vector<double>> &xg2 = region2.GetGaussCoordinates(jel);
 
-      double C, *jac21pt, *res2pt;
+      double C, *jac12pt, *res1pt;
       unsigned i, j;
+
+      double mCSol2gSum = 0.;
 
       for(unsigned jg = 0; jg < fem->GetGaussPointNumber(); jg++) {
 
         const double &weight2_jg = weight2[jg];
         const double &solu2g_jg = solu2g[jg];
         const double *phi2_jg = phi2[jg];
-        const double &U_jg = U[jj][jg];
+        //const double &U_jg = U[jj][jg];
+
+        double U_jg = element1.GetSmoothStepFunction(GetInterfaceDistance(xg1, xg2[jg], delta));
 
         if (U_jg > 0.) {
           C = U_jg * weight2_jg * twoWeigh1Kernel;
           area += C;
-
-          res2pt = _res2[jel].data();
           for(i = 0; i < nDof2; i++) {
             double cPhi2i = C * phi2_jg[i];
             mCphi2iSum[offsets[jj] + i] -= cPhi2i;
-            *res2pt++ += cPhi2i * solu2g_jg;
           }
+          mCSol2gSum -= C * solu2g_jg;
         }//end if U > 0.
       }//end jg loop
 
-      res2pt = _res2[jel].data();
-      for(j = 0; j < nDof2; j++) {
-        *res2pt++ += mCphi2iSum[offsets[jj] + j] * solu1g;
-      }
-
-      jac21pt = _jac21[jel].data();
+      jac12pt = _jac21[jel].data();
+      res1pt = _res1[jel].data();
       for(i = 0; i < nDof1; i++) {
+        *res1pt++ += mCSol2gSum * phi1[i];
         for(j = 0; j < nDof2; j++) {
-          *jac21pt++ -= mCphi2iSum[offsets[jj] + j] * phi1[i];
+          *jac12pt++ -= mCphi2iSum[offsets[jj] + j] * phi1[i];
         }
       }
     }
   }
 
+  double *res11pt = _res11.data();
   double *jac11pt = _jac11.data();
   for(unsigned i = 0; i < nDof1; i++) {
+    *res11pt++ += phi1[i] * solu1g * area;
     for(unsigned j = 0; j < nDof1; j++) {
       *jac11pt++ -= phi1[i] * phi1[j] * area;
     }
