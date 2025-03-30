@@ -279,8 +279,7 @@ int main(int argc, char** args) {
   // ======= L2 - END  ========================
 
 
-
-  // ======= H1 - BEGIN  ========================
+// ======= H1 - BEGIN  ========================
 
   std::cout << std::endl;
   std::cout << std::endl;

@@ -516,10 +516,31 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   unsigned solFEType_v = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
 
-// // //   unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex("v");    // get the position of "v" in the pdeSys object
   unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex(solname_v.c_str());    // get the position of "v" in the pdeSys object
 
   std::vector < adept::adouble >  solv; // local solution
+
+
+  const std::string solname_u2 = ml_sol->GetSolName_string_vec()[2];
+
+  unsigned solu2Index = ml_sol->GetIndex(solname_u2.c_str());    // get the position of "v" in the ml_sol object
+
+  unsigned solFEType_u2 = ml_sol->GetSolutionType(solu2Index);    // get the finite element type for "v"
+
+  unsigned solu2PdeIndex = mlPdeSys->GetSolPdeIndex(solname_u2.c_str());    // get the position of "v" in the pdeSys object
+
+  std::vector < adept::adouble >  solu2; // local solution
+
+
+  const std::string solname_v2 = ml_sol->GetSolName_string_vec()[3];
+
+  unsigned solv2Index = ml_sol->GetIndex(solname_v2.c_str());    // get the position of "v" in the ml_sol object
+
+  unsigned solFEType_v2 = ml_sol->GetSolutionType(solv2Index);    // get the finite element type for "v"
+
+  unsigned solv2PdeIndex = mlPdeSys->GetSolPdeIndex(solname_v2.c_str());    // get the position of "v" in the pdeSys object
+
+  std::vector < adept::adouble >  solv2; // local solution
 
 
   std::vector < std::vector < double > > x(dim);    // local coordinates
@@ -542,8 +563,6 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < adept::adouble > aResu2; // local redidual vector
   std::vector < adept::adouble > aResv2; // local redidual vector
-  std::vector < adept::adouble >  solu2; // local solution
-  std::vector < adept::adouble >  solv2; // local solution
 
 
   //**************************************************
@@ -561,15 +580,24 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   for (unsigned i = 0; i < dim; i++)
     x[i].reserve(maxSize);
 
-  sysDof.reserve(2 * maxSize);
+// // //   sysDof.reserve(2 * maxSize);
+
+  sysDof.reserve(4 * maxSize);
+
   phi.reserve(maxSize);
   phi_x.reserve(maxSize * dim);
-  unsigned dim2 = (3 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
+// // //   unsigned dim2 = (3 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
+
+    unsigned dim2 = (6 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
+
   phi_xx.reserve(maxSize * dim2);
 
   Res.reserve(2 * maxSize);
   aResu.reserve(maxSize);
   aResv.reserve(maxSize);
+
+  aResu2.reserve(maxSize);
+  aResv2.reserve(maxSize);
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
   Jac.reserve(4 * maxSize * maxSize);
@@ -624,16 +652,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
       solv[i]          = (*sol->_Sol[solvIndex])(solDof);      // global extraction and local storage for the solution
 
-      solv2[i] = (*sol->_Sol[solvIndex])(solDof);      // v2  -> secondary row1, col2
-      solu2[i] = (*sol->_Sol[soluIndex])(solDof);      // u2  -> secondary row2, col2
+      solv2[i] = (*sol->_Sol[solv2Index])(solDof);      // v2  -> secondary row1, col2
+      solu2[i] = (*sol->_Sol[solu2Index])(solDof);      // u2  -> secondary row2, col2
 
 
       sysDof[i]         = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
       sysDof[nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
 
 
-    sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel); // u2
-    sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel); // v2
+    sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(solu2Index, solu2PdeIndex, i, iel); // u2
+    sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solv2Index, solv2PdeIndex, i, iel); // v2
 
     }
 
@@ -665,15 +693,30 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
       adept::adouble solvGauss = 0;
       std::vector < adept::adouble > solvGauss_x(dim, 0.);
 
+
+      adept::adouble solu2Gauss = 0;
+      std::vector < adept::adouble > solu2Gauss_x(dim, 0.);
+
+      adept::adouble solv2Gauss = 0;
+      std::vector < adept::adouble > solv2Gauss_x(dim, 0.);
+
+
       std::vector < double > xGauss(dim, 0.);
 
       for (unsigned i = 0; i < nDofs; i++) {
         soluGauss += phi[i] * solu[i];
         solvGauss += phi[i] * solv[i];
 
+        solu2Gauss += phi[i] * solu2[i];
+        solv2Gauss += phi[i] * solv2[i];
+
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           soluGauss_x[jdim] += phi_x[i * dim + jdim] * solu[i];
           solvGauss_x[jdim] += phi_x[i * dim + jdim] * solv[i];
+
+          solu2Gauss_x[jdim] += phi_x[i * dim + jdim] * solu2[i];
+          solv2Gauss_x[jdim] += phi_x[i * dim + jdim] * solv2[i];
+
           xGauss[jdim] += x[jdim][i] * phi[i];
         }
       }
@@ -684,9 +727,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         adept::adouble Laplace_u = 0.;
         adept::adouble Laplace_v = 0.;
 
+        adept::adouble Laplace_u2 = 0.;
+        adept::adouble Laplace_v2 = 0.;
+
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
           Laplace_v   +=  - phi_x[i * dim + jdim] * solvGauss_x[jdim];
+
+          Laplace_u2   +=  - phi_x[i * dim + jdim] * solu2Gauss_x[jdim];
+          Laplace_v2   +=  - phi_x[i * dim + jdim] * solv2Gauss_x[jdim];
+
         }
 
         double pi = acos(-1.);
@@ -694,8 +744,8 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
 
 
-        aResu2[i] = aResu[i];  // u2 block identical
-        aResv2[i] = aResv[i];  // v2 block identical
+        aResu2[i] = (solv2Gauss * phi[i] -  Laplace_u2) * weight;  // u2 block identical
+        aResv2[i] = (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v2) * weight;  // v2 block identical
 
 
       } // end phi_i loop
@@ -728,9 +778,33 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     Jac.resize(16 * nDofs * nDofs);
 
 
-    // define the dependent variables
+// // // // //     // define the dependent variables
+// // // // //     s.dependent(&aResu[0], nDofs);
+// // // // //     s.dependent(&aResv[0], nDofs);
+// // // // //
+// // // // //         // define the independent variables
+// // // // //     s.independent(&solu[0], nDofs);
+// // // // //     s.independent(&solv[0], nDofs);
+// // // // //
+// // // // //
+// // // // //
+// // // // //     s.dependent(&aResu2[0], nDofs);
+// // // // //     s.dependent(&aResv2[0], nDofs);
+// // // // //
+// // // // //
+// // // // //
+// // // // //     s.independent(&solu2[0], nDofs);
+// // // // //     s.independent(&solv2[0], nDofs);
+
+
+
+        // define the dependent variables
     s.dependent(&aResu[0], nDofs);
     s.dependent(&aResv[0], nDofs);
+        s.dependent(&aResu2[0], nDofs);
+            s.dependent(&aResv2[0], nDofs);
+
+
 
         // define the independent variables
     s.independent(&solu[0], nDofs);
@@ -738,14 +812,11 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
 
 
-    s.dependent(&aResu2[0], nDofs);
-    s.dependent(&aResv2[0], nDofs);
 
 
 
     s.independent(&solu2[0], nDofs);
     s.independent(&solv2[0], nDofs);
-
 
         // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);
