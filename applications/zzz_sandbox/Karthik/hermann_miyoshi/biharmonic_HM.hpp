@@ -1169,12 +1169,12 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         }
 
         double pi = acos(-1.);
-        aResv[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
-        aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
+        aResu[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
+        aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
 
 
-        aResu2[i] = (solv2Gauss * phi[i] -  Laplace_u2) * weight;  // u2 block identical
-        aResv2[i] = (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v2) * weight;  // v2 block identical
+        aResu2[i] += (solv2Gauss * phi[i] -  Laplace_u2) * weight;  // u2 block identical
+        aResv2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v2) * weight;  // v2 block identical
 
 
       } // end phi_i loop
@@ -1227,6 +1227,17 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
 
 
+            // define the independent variables
+    s.independent(&solu[0], nDofs);
+    s.independent(&solv[0], nDofs);
+
+
+
+    s.independent(&solu2[0], nDofs);
+    s.independent(&solv2[0], nDofs);
+
+
+
         // define the dependent variables
     s.dependent(&aResu[0], nDofs);
     s.dependent(&aResv[0], nDofs);
@@ -1235,17 +1246,6 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
 
 
-        // define the independent variables
-    s.independent(&solu[0], nDofs);
-    s.independent(&solv[0], nDofs);
-
-
-
-
-
-
-    s.independent(&solu2[0], nDofs);
-    s.independent(&solv2[0], nDofs);
 
         // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);
