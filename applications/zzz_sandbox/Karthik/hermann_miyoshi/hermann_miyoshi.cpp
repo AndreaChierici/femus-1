@@ -102,11 +102,22 @@ int main(int argc, char** args) {
   system_biharmonic_HM._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
 
-   Domains::square_m05p05::Function_NonZero_on_boundary_4<>   system_biharmonic_HM_function_zero_on_boundary_1;
-   Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
-   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+// // //    Domains::square_m05p05::Function_NonZero_on_boundary_4<>   system_biharmonic_HM_function_zero_on_boundary_1;
+// // //    Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+// // //    system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
 
-   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
+// // //    system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
+
+
+
+    Domains::square_01by01::Function_Zero_on_boundary_5<>   system_biharmonic_HM_function_zero_on_boundary_1;
+  Domains::square_01by01::Function_Zero_on_boundary_5_Laplacian<>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+  system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
+
+
+
+
 
 
 
