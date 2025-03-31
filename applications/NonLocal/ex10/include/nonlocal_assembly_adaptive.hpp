@@ -449,7 +449,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
     refineElement[0][soluType]->SetConstants(eps);
     refineElement[1][soluType]->SetConstants(eps);
 
-    nonlocal = new NonLocalBall3D();
+    //nonlocal = new NonLocalBall3D();
+    nonlocal = new NonLocal(3);
 
   }
   else if (dim == 2) {
@@ -464,8 +465,9 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
     refineElement[3][soluType]->SetConstants(eps);
     refineElement[4][soluType]->SetConstants(eps);
 
-    nonlocal = new NonLocalBall();
+    //nonlocal = new NonLocalBall();
     //nonlocal = new NonLocalBox();
+    nonlocal = new NonLocal(2);
   }
 
   nonlocal->SetKernel(kappa1, delta1, correctConstant * eps);

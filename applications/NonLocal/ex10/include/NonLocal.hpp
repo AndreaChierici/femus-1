@@ -11,8 +11,22 @@ class NonLocalBall;
 
 class NonLocal {
   public:
-    NonLocal(): _getInterfaceDistance(nullptr), _virtualSetKernel(nullptr), _getArea(nullptr) {
+    NonLocal(const unsigned &ballType){
       _ballAprx = new BallApproximation();
+      if(ballType == 2){
+         _getInterfaceDistance = Ball2DGetInterfaceDistance;
+        _virtualSetKernel = Ball2DVirtualSetKernel;
+        _getArea = Ball2DGetArea;
+      }
+      else if (ballType == 3){
+        _getInterfaceDistance = Ball3DGetInterfaceDistance;
+        _virtualSetKernel = Ball3DVirtualSetKernel;
+        _getArea = Ball3DGetArea;
+      }
+      else{
+        std::cout<<"Error no ball type of type "<<ballType<<"D exists"<<std::endl;
+        abort();
+      }
     };
     ~NonLocal() {
       delete _ballAprx;
@@ -46,6 +60,58 @@ class NonLocal {
     double GetArea(const double &delta, const double &eps) const {
       return _getArea(delta, eps);
     }
+
+
+
+    #pragma omp begin declare target
+    static double Ball2DGetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
+      double distance  = 0.;
+      for(unsigned k = 0; k < xc.size(); k++) {
+        distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
+      }
+      distance = radius - sqrt(distance);
+      return distance;
+    };
+    #pragma omp end declare target
+
+
+    static double  Ball2DVirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
+      return 4. * kappa / (M_PI  * delta * delta * delta * delta)
+             / (1. + 6. / 11. * pow(eps / delta, 2) + 3. / 143. * pow(eps / delta, 4.));
+    }
+
+    static double Ball2DGetArea(const double &delta, const double &eps) {
+      return M_PI * (delta * delta + eps * eps / 11.);
+    };
+
+
+
+
+    #pragma omp begin declare target
+    static double Ball3DGetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
+      double distance  = 0.;
+      for(unsigned k = 0; k < xc.size(); k++) {
+        distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
+      }
+      distance = radius - sqrt(distance);
+      return distance;
+    };
+    #pragma omp end declare target
+
+    static double Ball3DVirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
+      return 15. * kappa / (4. * M_PI  * delta * delta * delta * delta * delta)
+             / (1. + 10. / 11. * pow(eps / delta, 2) + 15. / 143. * pow(eps / delta, 4.));
+    }
+
+    static double Ball3DGetArea(const double &delta, const double &eps) {
+      return 4. / 3. * M_PI * (delta * delta * delta) * (1. + 3. / 11. * pow(eps / delta, 2));
+    };
+
+
+
+
+
+
 
     // virtual double GetGamma(const double &d) const = 0;
     // virtual double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const = 0;
@@ -864,82 +930,82 @@ void NonLocal::PrintElement(const std::vector < std::vector < double> > &xv, con
 }
 
 
-class NonLocalBall: public NonLocal {
-  public:
-    NonLocalBall(): NonLocal() {
-      _getInterfaceDistance = &NonLocalBall::GetInterfaceDistance;
-      _virtualSetKernel = &NonLocalBall::VirtualSetKernel;
-      _getArea = &NonLocalBall::GetArea;
-    };
-    ~NonLocalBall() {};
+// class NonLocalBall: public NonLocal {
+//   public:
+//     NonLocalBall(): NonLocal() {
+//       _getInterfaceDistance = &NonLocalBall::GetInterfaceDistance;
+//       _virtualSetKernel = &NonLocalBall::VirtualSetKernel;
+//       _getArea = &NonLocalBall::GetArea;
+//     };
+//     ~NonLocalBall() {};
+//
+//     #pragma omp begin declare target
+//     static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
+//       double distance  = 0.;
+//       for(unsigned k = 0; k < xc.size(); k++) {
+//         distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
+//       }
+//       distance = radius - sqrt(distance);
+//       return distance;
+//     };
+//     #pragma omp end declare target
+//
+//
+//     static double  VirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
+//       return 4. * kappa / (M_PI  * delta * delta * delta * delta)
+//              / (1. + 6. / 11. * pow(eps / delta, 2) + 3. / 143. * pow(eps / delta, 4.));
+//     }
+//
+//     static double GetArea(const double &delta, const double &eps) {
+//       return M_PI * (delta * delta + eps * eps / 11.);
+//     };
+//
+//     // double GetGamma(const double &d) const {
+//     //   return 1.;
+//     // }
+//     //
+//     // double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
+//     //   return 1.;
+//     // }
+// };
 
-    #pragma omp begin declare target
-    static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
-      double distance  = 0.;
-      for(unsigned k = 0; k < xc.size(); k++) {
-        distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
-      }
-      distance = radius - sqrt(distance);
-      return distance;
-    };
-    #pragma omp end declare target
-
-
-    static double  VirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
-      return 4. * kappa / (M_PI  * delta * delta * delta * delta)
-             / (1. + 6. / 11. * pow(eps / delta, 2) + 3. / 143. * pow(eps / delta, 4.));
-    }
-
-    static double GetArea(const double &delta, const double &eps) {
-      return M_PI * (delta * delta + eps * eps / 11.);
-    };
-
-    // double GetGamma(const double &d) const {
-    //   return 1.;
-    // }
-    //
-    // double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
-    //   return 1.;
-    // }
-};
-
-class NonLocalBall3D: public NonLocal {
-  public:
-    NonLocalBall3D(): NonLocal() {
-      _getInterfaceDistance = &NonLocalBall3D::GetInterfaceDistance;
-      _virtualSetKernel = &NonLocalBall3D::VirtualSetKernel;
-      _getArea = &NonLocalBall3D::GetArea;
-    };
-    ~NonLocalBall3D() {};
-
-    #pragma omp begin declare target
-    static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
-      double distance  = 0.;
-      for(unsigned k = 0; k < xc.size(); k++) {
-        distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
-      }
-      distance = radius - sqrt(distance);
-      return distance;
-    };
-    #pragma omp end declare target
-
-    static double VirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
-      return 15. * kappa / (4. * M_PI  * delta * delta * delta * delta * delta)
-             / (1. + 10. / 11. * pow(eps / delta, 2) + 15. / 143. * pow(eps / delta, 4.));
-    }
-
-    static double GetArea(const double &delta, const double &eps) {
-      return 4. / 3. * M_PI * (delta * delta * delta) * (1. + 3. / 11. * pow(eps / delta, 2));
-    };
-
-    // double GetGamma(const double &d) const {
-    //   return 1.;
-    // }
-    //
-    // double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
-    //   return 1.;
-    // }
-};
+// class NonLocalBall3D: public NonLocal {
+//   public:
+//     NonLocalBall3D(): NonLocal() {
+//       _getInterfaceDistance = &NonLocalBall3D::GetInterfaceDistance;
+//       _virtualSetKernel = &NonLocalBall3D::VirtualSetKernel;
+//       _getArea = &NonLocalBall3D::GetArea;
+//     };
+//     ~NonLocalBall3D() {};
+//
+//     #pragma omp begin declare target
+//     static double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &radius) {
+//       double distance  = 0.;
+//       for(unsigned k = 0; k < xc.size(); k++) {
+//         distance += (xp[k] - xc[k]) * (xp[k] - xc[k]);
+//       }
+//       distance = radius - sqrt(distance);
+//       return distance;
+//     };
+//     #pragma omp end declare target
+//
+//     static double VirtualSetKernel(const double  &kappa, const double &delta, const double &eps) {
+//       return 15. * kappa / (4. * M_PI  * delta * delta * delta * delta * delta)
+//              / (1. + 10. / 11. * pow(eps / delta, 2) + 15. / 143. * pow(eps / delta, 4.));
+//     }
+//
+//     static double GetArea(const double &delta, const double &eps) {
+//       return 4. / 3. * M_PI * (delta * delta * delta) * (1. + 3. / 11. * pow(eps / delta, 2));
+//     };
+//
+//     // double GetGamma(const double &d) const {
+//     //   return 1.;
+//     // }
+//     //
+//     // double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
+//     //   return 1.;
+//     // }
+// };
 
 
 /*
