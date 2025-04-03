@@ -51,12 +51,12 @@ using namespace femus;
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  if (!strcmp(SolName, "u") || !strcmp(SolName, "u2")) {
+  if (!strcmp(SolName, "u") || !strcmp(SolName, "s1")) {
       Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
       // strcmp compares two string in lexiographic sense.
     Value = u -> value(x);
   }
-  else if (!strcmp(SolName, "v") || !strcmp(SolName, "v2")) {
+  else if (!strcmp(SolName, "v") || !strcmp(SolName, "s2")) {
       Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     Value = v -> value(x);
   }
@@ -178,11 +178,11 @@ int main(int argc, char** args) {
 
 
 
-      mlSol.AddSolution("u2", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u2", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.AddSolution("s1", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_1);
 
-      mlSol.AddSolution("v2", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v2", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+      mlSol.AddSolution("s2", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
 
 
       mlSol.Initialize("All");
@@ -202,8 +202,8 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("v", "Steady", & ml_prob);
 
 
-      mlSol.GenerateBdc("u2", "Steady", & ml_prob);
-      mlSol.GenerateBdc("v2", "Steady", & ml_prob);
+      mlSol.GenerateBdc("s1", "Steady", & ml_prob);
+      mlSol.GenerateBdc("s2", "Steady", & ml_prob);
 
       // add system Biharmonic in ml_prob as a Linear Implicit System
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM._system_name);
@@ -213,8 +213,8 @@ int main(int argc, char** args) {
       system.AddSolutionToSystemPDE("v");
 
 
-      system.AddSolutionToSystemPDE("u2");
-      system.AddSolutionToSystemPDE("v2");
+      system.AddSolutionToSystemPDE("s1");
+      system.AddSolutionToSystemPDE("s2");
 
 
       // attach the assembling function to system
