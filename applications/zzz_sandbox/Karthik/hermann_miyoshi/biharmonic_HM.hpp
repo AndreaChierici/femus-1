@@ -1125,11 +1125,18 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         }
 
         double pi = acos(-1.);
-        aResu[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
-        aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
+        // // // // // // aResu[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
+        // // // // // // aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
+        // // // // // //
+        // // // // // // aRess1[i] += (sols2Gauss * phi[i] -  Laplace_s1) * weight;  // s1 block identical
+        // // // // // // aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2) * weight;  // s2 block identical
 
-        aRess1[i] += (sols2Gauss * phi[i] -  Laplace_s1) * weight;  // s1 block identical
-        aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2) * weight;  // s2 block identical
+
+        aResu[i] += ( solvGauss * phi[i] - Laplace_u ) * weight;
+        aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] + soluGauss * phi[i] - sols1Gauss - sols2Gauss) * weight;
+
+        aRess1[i] += (solvGauss  -  Laplace_s1) * weight;  // s1 block identical
+        aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2 - solvGauss) * weight;  // s2 block identical
 
       } // end phi_i loop
 
