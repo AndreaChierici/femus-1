@@ -153,12 +153,12 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
 //   mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
-//   mlMsh.ReadCoarseMesh("./input/square_quad.neu", "fifth", scalingFactor);
+  mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
   // mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
   // mlMsh.GenerateCoarseBoxMesh(16, 64, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
   // mlMsh.GenerateCoarseBoxMesh(100, 400, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
   // mlMsh.GenerateCoarseBoxMesh(128, 512, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
-  mlMsh.GenerateCoarseBoxMesh(64, 64, 0, 0., 1., 0., 1., 0., 0., QUAD9, "fifth"); // Parasitic Test
+  // mlMsh.GenerateCoarseBoxMesh(64, 64, 0, 0., 1., 0., 1., 0., 0., QUAD9, "fifth"); // Parasitic Test
   /* "seventh" is the order of accuracy that is used in the gauss integration scheme
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
