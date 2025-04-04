@@ -1012,6 +1012,14 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
+
+double nu = 0.5 /* Poisson ratio value */;
+double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
+double nu2 = 2.0 / (1.0 + nu);
+// // // double nu2 = 1. - nu;
+
+
+
   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel); 
@@ -1115,6 +1123,13 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         adept::adouble Laplace_s1 = 0.;
         adept::adouble Laplace_s2 = 0.;
 
+
+        adept::adouble M_u = phi[i] * soluGauss;
+        adept::adouble M_v = phi[i] * solvGauss;
+        adept::adouble M_s1 = phi[i] * sols1Gauss;
+        adept::adouble M_s2 = phi[i] * sols2Gauss;
+
+
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
           Laplace_v   +=  - phi_x[i * dim + jdim] * solvGauss_x[jdim];
@@ -1131,12 +1146,24 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         // // // // // // aRess1[i] += (sols2Gauss * phi[i] -  Laplace_s1) * weight;  // s1 block identical
         // // // // // // aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2) * weight;  // s2 block identical
 
+    adept::adouble C1s1_term = 0.;
+    adept::adouble C2s2_term = 0.;
+    adept::adouble C1v_term = 0.;
+    adept::adouble C2v_term = 0.;
 
-        aResu[i] += ( solvGauss * phi[i] - Laplace_u ) * weight;
-        aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] + soluGauss * phi[i] - sols1Gauss - sols2Gauss) * weight;
+    if (dim == 2) {
+        C1s1_term = 0.5 * (phi_x[i * dim + 0] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
+        C2s2_term = 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] - phi_x[i * dim + 0] * sols2Gauss_x[1]);
+        C1v_term = 0.5 * (phi_x[i * dim + 0] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
+        C2v_term = 0.5 * (phi_x[i * dim + 1] * solvGauss_x[0] - phi_x[i * dim + 0] * solvGauss_x[1]);
+    }
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-        aRess1[i] += (solvGauss  -  Laplace_s1) * weight;  // s1 block identical
-        aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2 - solvGauss) * weight;  // s2 block identical
+        aResu[i] += (-Laplace_v - M_u ) * weight;
+        aResv[i] += (-nu2 * F_term - Laplace_u - nu1 * C1s1_term - nu2 * C2s2_term) * weight;
+
+        aRess1[i] += (C1v_term  -  M_s1) * weight;  // s1 block identical
+        aRess2[i] += ( - M_s2 - C2v_term ) * weight;  // s2 block identical
 
       } // end phi_i loop
 
@@ -1182,7 +1209,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
          constexpr bool print_algebra_local = true;
      if (print_algebra_local) {
 
-           assemble_jacobian<double,double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
+         assemble_jacobian<double,double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
          assemble_jacobian<double,double>::print_element_residual(iel, Res, Sol_n_el_dofs_Mat_vol, 10, 5);
 
      }
