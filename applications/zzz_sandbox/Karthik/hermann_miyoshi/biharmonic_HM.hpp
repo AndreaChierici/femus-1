@@ -1155,15 +1155,22 @@ double nu2 = 2.0 / (1.0 + nu);
         C1s1_term = 0.5 * (phi_x[i * dim + 0] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
         C2s2_term = 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] - phi_x[i * dim + 0] * sols2Gauss_x[1]);
         C1v_term = 0.5 * (phi_x[i * dim + 0] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
-        C2v_term = 0.5 * (phi_x[i * dim + 1] * solvGauss_x[0] - phi_x[i * dim + 0] * solvGauss_x[1]);
+        C2v_term = 0.5 * (phi_x[i * dim + 0] * solvGauss_x[1] - phi_x[i * dim + 1] * solvGauss_x[0]);
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-        aResu[i] += (-Laplace_v + M_u ) * weight;
-        aResv[i] += (nu2 * F_term - Laplace_u - nu1 * C1s1_term - nu1 * C2s2_term) * weight;
+// // //         aResu[i] += (-Laplace_v + M_u ) * weight;
+// // //         aResv[i] += (nu2 * F_term - Laplace_u - nu1 * C1s1_term - nu1 * C2s2_term) * weight;
+// // //
+// // //         aRess1[i] += (C1v_term  -  M_s1) * weight;  // s1 block identical
+// // //         aRess2[i] += ( - M_s2 - C2v_term ) * weight;  // s2 block identical
 
-        aRess1[i] += (C1v_term  -  M_s1) * weight;  // s1 block identical
-        aRess2[i] += ( - M_s2 - C2v_term ) * weight;  // s2 block identical
+
+        // System residuals - signs adjusted to match matrix form
+     aResu[i] += (Laplace_v + M_u) * weight;  // M*W + B^T*U = 0
+     aResv[i] += (Laplace_u + nu1*C1s1_term + nu1*C2s2_term + nu2*F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRess1[i] += (C1v_term + M_s1) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += (C2v_term + M_s2) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 

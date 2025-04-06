@@ -322,7 +322,5 @@ int main(int argc, char** args) {
 
   // ======= H1 - END  ========================
 
-      std::cout <<"Program executed"<< std::endl;
-
   return 0;
 }
