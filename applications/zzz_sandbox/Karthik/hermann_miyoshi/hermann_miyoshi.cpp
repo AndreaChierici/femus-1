@@ -133,7 +133,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 1;
+  unsigned maxNumberOfMeshes = 2;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
@@ -171,10 +171,10 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
 
@@ -230,7 +230,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_HM_function_zero_on_boundary_1);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "v",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
 

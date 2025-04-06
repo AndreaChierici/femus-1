@@ -1013,7 +1013,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu = 0.5 /* Poisson ratio value */;
+double nu = 1. /* Poisson ratio value */;
 double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
 double nu2 = 2.0 / (1.0 + nu);
 // // // double nu2 = 1. - nu;
@@ -1159,8 +1159,8 @@ double nu2 = 2.0 / (1.0 + nu);
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-        aResu[i] += (-Laplace_v - M_u ) * weight;
-        aResv[i] += (-nu2 * F_term - Laplace_u - nu1 * C1s1_term - nu2 * C2s2_term) * weight;
+        aResu[i] += (-Laplace_v + M_u ) * weight;
+        aResv[i] += (nu2 * F_term - Laplace_u - nu1 * C1s1_term - nu1 * C2s2_term) * weight;
 
         aRess1[i] += (C1v_term  -  M_s1) * weight;  // s1 block identical
         aRess2[i] += ( - M_s2 - C2v_term ) * weight;  // s2 block identical
