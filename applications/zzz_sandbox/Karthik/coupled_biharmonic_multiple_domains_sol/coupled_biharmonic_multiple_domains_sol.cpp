@@ -46,6 +46,8 @@ using namespace femus;
 
 namespace Domains {
 
+
+/*
 namespace  square_m05p05  {
 template < class type = double >
 class Function_Zero_on_boundary_4_Laplacian : public Math::Function< type > {
@@ -84,7 +86,7 @@ public:
 
 
 
-}
+}*/
 
 namespace  quarter_circle_centered_at_0_by_0  {
 template < class type = double >
