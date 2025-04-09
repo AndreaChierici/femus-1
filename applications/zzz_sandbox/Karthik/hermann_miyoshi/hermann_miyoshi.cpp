@@ -45,6 +45,69 @@
 
 using namespace femus;
 
+namespace Domains {
+
+namespace  square_m05p05  {
+
+template <class type = double>
+class Function_Zero_on_boundary_6 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return (1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0])*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -16.*x[0]*(1. - 4.*x[0]*x[0])*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1]);
+        solGrad[1] = -16.*x[1]*(1. - 4.*x[1]*x[1])*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 128.*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1])*(3.*x[0]*x[0] - 0.25) +
+               128.*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0])*(3.*x[1]*x[1] - 0.25);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_6_Laplacian : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 128.*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1])*(3.*x[0]*x[0] - 0.25) +
+               128.*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0])*(3.*x[1]*x[1] - 0.25);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 3072.*x[0]*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1]) -
+                     2048.*x[0]*(3.*x[0]*x[0] - 0.25)*(1. - 4.*x[1]*x[1]);
+        solGrad[1] = 3072.*x[1]*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0]) -
+                     2048.*x[1]*(3.*x[1]*x[1] - 0.25)*(1. - 4.*x[0]*x[0]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 18432.*x[0]*x[0]*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1]) -
+               3072.*(1. - 4.*x[1]*x[1])*(1. - 4.*x[1]*x[1]) +
+               18432.*x[1]*x[1]*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0]) -
+               3072.*(1. - 4.*x[0]*x[0])*(1. - 4.*x[0]*x[0]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+}
+
+
+}
+
 
 
 //====Set boundary condition-BEGIN==============================
@@ -110,8 +173,8 @@ int main(int argc, char** args) {
 
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_4  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_1;
-  Domains::square_m05p05::Function_Zero_on_boundary_4_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_6  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_1;
+  Domains::square_m05p05::Function_Zero_on_boundary_6_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
 
@@ -132,7 +195,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 2;
+  unsigned maxNumberOfMeshes = 4;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
