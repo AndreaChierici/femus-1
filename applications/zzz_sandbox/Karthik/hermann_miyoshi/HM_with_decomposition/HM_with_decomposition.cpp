@@ -242,33 +242,30 @@ int main(int argc, char** args) {
 
 
     // ======= System Specifics - BEGIN  ==================
-  system_specifics  system_biharmonic_HM;   //me
+  system_specifics  system_biharmonic_HM_D;   //me
 
   // =========Mesh file - BEGIN ==================
-  system_biharmonic_HM._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
+  system_biharmonic_HM_D._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
   const std::string relative_path_to_build_directory =  "../../../../../";
-  const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";  system_biharmonic_HM._mesh_files_path_relative_to_executable.push_back(mesh_file);
+  const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";  system_biharmonic_HM_D._mesh_files_path_relative_to_executable.push_back(mesh_file);
  // =========Mesh file - END ==================
 
 
-  system_biharmonic_HM._system_name = "Biharmonic";
-  system_biharmonic_HM._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM :: biharmonic_HM_with_decomposition :: AssembleBilaplaceProblem_AD;
+  system_biharmonic_HM_D._system_name = "Biharmonic";
+  system_biharmonic_HM_D._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM :: biharmonic_HM_with_decomposition :: AssembleBilaplaceProblem_AD;
 
-  system_biharmonic_HM._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
+  system_biharmonic_HM_D._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
+  Domains::square_m05p05::Function_Zero_on_boundary_7  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_D_function_zero_on_boundary_1;
 
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_D_function_zero_on_boundary_s1;
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_1;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_D_function_zero_on_boundary_s2;
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s1;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
 
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s2;
-
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
-  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
-  system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
+  system_biharmonic_HM_D._assemble_function_for_rhs   = & system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+  system_biharmonic_HM_D._true_solution_function      = & system_biharmonic_HM_D_function_zero_on_boundary_1;
 
 
 
@@ -282,7 +279,7 @@ int main(int argc, char** args) {
   MultiLevelMesh mlMsh;
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
-  const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
+  const std::string mesh_file_total = system_biharmonic_HM_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
   unsigned maxNumberOfMeshes = 4;
@@ -323,18 +320,18 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("u", & system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("v", & system_biharmonic_HM_D_function_zero_on_boundary_1);
 
 
 
       mlSol.AddSolution("s1", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_s1);
+      mlSol.set_analytical_function("s1", & system_biharmonic_HM_D_function_zero_on_boundary_s1);
 
       mlSol.AddSolution("s2", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
+      mlSol.set_analytical_function("s2", & system_biharmonic_HM_D_function_zero_on_boundary_s2);
 
 
       mlSol.Initialize("All");
@@ -344,12 +341,12 @@ int main(int argc, char** args) {
       // define the multilevel problem attach the mlSol object to it
       MultiLevelProblem ml_prob(&mlSol);
 
-      ml_prob.set_app_specs_pointer(& system_biharmonic_HM);
+      ml_prob.set_app_specs_pointer(& system_biharmonic_HM_D);
       // ======= Problem, Files ========================
       ml_prob.SetFilesHandler(&files);
 
       // attach the boundary condition function and generate boundary data
-      mlSol.AttachSetBoundaryConditionFunction( system_biharmonic_HM._boundary_conditions_types_and_values );
+      mlSol.AttachSetBoundaryConditionFunction( system_biharmonic_HM_D._boundary_conditions_types_and_values );
       mlSol.GenerateBdc("u", "Steady", & ml_prob);
       mlSol.GenerateBdc("v", "Steady", & ml_prob);
 
@@ -358,7 +355,7 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("s2", "Steady", & ml_prob);
 
       // add system Biharmonic in ml_prob as a Linear Implicit System
-      NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM._system_name);
+      NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM_D._system_name);
 
       // add solution "u" to system
       system.AddSolutionToSystemPDE("u");
@@ -370,7 +367,7 @@ int main(int argc, char** args) {
 
 
       // attach the assembling function to system
-      system.SetAssembleFunction( system_biharmonic_HM._assemble_function );
+      system.SetAssembleFunction( system_biharmonic_HM_D._assemble_function );
 
       // initialize and solve the system
       system.init();
@@ -382,7 +379,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "v",  & system_biharmonic_HM_function_zero_on_boundary_1);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "v",  & system_biharmonic_HM_D_function_zero_on_boundary_1);
 
 
 

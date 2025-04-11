@@ -1,5 +1,5 @@
-#ifndef __femus_biharmonic_HM_hpp__
-#define __femus_biharmonic_HM_hpp__
+#ifndef __femus_biharmonic_HM_D_hpp__
+#define __femus_biharmonic_HM_D_hpp__
  
 #include "FemusInit.hpp"  //for the adept stack
 
