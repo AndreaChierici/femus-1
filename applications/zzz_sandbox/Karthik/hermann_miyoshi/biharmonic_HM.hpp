@@ -1013,7 +1013,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu =  1. /* Poisson ratio value */;
+double nu =  0.4 /* Poisson ratio value */;
 double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
 double nu2 = 2.0 / (1.0 + nu);
 // // // double nu2 = 1. - nu;
@@ -1024,8 +1024,8 @@ double nu2 = 2.0 / (1.0 + nu);
 
     short unsigned ielGeom = msh->GetElementType(iel); 
 
-    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
-// // //     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_v);    // number of solution element dofs
+// // //     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
+    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_v);    // number of solution element dofs
 
 
 
@@ -1052,18 +1052,18 @@ double nu2 = 2.0 / (1.0 + nu);
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
 
-      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
-// // //       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_v);    // global to global mapping between solution node and solution dof
+// // //       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
+      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_v);    // global to global mapping between solution node and solution dof
 
 
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
       solv[i]          = (*sol->_Sol[solvIndex])(solDof);      // global extraction and local storage for the solution
-      sols1[i] = (*sol->_Sol[sols1Index])(solDof);      // s1  -> secondary row2, col2
-      sols2[i] = (*sol->_Sol[sols2Index])(solDof);      // s2  -> secondary row1, col2
+      sols1[i]         = (*sol->_Sol[sols1Index])(solDof);      // s1  -> secondary row2, col2
+      sols2[i]         = (*sol->_Sol[sols2Index])(solDof);      // s2  -> secondary row1, col2
 
-      sysDof[i]         = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
-      sysDof[nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      sysDof[i]             = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      sysDof[nDofs + i]     = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
       sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(sols1Index, sols1PdeIndex, i, iel); // s1
       sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(sols2Index, sols2PdeIndex, i, iel); // s2
 
@@ -1083,10 +1083,10 @@ double nu2 = 2.0 / (1.0 + nu);
 
     // *** Gauss point loop ***
 
-    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_v]->GetGaussPointNumber(); ig++) {
 // *** get gauss point weight, test function and test function partial derivatives ***
 
-      msh->_finiteElement[ielGeom][solFEType_u]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
+      msh->_finiteElement[ielGeom][solFEType_v]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
       // evaluate the solution, the solution derivatives and the coordinates in the gauss point
       adept::adouble soluGauss = 0;
@@ -1158,13 +1158,12 @@ double nu2 = 2.0 / (1.0 + nu);
     adept::adouble C2v_term = 0.;
 
     if (dim == 2) {
-        C1s1_term = 0.5 * (phi_x[i * dim + 0] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
-        C2s2_term = 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] + phi_x[i * dim + 0] * sols2Gauss_x[1]);
-        C1v_term = 0.5 * (phi_x[i * dim + 0] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
-        C2v_term = 0.5 * (phi_x[i * dim + 0] * solvGauss_x[1] + phi_x[i * dim + 1] * solvGauss_x[0]);
+        C1s1_term += 0.5 * (phi_x[i * dim + 0] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
+        C2s2_term += 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] + phi_x[i * dim + 0] * sols2Gauss_x[1]);
+        C1v_term += 0.5 * (phi_x[i * dim + 0] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
+        C2v_term += 0.5 * (phi_x[i * dim + 1] * solvGauss_x[0] + phi_x[i * dim + 0] * solvGauss_x[1]);
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
-
 
         // System residuals - signs adjusted to match matrix form
      aResu[i] += (Laplace_v + M_u) * weight;  // M*W + B^T*U = 0
