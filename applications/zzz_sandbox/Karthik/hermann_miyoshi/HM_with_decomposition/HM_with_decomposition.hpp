@@ -39,7 +39,7 @@ using namespace femus;
 
 namespace karthik {
   
-  class biharmonic_HM {
+  class biharmonic_HM_with_decomposition {
     
   public:
 
