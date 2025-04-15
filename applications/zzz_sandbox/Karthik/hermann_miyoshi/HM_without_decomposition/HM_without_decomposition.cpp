@@ -99,18 +99,18 @@ class Function_Zero_on_boundary_7_deviatoric_s1 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 0.;
+        return -4. * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 0.;
-        solGrad[1] = 0.;
+        solGrad[0] = -8. * pi * pi * pi * cos(2.* pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * sin(2.* pi * x[0]) * cos(2. * pi * x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 0.;
+        return 32. * pi * pi * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
     }
 
 private:
@@ -140,48 +140,23 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
-
 template <class type = double>
-class Function_Zero_on_boundary_4_deviatoric_s1 : public Math::Function<type> {
+class Function_Zero_on_boundary_7_deviatoric_s3 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 0.;
+        return -4. * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 0.;
-        solGrad[1] = 0.;
+        solGrad[0] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos( 2. * pi*x[1] );
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 0.;
-    }
-
-private:
-    static constexpr double pi = acos(-1.);
-};
-
-
-template <class type = double>
-class Function_Zero_on_boundary_4_deviatoric_s2 : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-        return  pi * pi * sin(pi * x[0]) * sin(pi * x[1]);
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 4. * pi * pi * pi * pi * sin(pi * x[0]) * cos(pi * x[1]);
-        solGrad[1] = 4. * pi * pi * pi * pi * cos(pi * x[0]) * sin(pi * x[1]);
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        return 16. * pi * pi * pi * pi * cos(pi * x[0]) * cos(pi * x[1]);
+        return 32. * pi * pi * pi * pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
     }
 
 private:
@@ -260,6 +235,9 @@ int main(int argc, char** args) {
 
   Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s2;
 
+    Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s3;
+
+
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
 
   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
@@ -280,7 +258,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 4;
+  unsigned maxNumberOfMeshes = 2;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
@@ -318,18 +296,18 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_s1);
 
 
 
       mlSol.AddSolution("s1", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_s1);
+      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_s2);
 
       mlSol.AddSolution("s2", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
+      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s3);
 
 
       mlSol.Initialize("All");
@@ -377,7 +355,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "v",  & system_biharmonic_HM_function_zero_on_boundary_1);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
 
