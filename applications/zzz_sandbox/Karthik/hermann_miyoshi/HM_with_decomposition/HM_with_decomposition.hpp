@@ -24,12 +24,11 @@
  *                      f(x) = \Delta^2 u_e ,
  *                    u_e = \cos ( \pi * x ) * \cos( \pi * y ),
  *
- * the following function assembles the system:
- *
- *      \Delta u = v
- *      \Delta v = f(x) = 4. \pi^4 u_e
- *      u(\Gamma) = 0
- *      v(\Gamma) = 0
+ * The system is assembled according to the matrix formulation:
+ * [ M   B^T    0     0  ] [W]   [   0   ]
+ * [ B    0    ν1C1  ν1C2] [U] = [-ν2F   ]
+ * [ 0   C1^T   M     0  ] [S1]  [   0   ]
+ * [ 0   C2^T   0     M  ] [S2]  [   0   ]
  *
  * using automatic differentiation
  **/

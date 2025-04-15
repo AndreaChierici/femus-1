@@ -1,14 +1,48 @@
-/** tutorial/Ex3
- * This example shows how to set and solve the weak form of the nonlinear problem
- *                     -\Delta^2 u = f(x) \text{ on }\Omega,
- *            u=0 \text{ on } \Gamma,
- *      \Delta u=0 \text{ on } \Gamma,
- * on a box domain $\Omega$ with boundary $\Gamma$,
- * by using a system of second order partial differential equation.
- * all the coarse-level meshes are removed;
- * a multilevel problem and an equation system are initialized;
- * a direct solver is used to solve the problem.
- **/
+/**
+ * This implementation solves the weak form of the biharmonic problem using Hermann Miyoshi Scheme
+ *                     \Delta^2 u = f(x) \text{ on } \Omega,
+ *            u = 0 \text{ on } \Gamma,
+ *      \Delta u = 0 \text{ on } \Gamma,
+ * on a domain $\Omega$ with boundary $\Gamma$,
+ * using a mixed formulation with a system of second order PDEs:
+ *      \hessian u = sigma
+ *      di(div(sigma)) = f(x)
+ * with additional mixed terms for optimal convergence.
+ *
+ * Please Note: v is the solution
+ *
+ * The discrete formulation uses the matrix system:
+ * @brief Assembles the system for the biharmonic problem using automatic differentiation
+ *
+ * This function assembles the weak form of the biharmonic problem using:
+ * - Mixed finite element formulation
+ * - Optimal convergence parameters \nu_1, \nu_2
+ * - Exact Jacobian computation via adept
+ * - Multilevel mesh support
+ *
+ * @param ml_prob The multilevel problem containing all problem data
+ *
+ * The system is assembled according to the matrix formulation:
+ * [ M   B^T    0     0  ] [W]   [   0   ]
+ * [ B    0    ν1C1  ν1C2] [U] = [-ν2F   ]
+ * [ 0   C1^T   M     0  ] [S1]  [   0   ]
+ * [ 0   C2^T   0     M  ] [S2]  [   0   ]
+ *
+ * Key features:
+ * - Mixed finite element formulation
+ * - Automatic differentiation for exact Jacobian
+ * - Optimal convergence parameters:
+ *   \nu_1 = \frac{4(1-\nu)}{1+\nu}, \nu_2 = \frac{2}{1+\nu}
+ * - Spectral radius-based parameter selection
+ * - Multilevel mesh support
+ * - Parallel computation capability
+ *
+ * Usage:
+ * 1. Initialize mesh and multilevel structures
+ * 2. Set boundary conditions
+ * 3. Call AssembleBilaplaceProblem_AD()
+ * 4. Solve the linear system
+ */
 
 
 
