@@ -71,20 +71,20 @@ Cloud *cldint;
 // const double gravity = -0.98;
 
 // // Turek 2
-// const double mu1 = 0.1;
-// const double mu2 = 10.;
-// const double rho1 = 1.;
-// const double rho2 = 1000;
-// const double sigma = 1.96;
-// const double gravity = -0.98;
+const double mu1 = 0.1;
+const double mu2 = 10.;
+const double rho1 = 1.;
+const double rho2 = 1000;
+const double sigma = 1.96;
+const double gravity = -0.98;
 
-//Parasitic Test
-const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
-const double mu2 = 0.1;
-const double rho1 = 100.;
-const double rho2 = 100.;
-const double sigma = 3.; // ???
-const double gravity = 0.;
+// //Parasitic Test
+// const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
+// const double mu2 = 0.1;
+// const double rho1 = 100.;
+// const double rho2 = 100.;
+// const double sigma = 3.; // ???
+// const double gravity = 0.;
 
 std::vector <double> g;
 
@@ -93,7 +93,7 @@ std::vector <double> g;
 #include "../include/Stabilization.hpp"
 
 // #define RADIUS 0.25
-#define RADIUS 0.2
+#define RADIUS 0.15
 #define XG 0.5
 #define YG 0.5
 #define ZG 0.
@@ -153,7 +153,8 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
 //   mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
-  mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
+  // mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
+  mlMsh.ReadCoarseMesh("./input/nozzle.neu", "fifth", scalingFactor);
   // mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
   // mlMsh.GenerateCoarseBoxMesh(16, 64, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
   // mlMsh.GenerateCoarseBoxMesh(100, 400, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
@@ -163,7 +164,7 @@ int main(int argc, char** args) {
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
 
-  unsigned numberOfUniformLevels = 1;
+  unsigned numberOfUniformLevels = 3;
   unsigned numberOfSelectiveLevels = 0;
   mlMsh.RefineMesh(numberOfUniformLevels, numberOfUniformLevels + numberOfSelectiveLevels, NULL);
 
@@ -250,7 +251,8 @@ int main(int argc, char** args) {
   std::cout << "Testing the class Cloud \n";
 
 
-  unsigned nIterations = 35000;
+  // unsigned nIterations = 35000;
+  unsigned nIterations = 700;
   unsigned nMrk = 800;
 
 // //   Oscillation
@@ -357,7 +359,7 @@ int main(int argc, char** args) {
     cldint->RKAdvection(4, velocity, dt);
     cld->PrintCSV("markerBefore", it);
     cld->ComputeQuadraticBestFit();
-    cld->RebuildMarkers(11, 9, 10);
+    cld->RebuildMarkers(8, 14, 10);
     cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
     cld->PrintCSV("marker", it);
     cld->PrintMaxX("AAmaxY", it); //Oscillation
@@ -374,14 +376,14 @@ int main(int argc, char** args) {
 double TimeStepMultiphase(const double time) {
   // double dt =  0.005; //RT
   // double dt =  0.001; //RT
-//   // double dt =  0.01; //Turek
-  double sigma = 3;
-  double rho = 100.;
-  // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
-  // double dt =  totalT/800; //Parasitic Test
-
-  double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
-  // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
+  double dt =  0.015; //Turek
+  // double sigma = 3;
+  // double rho = 100.;
+  // // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
+  // // double dt =  totalT/800; //Parasitic Test
+  //
+  // double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
+  // // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
   return dt;
 }
 
