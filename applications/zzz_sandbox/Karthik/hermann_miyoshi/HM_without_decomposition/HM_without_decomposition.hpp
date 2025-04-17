@@ -1130,14 +1130,14 @@ double nu2 = 2.0 / (1.0 + nu);
 
         adept::adouble Mxxxx_v = phi[i] * solvGauss;
         adept::adouble Mxxxy_s1 = phi[i] * sols1Gauss;
-        adept::adouble Mxxyy_s2 = nu * phi[i] * sols2Gauss;
+        adept::adouble Mxxyy_s2 = 2. * nu * phi[i] * sols2Gauss;
 
 
         adept::adouble Mxyxx_v = phi[i] * solvGauss;
         adept::adouble Mxyxy_s1 = 2. * (1. - nu) * phi[i] * sols1Gauss;
-        adept::adouble Mxyyy_s2 = nu * phi[i] * sols2Gauss;
+        adept::adouble Mxyyy_s2 = nu * ( phi[i] * sols2Gauss );
 
-        adept::adouble Myyxx_v =  phi[i] * solvGauss;
+        adept::adouble Myyxx_v =  2. * nu * phi[i] * solvGauss;
         adept::adouble Myyxy_s1 = phi[i] * sols1Gauss;
         adept::adouble Myyyy_s2 = phi[i] * sols2Gauss;
 
@@ -1164,25 +1164,22 @@ double nu2 = 2.0 / (1.0 + nu);
     if (dim == 2) {
 
         Bxxu += phi_x[i * dim] * soluGauss_x[0] + nu * phi_x[i * dim + 1] * soluGauss_x[1];
-        Bxyu += ( 1. - nu ) * ( (phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim ] * soluGauss_x[1]) );
+        Bxyu += ( 1. - nu ) * ( (phi_x[i * dim ] * soluGauss_x[1] + phi_x[i * dim +1 ] * soluGauss_x[0]) );
         Byyu += nu * phi_x[i * dim] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1];
 
         Bxxv += phi_x[i * dim] * solvGauss_x[0] + nu * phi_x[i * dim + 1] * solvGauss_x[1];
-        Bxys1 += ( 1. - nu ) * ( (phi_x[i * dim + 1] * sols1Gauss_x[0] + phi_x[i * dim ] * sols1Gauss_x[1]) );
+        Bxys1 += ( 1. - nu ) * ( (phi_x[i * dim ] * sols1Gauss_x[1] + phi_x[i * dim+ 1 ] * sols1Gauss_x[0]) );
         Byys2 += nu * phi_x[i * dim] * sols2Gauss_x[0] + phi_x[i * dim + 1] * sols2Gauss_x[1];
 
-// // //         C1s1_term += 0.5 * (phi_x[i * dim] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
-// // //         C2s2_term += 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] + phi_x[i * dim + 0] * sols2Gauss_x[1]);
-// // //         C1v_term += 0.5 * (phi_x[i * dim ] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
-// // //         C2v_term += 0.5 * (phi_x[i * dim + 1] * solvGauss_x[0] + phi_x[i * dim + 0] * solvGauss_x[1]);
+
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += ( Bxxv + Bxys1 + Byys2 + F_term ) * weight;  // M*W + B^T*U = 0
-     aResv[i] += (Bxxu - Mxxxx_v - nu * Mxxyy_s2) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRess1[i] += ( Bxyu - Mxyxy_s1 ) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += (Byyu - nu * Mxxyy_s2 - Mxyxy_s1) * weight;  // C2^T*W + M*S2 = 0
+     aResu[i] += ( Bxxv + Bxys1 + Byys2 - F_term ) * weight;  // M*W + B^T*U = 0
+     aResv[i] += (Bxxu + Mxxxx_v +  Mxxyy_s2) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRess1[i] += ( Bxyu + Mxyxy_s1 ) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += (Byyu + Myyxx_v + Myyyy_s2) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
