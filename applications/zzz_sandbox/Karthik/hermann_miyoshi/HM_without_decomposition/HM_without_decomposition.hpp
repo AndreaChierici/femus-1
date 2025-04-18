@@ -1013,7 +1013,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu =  0.1 /* Poisson ratio value */;
+double nu =  0.01 /* Poisson ratio value */;
 double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
 double nu2 = 2.0 / (1.0 + nu);
 // // // double nu2 = 1. - nu;
@@ -1129,17 +1129,27 @@ double nu2 = 2.0 / (1.0 + nu);
 
 
         adept::adouble Mxxxx_v = phi[i] * solvGauss;
-        adept::adouble Mxxxy_s1 = phi[i] * sols1Gauss;
-        adept::adouble Mxxyy_s2 = 2. * nu * phi[i] * sols2Gauss;
-
-
-        adept::adouble Mxyxx_v = phi[i] * solvGauss;
         adept::adouble Mxyxy_s1 = 2. * (1. - nu) * phi[i] * sols1Gauss;
-        adept::adouble Mxyyy_s2 = nu * ( phi[i] * sols2Gauss );
-
-        adept::adouble Myyxx_v =  2. * nu * phi[i] * solvGauss;
-        adept::adouble Myyxy_s1 = phi[i] * sols1Gauss;
         adept::adouble Myyyy_s2 = phi[i] * sols2Gauss;
+
+        adept::adouble Mxxyy_s2 = nu * phi[i+1] * sols2Gauss;
+        adept::adouble Myyxx_v = nu * phi[i+1] * solvGauss;
+
+
+        adept::adouble Mxxxx1_v = nu * phi[i+1] * solvGauss;
+        adept::adouble Myyyy1_s2 = nu * phi[i+1] * sols2Gauss;
+
+
+
+// // //         adept::adouble Mxxxy_s1 = phi[i] * sols1Gauss;
+// // //         adept::adouble Mxxyy_s2 = 2. * nu * phi[i] * sols2Gauss;
+
+
+// // //         adept::adouble Mxyxx_v = phi[i] * solvGauss;
+// // //         adept::adouble Mxyyy_s2 = nu * ( phi[i] * sols2Gauss );
+// // //
+// // //         adept::adouble Myyxx_v =  2. * nu * phi[i] * solvGauss;
+// // //         adept::adouble Myyxy_s1 = phi[i] * sols1Gauss;
 
 
 
@@ -1176,10 +1186,10 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += ( Bxxv + Bxys1 + Byys2 - F_term ) * weight;  // M*W + B^T*U = 0
-     aResv[i] += (Bxxu + Mxxxx_v +  Mxxyy_s2) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRess1[i] += ( Bxyu + Mxyxy_s1 ) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += (Byyu + Myyxx_v + Myyyy_s2) * weight;  // C2^T*W + M*S2 = 0
+     aResu[i] += ( Bxxv + Laplace_s1 + Bxys1 + Byys2 - F_term ) * weight;  // M*W + B^T*U = 0
+     aResv[i] += ( Bxxu + Mxxxx_v + Mxxyy_s2 ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRess1[i] += ( Laplace_u + Bxyu + Mxyxy_s1 ) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += ( Byyu +  Myyxx_v + Myyyy_s2) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
