@@ -1169,15 +1169,23 @@ double nu2 = 2.0 / (1.0 + nu);
         // // // Byys2 += nu * phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) * ( phi_x[i * dim + 1] + phi_x[i * dim ] ) * sols2Gauss_x[1];
 
 
-        Bxxu +=  phi_x[i * dim] * soluGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1 ] * soluGauss_x[0] ) ;
+        // // // Bxxu +=  phi_x[i * dim] * soluGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1 ] * soluGauss_x[0] ) ;
+        // // // Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
+        // // // Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * soluGauss_x[1];
+        // // //
+        // // // Bxxv += phi_x[i * dim] * solvGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1] * solvGauss_x[0] ) ;
+        // // // Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[ i * dim + 1 ] * sols1Gauss_x[0] );
+        // // // Byys2 += phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * sols2Gauss_x[1];
+
+
+
+        Bxxu +=  ( 1. + nu ) * phi_x[i * dim] * soluGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1 ] * soluGauss_x[0] ) ;
         Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
-        Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * soluGauss_x[1];
+        Byyu += ( 1. + nu) * phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * soluGauss_x[1];
 
-        Bxxv += phi_x[i * dim] * solvGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1] * solvGauss_x[0] ) ;
+        Bxxv += ( 1. + nu ) * phi_x[i * dim] * solvGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1] * solvGauss_x[0] ) ;
         Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[ i * dim + 1 ] * sols1Gauss_x[0] );
-        Byys2 += phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * sols2Gauss_x[1];
-
-
+        Byys2 += ( 1. + nu) * phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * sols2Gauss_x[1];
 
 
 
