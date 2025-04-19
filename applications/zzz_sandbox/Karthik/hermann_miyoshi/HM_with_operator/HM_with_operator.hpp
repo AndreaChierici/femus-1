@@ -1013,7 +1013,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu =  0.5 /* Poisson ratio value */;
+double nu =  0.7 /* Poisson ratio value */;
 double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
 double nu2 = 2.0 / (1.0 + nu);
 // // // double nu2 = 1. - nu;
@@ -1128,9 +1128,9 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble Laplace_s2 = 0.;
 
 
-        adept::adouble Mxxxx_v =  phi[i] * solvGauss;
-        adept::adouble Mxyxy_s1 = (1. - nu) * phi[i] * sols1Gauss;
-        adept::adouble Myyyy_s2 =  phi[i] * sols2Gauss;
+        adept::adouble Mxxxx_v =  nu * phi[i] * solvGauss + (1. - nu) * phi[i] * solvGauss;
+        adept::adouble Mxyxy_s1 = 2. * (1. - nu) * phi[i] * sols1Gauss;
+        adept::adouble Myyyy_s2 = nu * phi[i] * sols2Gauss + (1. - nu) * phi[i] * solvGauss;
 
         adept::adouble Mxxyy_s2 = nu * phi[i] * sols2Gauss;
         adept::adouble Myyxx_v = nu * phi[i] * solvGauss;
@@ -1160,32 +1160,13 @@ double nu2 = 2.0 / (1.0 + nu);
 
     if (dim == 2) {
 
-        // // // Bxxu += nu * ( phi_x[i * dim] * soluGauss_x[0] ) + (1. - nu) * ( phi_x[i * dim ] + phi_x[i * dim + 1] ) * soluGauss_x[0] ;
-        // // // Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
-        // // // Byyu += nu * phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) * ( phi_x[i * dim + 1] + phi_x[i * dim ] ) * soluGauss_x[1];
-        // // //
-        // // // Bxxv += nu * ( phi_x[i * dim] * solvGauss_x[0] ) + (1. - nu) * ( phi_x[i * dim ] + phi_x[i * dim + 1] ) * solvGauss_x[0] ;
-        // // // Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[i * dim + 1 ] * sols1Gauss_x[0] );
-        // // // Byys2 += nu * phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) * ( phi_x[i * dim + 1] + phi_x[i * dim ] ) * sols2Gauss_x[1];
-
-
-        // // // Bxxu +=  phi_x[i * dim] * soluGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1 ] * soluGauss_x[0] ) ;
-        // // // Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
-        // // // Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * soluGauss_x[1];
-        // // //
-        // // // Bxxv += phi_x[i * dim] * solvGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1] * solvGauss_x[0] ) ;
-        // // // Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[ i * dim + 1 ] * sols1Gauss_x[0] );
-        // // // Byys2 += phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * sols2Gauss_x[1];
-
-
-
-        Bxxu +=  ( 1. + nu ) * phi_x[i * dim] * soluGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1 ] * soluGauss_x[0] ) ;
+        Bxxu += nu * ( phi_x[i * dim] * soluGauss_x[0] +  phi_x[i * dim + 1] * soluGauss_x[1] ) + (1. - nu) * phi_x[i * dim] * soluGauss_x[0];
         Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
-        Byyu += ( 1. + nu) * phi_x[i * dim + 1] * soluGauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * soluGauss_x[1];
+        Byyu += nu * ( phi_x[i * dim ] * soluGauss_x[0] + phi_x[i * dim +1] * soluGauss_x[1] ) + (1. - nu ) * phi_x[i * dim + 1] * soluGauss_x[1];
 
-        Bxxv += ( 1. + nu ) * phi_x[i * dim] * solvGauss_x[0] + (1. - nu) * ( phi_x[i * dim + 1] * solvGauss_x[0] ) ;
-        Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[ i * dim + 1 ] * sols1Gauss_x[0] );
-        Byys2 += ( 1. + nu) * phi_x[i * dim + 1] * sols2Gauss_x[1] + (1. - nu ) *  phi_x[i * dim ] * sols2Gauss_x[1];
+        Bxxv += nu * ( phi_x[i * dim] * solvGauss_x[0] +  phi_x[i * dim + 1] * solvGauss_x[1] ) + (1. - nu) * phi_x[i * dim] * solvGauss_x[0];;
+        Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[i * dim + 1 ] * sols1Gauss_x[0] );
+        Byys2 += nu * ( phi_x[i * dim ] * sols2Gauss_x[0] + phi_x[i * dim +1] * sols2Gauss_x[1] ) + (1. - nu ) * phi_x[i * dim + 1] * sols2Gauss_x[1];
 
 
 
