@@ -1162,14 +1162,13 @@ double nu2 = 2.0 / (1.0 + nu);
 
         Bxxu += phi_x[i * dim] * soluGauss_x[0] + nu * phi_x[i * dim + 1] * soluGauss_x[1];
 
-// // //                 Bxyu += phi_x[i * dim] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1] + ( 1. - nu ) * ( phi_x[i * dim ] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0]) ;
         Bxyu += ( 1. - nu ) * ( phi_x[i * dim] * soluGauss_x[1] + phi_x[i * dim + 1 ] * soluGauss_x[0] );
-
 
         Byyu += nu * phi_x[i * dim] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1];
 
+
         Bxxv += phi_x[i * dim] * solvGauss_x[0] + nu * phi_x[i * dim + 1] * solvGauss_x[1];
-// // //         Bxys1 += phi_x[i * dim] * sols1Gauss_x[0] + phi_x[i * dim + 1] * sols1Gauss_x[1] + ( 1. - nu ) * ( phi_x[i * dim ] * sols1Gauss_x[1] + phi_x[i * dim + 1 ] * sols1Gauss_x[0] ) ;
+
         Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[i * dim + 1] * sols1Gauss_x[0] );
 
         Byys2 += nu * phi_x[i * dim] * sols2Gauss_x[0] + phi_x[i * dim + 1] * sols2Gauss_x[1];
