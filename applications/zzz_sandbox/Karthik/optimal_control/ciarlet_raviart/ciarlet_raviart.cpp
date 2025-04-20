@@ -219,6 +219,10 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
       Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     Value = s2 -> value(x);
   }
+    else if (!strcmp(SolName, "p")) {
+      Math::Function <double> * p = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = p -> value(x);
+  }
   return dirichlet;
 }
 //====Set boundary condition-END==============================
@@ -285,7 +289,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 4;
+  unsigned maxNumberOfMeshes = 2;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
@@ -336,6 +340,9 @@ int main(int argc, char** args) {
       mlSol.AddSolution("s2", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
 
+      mlSol.AddSolution("p", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_s2);
+
 
       mlSol.Initialize("All");
 
@@ -356,6 +363,8 @@ int main(int argc, char** args) {
 
       mlSol.GenerateBdc("s1", "Steady", & ml_prob);
       mlSol.GenerateBdc("s2", "Steady", & ml_prob);
+      mlSol.GenerateBdc("p", "Steady", & ml_prob);
+
 
       // add system Biharmonic in ml_prob as a Linear Implicit System
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM._system_name);
@@ -367,6 +376,7 @@ int main(int argc, char** args) {
 
       system.AddSolutionToSystemPDE("s1");
       system.AddSolutionToSystemPDE("s2");
+      system.AddSolutionToSystemPDE("p");
 
 
       // attach the assembling function to system
