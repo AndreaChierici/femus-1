@@ -91,6 +91,11 @@ public:
         return 64.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
     }
 
+        type laplacian_yd(const std::vector<type>& x) const {
+        return 32.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+    }
+
+
 private:
     static constexpr double pi = acos(-1.);
 };
@@ -341,7 +346,7 @@ int main(int argc, char** args) {
       mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
 
       mlSol.AddSolution("p", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_s2);
+      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
       mlSol.Initialize("All");
@@ -392,7 +397,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "v",  & system_biharmonic_HM_function_zero_on_boundary_1);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "p",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
 

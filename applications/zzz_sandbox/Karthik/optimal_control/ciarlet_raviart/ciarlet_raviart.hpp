@@ -1014,10 +1014,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu =  0.6 /* Poisson ratio value */;
-double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
-double nu2 = 2.0 / (1.0 + nu);
-// // // double nu2 = 1. - nu;
+double alpha = 1. ;
 
 
 
@@ -1026,7 +1023,7 @@ double nu2 = 2.0 / (1.0 + nu);
     short unsigned ielGeom = msh->GetElementType(iel); 
 
 // // //     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
-    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_v);    // number of solution element dofs
+    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_p);    // number of solution element dofs
 
 
 
@@ -1035,7 +1032,7 @@ double nu2 = 2.0 / (1.0 + nu);
     std::vector<unsigned> Sol_n_el_dofs_Mat_vol(5, nDofs);
 
     // resize local arrays
-    sysDof.resize(4 * nDofs);
+    sysDof.resize(5 * nDofs);
     solu.resize(nDofs);
     solv.resize(nDofs);
     sols1.resize(nDofs);
@@ -1155,7 +1152,7 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble M_v = phi[i] * solvGauss;
         adept::adouble M_s1 = phi[i] * sols1Gauss;
         adept::adouble M_s2 = phi[i] * sols2Gauss;
-        adept::adouble M_s5 = phi[i] * solpGauss;
+        adept::adouble M_p = phi[i] * solpGauss;
 
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
@@ -1172,26 +1169,16 @@ double nu2 = 2.0 / (1.0 + nu);
         double pi = acos(-1.);
 
 
-    adept::adouble C1s1_term = 0.;
-    adept::adouble C2s2_term = 0.;
-    adept::adouble C1v_term = 0.;
-    adept::adouble C2v_term = 0.;
-
-
-    if (dim == 2) {
-        C1s1_term += 0.5 * (phi_x[i * dim + 0] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
-        C2s2_term += 0.5 * (phi_x[i * dim + 1] * sols2Gauss_x[0] + phi_x[i * dim + 0] * sols2Gauss_x[1]);
-        C1v_term += 0.5 * (phi_x[i * dim + 0] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
-        C2v_term += 0.5 * (phi_x[i * dim + 1] * solvGauss_x[0] + phi_x[i * dim + 0] * solvGauss_x[1]);
-    }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
+// // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
+
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += (Laplace_v + M_u) * weight;  // M*W + B^T*U = 0
-     aResv[i] += (Laplace_u + nu1*C1s1_term + nu1*C2s2_term + nu2*F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRess1[i] += (C1v_term + M_s1) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += (C2v_term + M_s2) * weight;  // C2^T*W + M*S2 = 0
-     aResp[i] += (C2v_term + nu1*C1s1_term + M_s2) * weight;  // C2^T*W + M*S2 = 0
+     aResu[i] += (- Laplace_u + M_v) * weight;  // M*W + B^T*U = 0
+     aResv[i] += (Laplace_v + M_p - F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRess1[i] += (-M_v - Laplace_s1 + M_s2) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += (M_u + Laplace_s2 - F_term ) * weight;  // C2^T*W + M*S2 = 0
+     aResp[i] += (M_s1 + M_p - F_term ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
@@ -1201,7 +1188,7 @@ double nu2 = 2.0 / (1.0 + nu);
 
     //copy the value of the adept::adoube aRes in double Res and store
 
-   Res.resize(4 * nDofs,0.0);
+   Res.resize(5 * nDofs,0.0);
 
     for (int i = 0; i < nDofs; i++) {
       Res[i]         = -aResu[i].value();
