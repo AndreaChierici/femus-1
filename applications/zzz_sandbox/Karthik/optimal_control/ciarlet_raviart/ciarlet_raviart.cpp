@@ -148,54 +148,6 @@ private:
 };
 
 
-template <class type = double>
-class Function_Zero_on_boundary_4_deviatoric_s1 : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-        return 0.;
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 0.;
-        solGrad[1] = 0.;
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        return 0.;
-    }
-
-private:
-    static constexpr double pi = acos(-1.);
-};
-
-
-template <class type = double>
-class Function_Zero_on_boundary_4_deviatoric_s2 : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-        return  pi * pi * sin(pi * x[0]) * sin(pi * x[1]);
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 4. * pi * pi * pi * pi * sin(pi * x[0]) * cos(pi * x[1]);
-        solGrad[1] = 4. * pi * pi * pi * pi * cos(pi * x[0]) * sin(pi * x[1]);
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        return 16. * pi * pi * pi * pi * cos(pi * x[0]) * cos(pi * x[1]);
-    }
-
-private:
-    static constexpr double pi = acos(-1.);
-};
-
-
 }
 
 
@@ -294,7 +246,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 2;
+  unsigned maxNumberOfMeshes = 3;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
