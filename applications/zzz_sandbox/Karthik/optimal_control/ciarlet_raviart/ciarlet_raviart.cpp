@@ -91,7 +91,7 @@ public:
         return 64.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
     }
 
-        type laplacian_yd(const std::vector<type>& x) const {
+    type laplacian_yd(const std::vector<type>& x) const {
         return 32.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
     }
 
@@ -99,6 +99,7 @@ public:
 private:
     static constexpr double pi = acos(-1.);
 };
+
 
 
 template <class type = double>
@@ -227,8 +228,13 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s2;
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+
+
   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+
+// // //   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian_yd; //this is the RHS for the auxiliary variable v = -Delta u
+
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
 
 

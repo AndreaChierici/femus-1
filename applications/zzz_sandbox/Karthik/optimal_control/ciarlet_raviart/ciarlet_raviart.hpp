@@ -1014,7 +1014,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double alpha = 1. ;
+double alpha = .5 ;
 
 
 
@@ -1169,16 +1169,16 @@ double alpha = 1. ;
         double pi = acos(-1.);
 
 
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+// // //         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-// // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
      aResu[i] += (- Laplace_u + M_v) * weight;  // M*W + B^T*U = 0
      aResv[i] += (Laplace_v + M_p - F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRess1[i] += (-M_v - Laplace_s1 + M_s2) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += (M_u + Laplace_s2 - F_term ) * weight;  // C2^T*W + M*S2 = 0
-     aResp[i] += (M_s1 + M_p - F_term ) * weight;  // C2^T*W + M*S2 = 0
+     aRess2[i] += (M_u + Laplace_s2 ) * weight;  // C2^T*W + M*S2 = 0
+     aResp[i] += (alpha * M_s1 + M_p  ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
