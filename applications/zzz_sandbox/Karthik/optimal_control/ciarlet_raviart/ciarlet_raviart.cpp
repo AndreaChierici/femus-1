@@ -54,18 +54,19 @@ class Function_Zero_on_boundary_7 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return sin(pi*x[0]) * sin(pi*x[0]) * sin(pi*x[1]) * sin(pi*x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 2.*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
-        solGrad[1] = 2.*pi * sin(2.*pi*x[0]) * cos(2.*pi*x[1]);
+        solGrad[0] = pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2);
+        solGrad[1] = pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return -8.*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return 2.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+     + 2.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
 
 private:
@@ -77,24 +78,23 @@ class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return -8.*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return 2.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+               + 2.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = -16.*pi*pi*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
-        solGrad[1] = -16.*pi*pi*pi * sin(2.*pi*x[0]) * cos(2.*pi*x[1]);
+        solGrad[0] = -4.*pi*pi*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+             + 2.*pi*pi*pi * cos(2.*pi*x[1]) * sin(2.*pi*x[0]);
+        solGrad[1] = -4.*pi*pi*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2)
+             + 2.*pi*pi*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 64.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return -16.*pi*pi*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+           -16.*pi*pi*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
-
-    type laplacian_yd(const std::vector<type>& x) const {
-        return 32.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
-    }
-
 
 private:
     static constexpr double pi = acos(-1.);
@@ -107,18 +107,19 @@ class Function_Zero_on_boundary_7_deviatoric_s1 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 0.;
+        return 2. * sin(pi*x[0]) * sin(pi*x[0]) * sin(pi*x[1]) * sin(pi*x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 0.;
-        solGrad[1] = 0.;
+        solGrad[0] = 2.*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2);
+        solGrad[1] = 2.*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 0.;
+        return 4.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+         + 4.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
 
 private:
@@ -130,18 +131,52 @@ class Function_Zero_on_boundary_7_deviatoric_s2 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        return - 2.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+     + 2.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
-        solGrad[1] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin( 2. * pi*x[1] );
+       solGrad[0] = 4.*pi*pi*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+           + 2.*pi*pi*pi * cos(2.*pi*x[1]) * sin(2.*pi*x[0]);
+
+       solGrad[1] = -4.*pi*pi*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1])
+           + 2.*pi*pi*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return -16. * pi * pi * pi * pi * cos(2.*pi*x[0]) * cos(2.*pi*x[1]);
+        return 4.*pi*pi*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+         + 4.*pi*pi*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_7_deviatoric_s3 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 8. * pi * pi * sin(pi *x[0]) * sin(pi *x[1]) - 2. - 2. * sin(pi*x[0]) * sin(pi*x[0]) * sin(pi*x[1]) * sin(pi*x[1]) ;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 8.*pi*pi*pi * cos(pi * x[0]) * sin(pi * x[1])
+               - 4.*pi * sin(pi * x[0]) * cos(pi * x[0]) * pow(sin(pi * x[1]), 2);
+        solGrad[1] = 8.*pi*pi*pi * sin(pi * x[0]) * cos(pi * x[1])
+               - 4.*pi * sin(pi * x[1]) * cos(pi * x[1]) * pow(sin(pi * x[0]), 2);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -16.*pi*pi*pi*pi * sin(pi*x[0]) * sin(pi*x[1])
+           - 4.*pi*pi * (cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+                      + cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2));
     }
 
 private:
@@ -220,20 +255,20 @@ int main(int argc, char** args) {
 
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_1;
+  Domains::square_m05p05::Function_Zero_on_boundary_7  <>   system_biharmonic_HM_function_zero_on_boundary_1;
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s1;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1 <>   system_biharmonic_HM_function_zero_on_boundary_s1;
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s2;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  <>   system_biharmonic_HM_function_zero_on_boundary_s2;
+
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  <>   system_biharmonic_HM_function_zero_on_boundary_s3;
 
 
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
 
 
   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
-
-// // //   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian_yd; //this is the RHS for the auxiliary variable v = -Delta u
 
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
 
@@ -290,10 +325,10 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_s2);
 
 
 
@@ -304,7 +339,7 @@ int main(int argc, char** args) {
       mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
 
       mlSol.AddSolution("p", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_s3);
 
 
       mlSol.Initialize("All");
