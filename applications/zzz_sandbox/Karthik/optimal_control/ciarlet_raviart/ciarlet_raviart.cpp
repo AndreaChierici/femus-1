@@ -82,6 +82,7 @@ public:
                + 2.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
     }
 
+
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
         solGrad[0] = -4.*pi*pi*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
@@ -179,15 +180,27 @@ public:
                       + cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2));
     }
 
+    type laplaciand(const std::vector<type>& x) const {
+        return -16.*pi*pi*pi*pi * sin(pi*x[0]) * sin(pi*x[1])
+           - 4.*pi*pi * (cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+                      + cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2));
+    }
+
 private:
     static constexpr double pi = acos(-1.);
 };
 
 
+
 }
 
 
 }
+
+
+
+
+
 
 
 
@@ -253,6 +266,10 @@ int main(int argc, char** args) {
 
   system_biharmonic_HM._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
+  system_biharmonic_HM._assemble_function_for_rhs;
+
+// // //   system_biharmonic_HM._assemble_function_target_state
+
 
 
   Domains::square_m05p05::Function_Zero_on_boundary_7  <>   system_biharmonic_HM_function_zero_on_boundary_1;
@@ -268,10 +285,13 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
 
 
-  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+
+
+// Assign to system specs (both components)
+system_biharmonic_HM._assemble_function_for_rhs = &system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+
 
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
-
 
 
 

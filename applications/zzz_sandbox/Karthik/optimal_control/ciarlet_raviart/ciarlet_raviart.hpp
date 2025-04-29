@@ -1171,14 +1171,19 @@ double alpha = .5 ;
 
 // // //         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+     adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+
+     adept::adouble F_term_d = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
+
+// // //      adept::adouble F_term_u0 = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value2(xGauss) * phi[i];
+
 
         // System residuals - signs adjusted to match matrix form
      aResu[i] += (- Laplace_u + M_v) * weight;  // M*W + B^T*U = 0
      aResv[i] += (Laplace_v + M_p - F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRess1[i] += (-M_v - Laplace_s1 + M_s2) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += (M_u + Laplace_s2 ) * weight;  // C2^T*W + M*S2 = 0
-     aResp[i] += (alpha * M_s1 + M_p  ) * weight;  // C2^T*W + M*S2 = 0
+     aRess1[i] += (M_v - Laplace_s1 + M_s2) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += (-M_u + Laplace_s2 ) * weight;  // C2^T*W + M*S2 = 0
+     aResp[i] += ( 4. * sols1[i] + alpha * 4. * solp[i]   ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
