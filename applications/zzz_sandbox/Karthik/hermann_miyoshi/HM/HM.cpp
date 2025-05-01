@@ -238,7 +238,7 @@ int main(int argc, char** args) {
     Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s3  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_s3;
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian <>  system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
 
   system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
