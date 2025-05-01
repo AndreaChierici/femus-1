@@ -271,23 +271,23 @@ int main(int argc, char** args) {
 
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7  <>   system_biharmonic_HM_function_zero_on_boundary_1;
+  Domains::square_m05p05::Function_Zero_on_boundary_8  <>   system_biharmonic_HM_function_zero_on_boundary_1;
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1 <>   system_biharmonic_HM_function_zero_on_boundary_s1;
-
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2  <>   system_biharmonic_HM_function_zero_on_boundary_s2;
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s3  <>   system_biharmonic_HM_function_zero_on_boundary_s3;
+  Domains::square_m05p05::Function_Zero_on_boundary_8_s1 <>   system_biharmonic_HM_function_zero_on_boundary_s1;
 
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_8_s2  <>   system_biharmonic_HM_function_zero_on_boundary_s2;
+
+  Domains::square_m05p05::Function_Zero_on_boundary_8_q  <>   system_biharmonic_HM_function_zero_on_boundary_q;
+
+
+  Domains::square_m05p05::Function_Zero_on_boundary_8_f <>   system_biharmonic_HM_function_zero_on_boundary_1_f;
 
 
 
 
 // Assign to system specs (both components)
-system_biharmonic_HM._assemble_function_for_rhs = &system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
+system_biharmonic_HM._assemble_function_for_rhs = &system_biharmonic_HM_function_zero_on_boundary_1_f;
 
 // // // system_biharmonic_HM._assemble_function_target_state = &system_biharmonic_HM_function_zero_on_boundary_1;
 
@@ -349,18 +349,18 @@ system_biharmonic_HM._assemble_function_for_rhs = &system_biharmonic_HM_function
       mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_s2);
+      mlSol.set_analytical_function("v", & system_biharmonic_HM_function_zero_on_boundary_s1);
 
 
 
       mlSol.AddSolution("s1", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_s1);
+      mlSol.set_analytical_function("s1", & system_biharmonic_HM_function_zero_on_boundary_1);
 
       mlSol.AddSolution("s2", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s2);
+      mlSol.set_analytical_function("s2", & system_biharmonic_HM_function_zero_on_boundary_s1);
 
       mlSol.AddSolution("p", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_s3);
+      mlSol.set_analytical_function("p", & system_biharmonic_HM_function_zero_on_boundary_q);
 
 
       mlSol.Initialize("All");

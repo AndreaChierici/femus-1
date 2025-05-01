@@ -167,6 +167,170 @@ private:
 };
 
 
+
+
+
+
+
+
+
+template <class type = double>
+class Function_Zero_on_boundary_8 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]);
+    }
+
+    type target(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+    solGrad[0] = -2. * pi * sin(2.*pi * x[0]) * pow(cos(pi * x[1]), 2);
+    solGrad[1] = -2. * pi * sin(2.*pi * x[1]) * pow(cos(pi * x[0]), 2);
+    return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+    return -4. * pi * pi * cos(2.*pi * x[0]) * pow(cos(pi * x[1]), 2)
+         - 4. * pi * pi * cos(2.*pi * x[1]) * pow(cos(pi * x[0]), 2);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_8_f : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)
+               + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]) - 1750. * cos(pi * x[0]) * cos (pi * x[0]) * cos(pi * x[1]) * cos(pi * x[1]) ;
+    }
+
+    type target(const std::vector<type>& x) const  {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -4.*pi*pi*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+             + 2.*pi*pi*pi * cos(2.*pi*x[1]) * sin(2.*pi*x[0]);
+        solGrad[1] = -4.*pi*pi*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2)
+             + 2.*pi*pi*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const{
+        return cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) + pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)
+               + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+
+template <class type = double>
+class Function_Zero_on_boundary_8_s1 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)
+           - 2. * pi * pi * cos(pi * x[0]) * cos(2. * pi * x[1]);;
+    }
+
+    type target(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 2.*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2);
+        solGrad[1] = 2.*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 4.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+         + 4.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_8_s2 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return - 2.*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+     + 2.*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+    }
+
+    type target(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+       solGrad[0] = 4.*pi*pi*pi * sin(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+           + 2.*pi*pi*pi * cos(2.*pi*x[1]) * sin(2.*pi*x[0]);
+
+       solGrad[1] = -4.*pi*pi*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1])
+           + 2.*pi*pi*pi * sin(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 4.*pi*pi*pi*pi * cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+         + 4.*pi*pi*pi*pi * cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_8_q : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 100000. * cos(pi * x[0]) * cos (pi * x[0]) * cos(pi * x[1]) * cos(pi * x[1]) ;
+    }
+        type target(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 8.*pi*pi*pi * cos(pi * x[0]) * sin(pi * x[1])
+               - 4.*pi * sin(pi * x[0]) * cos(pi * x[0]) * pow(sin(pi * x[1]), 2);
+        solGrad[1] = 8.*pi*pi*pi * sin(pi * x[0]) * cos(pi * x[1])
+               - 4.*pi * sin(pi * x[1]) * cos(pi * x[1]) * pow(sin(pi * x[0]), 2);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -16.*pi*pi*pi*pi * sin(pi*x[0]) * sin(pi*x[1])
+           - 4.*pi*pi * (cos(2.*pi*x[0]) * pow(sin(pi*x[1]), 2)
+                      + cos(2.*pi*x[1]) * pow(sin(pi*x[0]), 2));
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+
+
 }
 
 
