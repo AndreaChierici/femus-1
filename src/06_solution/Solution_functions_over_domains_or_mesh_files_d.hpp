@@ -207,8 +207,12 @@ class Function_Zero_on_boundary_8_f : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)
-               + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]) - 1750. * cos(pi * x[0]) * cos (pi * x[0]) * cos(pi * x[1]) * cos(pi * x[1]) ;
+// // //         return pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)               + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]) - 1750. * cos(pi * x[0]) * cos (pi * x[0]) * cos(pi * x[1]) * cos(pi * x[1]) ;
+// // //         return pi * pi * pi * pi * cos(pi * x[0]) * ( 21. * cos( pi * x[1] ) * cos( pi * x[1] ) - 10. ) - 1350. * cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) ;
+        return 8 * pow(pi, 4) * (
+    pow(cos(pi * x[1]), 2) * cos(2 * pi * x[0]) +
+    pow(cos(pi * x[0]), 2) * cos(2 * pi * x[1]) +
+    cos(2 * pi * x[0]) * cos(2 * pi * x[1]) ) - 2400. * cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) ;
     }
 
     type target(const std::vector<type>& x) const  {
@@ -225,8 +229,11 @@ public:
     }
 
     type laplacian(const std::vector<type>& x) const{
-        return cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) + pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2)
-               + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]);
+// // //         return cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) + pi * pi * pi * pi * cos(pi * x[0]) * pow(cos(pi * x[1]), 2) + 12. * pi * pi * pi * pi * cos( pi * x[0]) * cos(2. * pi * x[1]);
+        return  8 * pow(pi, 4) * (
+    pow(cos(pi * x[1]), 2) * cos(2 * pi * x[0]) +
+    pow(cos(pi * x[0]), 2) * cos(2 * pi * x[1]) +
+    cos(2 * pi * x[0]) * cos(2 * pi * x[1]) ) + cos(pi*x[0]) * cos (pi * x[0]) * cos(pi*x[1]) * cos(pi*x[1]) ;
     }
 
 private:

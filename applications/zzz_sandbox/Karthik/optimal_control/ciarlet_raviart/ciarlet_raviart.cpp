@@ -411,7 +411,7 @@ system_biharmonic_HM._assemble_function_for_rhs = &system_biharmonic_HM_function
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "p",  & system_biharmonic_HM_function_zero_on_boundary_1);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_HM_function_zero_on_boundary_1);
 
 
 
