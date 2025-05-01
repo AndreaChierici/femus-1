@@ -171,6 +171,64 @@ private:
 };
 
 
+template <class type = double>
+class Function_Zero_on_boundary_7_deviatoric_q : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 100.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 2. * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = 2. * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -8. * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 
@@ -266,12 +324,16 @@ int main(int argc, char** args) {
 
   Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_sxy  <>   system_biharmonic_HM_function_zero_on_boundary_sxy;
 
-
   Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_syy <>   system_biharmonic_HM_function_zero_on_boundary_syy;
 
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_u_d <>   system_biharmonic_HM_function_zero_on_boundary_u_d;
+
+  Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_q <>   system_biharmonic_HM_function_zero_on_boundary_q;
 
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian  <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
-  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+
+
+  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_u_d; //this is the RHS for the auxiliary variable v = -Delta u
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
 
 
@@ -356,7 +418,7 @@ int main(int argc, char** args) {
 
 
       mlSol.AddSolution("q", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("q", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("q", & system_biharmonic_HM_function_zero_on_boundary_q);
 
 
       mlSol.Initialize("All");

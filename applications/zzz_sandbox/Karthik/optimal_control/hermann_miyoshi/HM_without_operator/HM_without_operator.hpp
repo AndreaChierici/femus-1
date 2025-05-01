@@ -1056,7 +1056,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double alpha = 1. ;
+double alpha = .01 ;
 
 
 
@@ -1302,7 +1302,7 @@ double alpha = 1. ;
         Byyud +=  phi_x[i * dim + 1] * soludGauss_x[1];
 
         Bxxd += phi_x[i * dim] * solsxxdGauss_x[0];
-        Bxyd +=( (phi_x[i * dim + 1 ] * solsxxdGauss_x[0] + phi_x[i * dim ] * solsxxdGauss_x[1]) );
+        Bxyd +=( (phi_x[i * dim + 1 ] * solsxydGauss_x[0] + phi_x[i * dim ] * solsxydGauss_x[1]) );
         Byyd +=  phi_x[i * dim + 1] * solsyydGauss_x[1];
 
 
@@ -1312,21 +1312,21 @@ double alpha = 1. ;
 
 
 
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
 
 // // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += (Bxx + Bxy + Byy + F_term) * weight;  // M*W + B^T*U = 0
+     aResu[i] += (Bxx + Bxy + Byy + M_q) * weight;  // M*W + B^T*U = 0
      aRessxx[i] += (Bxxu + M_sxx ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxy[i] += (Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
      aRessyy[i] += (Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
-     aResud[i] += (Bxxd + Bxyd + Byyd + F_term) * weight;  // M*W + B^T*U = 0
+     aResud[i] += (M_u + Bxxd + Bxyd + Byyd - F_term) * weight;  // M*W + B^T*U = 0
      aRessxxd[i] += (Bxxud + M_sxxd) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxyd[i] += (Bxyud + M_sxyd) * weight;  // C1^T*W + M*S1 = 0
      aRessyyd[i] += (Byyud + M_syyd ) * weight;  // C2^T*W + M*S2 = 0
 
-     aResq[i] += ( M_q  ) * weight;  // C2^T*W + M*S2 = 0
+     aResq[i] += ( solud[i] +  alpha * solq[i]  ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
