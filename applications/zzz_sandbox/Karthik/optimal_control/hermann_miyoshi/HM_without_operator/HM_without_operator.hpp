@@ -1056,7 +1056,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double alpha = .01 ;
+double alpha = .0001 ;
 
 
 
@@ -1321,7 +1321,7 @@ double alpha = .01 ;
      aRessxx[i] += (Bxxu + M_sxx ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxy[i] += (Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
      aRessyy[i] += (Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
-     aResud[i] += (M_u + Bxxd + Bxyd + Byyd + F_term) * weight;  // M*W + B^T*U = 0
+     aResud[i] += (M_u + Bxxd + Bxyd + Byyd - F_term) * weight;  // M*W + B^T*U = 0
      aRessxxd[i] += (Bxxud + M_sxxd) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxyd[i] += (Bxyud + M_sxyd) * weight;  // C1^T*W + M*S1 = 0
      aRessyyd[i] += (Byyud + M_syyd ) * weight;  // C2^T*W + M*S2 = 0

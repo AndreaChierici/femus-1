@@ -199,7 +199,7 @@ class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return -30. ; //sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
