@@ -200,7 +200,7 @@ class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + (2.5) * 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
@@ -327,7 +327,7 @@ int main(int argc, char** args) {
 
 
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian  <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
-  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
+  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_u_d; //this is the RHS for the auxiliary variable v = -Delta u
   system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
 
 
@@ -345,7 +345,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 3;
+  unsigned maxNumberOfMeshes = 4;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);

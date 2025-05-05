@@ -1357,21 +1357,21 @@ double nu =  0.5 /* Poisson ratio value */;
 
 
 
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
 
 // // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += (Bxx + Bxy + Byy + F_term) * weight;  // M*W + B^T*U = 0
+     aResu[i] += (Bxx + Bxy + Byy + M_q) * weight;  // M*W + B^T*U = 0
      aRessxx[i] += (Bxxu + M_sxx ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxy[i] += (Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
      aRessyy[i] += (Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
-     aResud[i] += ( Bxxd + Bxyd + Byyd + F_term ) * weight;  // M*W + B^T*U = 0
+     aResud[i] += ( M_u + Bxxd + Bxyd + Byyd - F_term ) * weight;  // M*W + B^T*U = 0
      aRessxxd[i] += (Bxxud + M_sxxd) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxyd[i] += (Bxyud + M_sxyd) * weight;  // C1^T*W + M*S1 = 0
      aRessyyd[i] += (Byyud + M_syyd ) * weight;  // C2^T*W + M*S2 = 0
 
-     aResq[i] += (  alpha * solq[i] ) * weight;  // C2^T*W + M*S2 = 0
+     aResq[i] += ( solud[i] + alpha * solq[i] ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
@@ -1434,7 +1434,7 @@ double nu =  0.5 /* Poisson ratio value */;
 
     KK->add_matrix_blocked(Jac, sysDof, sysDof);
 
-         constexpr bool print_algebra_local = true;
+         constexpr bool print_algebra_local = false;
      if (print_algebra_local) {
 
          assemble_jacobian<double,double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
