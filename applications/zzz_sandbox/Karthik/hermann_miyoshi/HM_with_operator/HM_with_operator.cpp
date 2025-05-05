@@ -1,13 +1,5 @@
-/** tutorial/Ex3
- * This example shows how to set and solve the weak form of the nonlinear problem
- *                     -\Delta^2 u = f(x) \text{ on }\Omega,
- *            u=0 \text{ on } \Gamma,
- *      du/dn=0 \text{ on } \Gamma,
- * on a box domain $\Omega$ with boundary $\Gamma$,
- * by using a system of second order partial differential equation.
- * all the coarse-level meshes are removed;
- * a multilevel problem and an equation system are initialized;
- * a direct solver is used to solve the problem.
+/** tutorial/
+ * This is same as HM without decomposition without simplifying the equations
  **/
 
 

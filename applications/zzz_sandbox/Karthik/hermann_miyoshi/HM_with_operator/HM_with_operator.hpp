@@ -1132,8 +1132,8 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble Mxyxy_s1 = 2. * (1. - nu) * phi[i] * sols1Gauss;
         adept::adouble Myyyy_s2 = nu * phi[i] * sols2Gauss + (1. - nu) * phi[i] * sols2Gauss + nu * phi[i] * sols2Gauss;
 
-        adept::adouble Mxxyy_s2 = nu * phi[i] * sols2Gauss;
-        adept::adouble Myyxx_v = nu * phi[i] * solvGauss;
+// // //         adept::adouble Mxxyy_s2 = nu * phi[i] * sols2Gauss;
+// // //         adept::adouble Myyxx_v = nu * phi[i] * solvGauss;
 
 
 // // //         adept::adouble Mxxxx1_v =  nu * phi[i] * solvGauss;
