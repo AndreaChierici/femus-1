@@ -200,19 +200,19 @@ class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + (2.5) * 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 64.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        type scale = (1. + 32. * pi * pi * pi * pi);
+        type scale = (1. + 64. * pi * pi * pi * pi);
         solGrad[0] = 2. * pi * scale * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
         solGrad[1] = 2. * pi * scale * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        type scale = (1. + 32. * pi * pi * pi * pi);
+        type scale = (1. + 64. * pi * pi * pi * pi);
         return -8. * pi * pi * scale * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
