@@ -707,6 +707,7 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble M_syy = phi[i] * solsyyGauss + nu * phi[i] * solsyyGauss;
 
 
+
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
           Laplace_sxx   +=  - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
