@@ -91,10 +91,6 @@ public:
         return 64.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
     }
 
-        type laplacian_yd(const std::vector<type>& x) const {
-        return 32.*pi*pi*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
-    }
-
 
 private:
     static constexpr double pi = acos(-1.);
@@ -194,39 +190,37 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
+
+
 template <class type = double>
 class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return sin( 2 * pi * x[0]) * sin( 2 * pi * x[1]) + 32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        type base = sin(2*pi*x[0])*sin(2*pi*x[1]);
+        return base + 0.001*4096.*pi*pi*pi*pi*pi*pi*pi*pi*base; // 4096π⁸ = (8π²)⁴
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        type scale = (1. + 32. * pi * pi * pi * pi);
-        solGrad[0] = 2. * pi * scale * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
-        solGrad[1] = 2. * pi * scale * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        type cos_sin = cos(2.*pi*x[0])*sin(2.*pi*x[1]);
+        type sin_cos = sin(2.*pi*x[0])*cos(2.*pi*x[1]);
+
+        // Base gradient + biharmonic gradient
+        solGrad[0] = 2.*pi*cos_sin + 0.001*8192.*pi*pi*pi*pi*pi*pi*pi*cos_sin;
+        solGrad[1] = 2.*pi*sin_cos + 0.001*8192.*pi*pi*pi*pi*pi*pi*pi*sin_cos;
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        type scale = (1. + 32. * pi * pi * pi * pi);
-        return -8. * pi * pi * scale * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        type base = sin(2.*pi*x[0])*sin(2.*pi*x[1]);
+        // Base laplacian + biharmonic laplacian
+        return -8.*pi*pi*base + 0.001*32768.*pi*pi*pi*pi*pi*pi*base;
     }
 
 private:
     static constexpr double pi = acos(-1.);
 };
-
-
-
-
-
-
-
-
-
 
 
 
@@ -353,7 +347,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 5;
+  unsigned maxNumberOfMeshes = 4;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
