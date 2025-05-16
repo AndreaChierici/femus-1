@@ -172,18 +172,18 @@ class Function_Zero_on_boundary_7_deviatoric_q : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return  32.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);;
+        return  64.* pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);;
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 64. * pi * pi * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
-        solGrad[1] = 64. * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[0] = 128. * pi * pi * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = 128. * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return -128. * pi * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return -256. * pi * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
 private:
@@ -198,24 +198,21 @@ class Function_Zero_on_boundary_7_deviatoric_u_d : public Math::Function<type> {
 public:
     type value(const std::vector<type>& x) const {
         type base = sin(2*pi*x[0])*sin(2*pi*x[1]);
-        return base + 0.001*4096.*pi*pi*pi*pi*pi*pi*pi*pi*base; // 4096π⁸ = (8π²)⁴
+        return (1. + 0.001 * 4096.*pow(pi, 8)) * base;; // 4096π⁸ = (8π²)⁴
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        type cos_sin = cos(2.*pi*x[0])*sin(2.*pi*x[1]);
-        type sin_cos = sin(2.*pi*x[0])*cos(2.*pi*x[1]);
-
-        // Base gradient + biharmonic gradient
-        solGrad[0] = 2.*pi*cos_sin + 0.001*8192.*pi*pi*pi*pi*pi*pi*pi*cos_sin;
-        solGrad[1] = 2.*pi*sin_cos + 0.001*8192.*pi*pi*pi*pi*pi*pi*pi*sin_cos;
+        type factor = (1. + 0.001 * 4096.*pow(pi, 8));
+        solGrad[0] = factor * 2.*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        solGrad[1] = factor * 2.*pi * sin(2.*pi*x[0]) * cos(2.*pi*x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        type base = sin(2.*pi*x[0])*sin(2.*pi*x[1]);
-        // Base laplacian + biharmonic laplacian
-        return -8.*pi*pi*base + 0.001*32768.*pi*pi*pi*pi*pi*pi*base;
+        type factor = (1. + 0.001 * 4096.*pow(pi, 8));
+        type base = sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return -8.*pi*pi * factor * base;
     }
 
 private:

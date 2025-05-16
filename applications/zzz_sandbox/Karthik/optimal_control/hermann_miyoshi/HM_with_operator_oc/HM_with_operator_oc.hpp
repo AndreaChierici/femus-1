@@ -1056,8 +1056,8 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double alpha = 0.0001 ;
-double nu =  0.5 /* Poisson ratio value */;
+double alpha = 0.001 ;
+double nu =  0.3 /* Poisson ratio value */;
 
 
 
@@ -1067,7 +1067,7 @@ double nu =  0.5 /* Poisson ratio value */;
     short unsigned ielGeom = msh->GetElementType(iel); 
 
 // // //     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
-    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_sxx);    // number of solution element dofs
+    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
 
 
 
@@ -1109,7 +1109,7 @@ double nu =  0.5 /* Poisson ratio value */;
     for (unsigned i = 0; i < nDofs; i++) {
 
 // // //       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
-      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_sxx);    // global to global mapping between solution node and solution dof
+      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
 
 
 
@@ -1155,10 +1155,10 @@ double nu =  0.5 /* Poisson ratio value */;
 
     // *** Gauss point loop ***
 
-    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_sxx]->GetGaussPointNumber(); ig++) {
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
 // *** get gauss point weight, test function and test function partial derivatives ***
 
-      msh->_finiteElement[ielGeom][solFEType_sxx]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
+      msh->_finiteElement[ielGeom][solFEType_u]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
       // evaluate the solution, the solution derivatives and the coordinates in the gauss point
       adept::adouble soluGauss = 0;
@@ -1243,31 +1243,19 @@ double nu =  0.5 /* Poisson ratio value */;
         adept::adouble Laplace_q = 0.;
 
 
-        adept::adouble M_u = nu * phi[i] * soluGauss ;
+        adept::adouble M_u = phi[i] * soluGauss ;
 
         adept::adouble M_sxx = phi[i] * solsxxGauss +  nu * phi[i] * solsxxGauss ;
         adept::adouble M_sxy = 2. * (1. - nu) * phi[i] * solsxyGauss;
         adept::adouble M_syy = phi[i] * solsyyGauss +  nu * phi[i] * solsyyGauss ;
 
-        adept::adouble M_ud = phi[i] * soludGauss + nu * phi[i] * soludGauss;
+        adept::adouble M_ud = phi[i] * soludGauss;
         adept::adouble M_sxxd =  phi[i] * solsxxdGauss +  nu * phi[i] * solsxxdGauss ;
         adept::adouble M_sxyd = 2. * (1. - nu) * phi[i] * solsxydGauss;
         adept::adouble M_syyd = phi[i] * solsyydGauss +  nu * phi[i] * solsyydGauss ;
 
-        adept::adouble M_q = nu * phi[i] * solqGauss;
+        adept::adouble M_q = phi[i] * solqGauss;
 
-
-// // //         adept::adouble M_u = phi[i] * soluGauss;
-// // //
-// // //         adept::adouble M_sxx = phi[i] * solsxxGauss;
-// // //         adept::adouble M_sxy = 2. * phi[i] * solsxyGauss;
-// // //         adept::adouble M_syy = phi[i] * solsyyGauss;
-// // //         adept::adouble M_ud = phi[i] * soludGauss;
-// // //         adept::adouble M_sxxd = phi[i] * solsxxdGauss;
-// // //         adept::adouble M_sxyd = 2. * phi[i] * solsxydGauss;
-// // //         adept::adouble M_syyd = phi[i] * solsyydGauss;
-// // //
-// // //         adept::adouble M_q = phi[i] * solqGauss;
 
 
 
@@ -1334,44 +1322,24 @@ double nu =  0.5 /* Poisson ratio value */;
 
 
 
-// // //         Bxxu += phi_x[i * dim] * soluGauss_x[0];
-// // //         Bxyu +=   phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim ] * soluGauss_x[1] ;
-// // //         Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1];
-// // //
-// // //         Bxx += phi_x[i * dim] * solsxxGauss_x[0];
-// // //         Bxy +=( (phi_x[i * dim + 1 ] * solsxyGauss_x[0] + phi_x[i * dim ] * solsxyGauss_x[1]) );
-// // //         Byy +=  phi_x[i * dim + 1] * solsyyGauss_x[1];
-// // //
-// // //         Bxxud += phi_x[i * dim] * soludGauss_x[0];
-// // //         Bxyud +=   phi_x[i * dim + 1] * soludGauss_x[0] + phi_x[i * dim ] * soludGauss_x[1] ;
-// // //         Byyud +=  phi_x[i * dim + 1] * soludGauss_x[1];
-// // //
-// // //         Bxxd += phi_x[i * dim] * solsxxdGauss_x[0];
-// // //         Bxyd +=( (phi_x[i * dim + 1 ] * solsxydGauss_x[0] + phi_x[i * dim ] * solsxydGauss_x[1]) );
-// // //         Byyd +=  phi_x[i * dim + 1] * solsyydGauss_x[1];
-
-
 
     }
 
 
-
-
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
 
-// // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += (Bxx + Bxy + Byy + M_q) * weight;  // M*W + B^T*U = 0
-     aRessxx[i] += (Bxxu + M_sxx ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRessxy[i] += (Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
-     aRessyy[i] += (Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
-     aResud[i] += ( M_u + Bxxd + Bxyd + Byyd + F_term ) * weight;  // M*W + B^T*U = 0
-     aRessxxd[i] += (Bxxud + M_sxxd) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRessxyd[i] += (Bxyud + M_sxyd) * weight;  // C1^T*W + M*S1 = 0
-     aRessyyd[i] += (Byyud + M_syyd ) * weight;  // C2^T*W + M*S2 = 0
+     aResu[i] += (Bxx + Bxy + Byy + M_q) * weight;
+     aRessxx[i] += (Bxxu + M_sxx ) * weight;
+     aRessxy[i] += (Bxyu + M_sxy ) * weight;
+     aRessyy[i] += (Byyu + M_syy ) * weight;
+     aResud[i] += ( M_u + Bxxd + Bxyd + Byyd - F_term ) * weight;
+     aRessxxd[i] += (Bxxud + M_sxxd) * weight;
+     aRessxyd[i] += (Bxyud + M_sxyd) * weight;
+     aRessyyd[i] += (Byyud + M_syyd ) * weight;
 
-     aResq[i] += ( solud[i] + alpha * solq[i] ) * weight;  // C2^T*W + M*S2 = 0
+     aResq[i] += ( M_ud + alpha * M_q) * weight;
 
       } // end phi_i loop
 
