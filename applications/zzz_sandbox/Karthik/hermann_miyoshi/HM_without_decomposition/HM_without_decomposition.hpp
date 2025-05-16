@@ -256,20 +256,20 @@ static void natural_loop_2d3dU(const MultiLevelProblem *    ml_prob,
 //========= BOUNDARY_IMPLEMENTATION_U - END ==================
 
 
-//========= BOUNDARY_IMPLEMENTATION_V - BEGIN ==================
+//========= BOUNDARY_IMPLEMENTATION_Sxx - BEGIN ==================
 
-static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
+static void natural_loop_1dSxx(const MultiLevelProblem *    ml_prob,
                      const Mesh *                    msh,
                      const MultiLevelSolution *    ml_sol,
                      const unsigned iel,
                      CurrentElem < double > & geom_element,
                      const unsigned xType,
-                     const std::string solname_v,
-                     const unsigned solFEType_v,
+                     const std::string solname_sxx,
+                     const unsigned solFEType_sxx,
                      std::vector< double > & Res
                     ) {
 
-     double grad_v_dot_n = 0.;
+     double grad_sxx_dot_n = 0.;
 
     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
 
@@ -286,22 +286,22 @@ static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
 
          unsigned int face = - (boundary_index + 1);
 
-         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_v.c_str(), grad_v_dot_n, face, 0.);
+         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_sxx.c_str(), grad_sxx_dot_n, face, 0.);
          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
          //while here we pass the FACE ELEMENT CENTER coordinates.
          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
 
-             if ( !(is_dirichlet)  &&  (grad_v_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
+             if ( !(is_dirichlet)  &&  (grad_sxx_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
 
 
 
-                   unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_v);
+                   unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_sxx);
 
                   for (unsigned i = 0; i < n_dofs_face; i++) {
 
                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i);
 
-                 Res[i_vol] +=  grad_v_dot_n /* * phi[node] = 1. */;
+                 Res[i_vol] +=  grad_sxx_dot_n /* * phi[node] = 1. */;
 
                          }
 
@@ -315,14 +315,14 @@ static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
 
 
 template < class real_num, class real_num_mov >
-static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
+static void natural_loop_2d3dSxx(const MultiLevelProblem *    ml_prob,
                        const Mesh *                    msh,
                        const MultiLevelSolution *    ml_sol,
                        const unsigned iel,
                        CurrentElem < double > & geom_element,
                        const unsigned solType_coords,
-                       const std::string solname_v,
-                       const unsigned solFEType_v,
+                       const std::string solname_sxx,
+                       const unsigned solFEType_sxx,
                        std::vector< double > & Res,
                        //-----------
                        std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> *  > >  elem_all,
@@ -345,11 +345,11 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
   double weight_iqp_bdry = 0.;
 // ---
   //boundary state shape functions
-  std::vector <double> phi_v_bdry;
-  std::vector <double> phi_v_x_bdry;
+  std::vector <double> phi_sxx_bdry;
+  std::vector <double> phi_sxx_x_bdry;
 
-  phi_v_bdry.reserve(max_size);
-  phi_v_x_bdry.reserve(max_size * space_dim);
+  phi_sxx_bdry.reserve(max_size);
+  phi_sxx_x_bdry.reserve(max_size * space_dim);
 // ---
 
 // ---
@@ -362,7 +362,7 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
 
 
-     double grad_v_dot_n = 0.;
+     double grad_sxx_dot_n = 0.;
 
     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
 
@@ -382,26 +382,26 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
          unsigned int face = - (boundary_index + 1);
 
-         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_v.c_str(), grad_v_dot_n, face, 0.);
+         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_sxx.c_str(), grad_sxx_dot_n, face, 0.);
          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
          //while here we pass the FACE ELEMENT CENTER coordinates.
          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
 
              if ( !(is_dirichlet) /* &&  (grad_u_dot_n != 0.)*/ ) {  //dirichlet == false and nonhomogeneous Neumann
 
-    unsigned n_dofs_face_v = msh->GetElementFaceDofNumber(iel, jface, solFEType_v);
+    unsigned n_dofs_face_sxx = msh->GetElementFaceDofNumber(iel, jface, solFEType_sxx);
 
 // dof-based - BEGIN
-     std::vector< double > grad_v_dot_n_at_dofs(n_dofs_face_v);
+     std::vector< double > grad_sxx_dot_n_at_dofs(n_dofs_face_sxx);
 
 
-    for (unsigned i_bdry = 0; i_bdry < grad_v_dot_n_at_dofs.size(); i_bdry++) {
+    for (unsigned i_bdry = 0; i_bdry < grad_sxx_dot_n_at_dofs.size(); i_bdry++) {
         std::vector<double> x_at_node(dim, 0.);
         for (unsigned jdim = 0; jdim < x_at_node.size(); jdim++) x_at_node[jdim] = geom_element.get_coords_at_dofs_bdry_3d()[jdim][i_bdry];
 
-      double grad_v_dot_n_at_dofs_temp = 0.;
-      ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_v.c_str(), grad_v_dot_n_at_dofs_temp, face, 0.);
-     grad_v_dot_n_at_dofs[i_bdry] = grad_v_dot_n_at_dofs_temp;
+      double grad_sxx_dot_n_at_dofs_temp = 0.;
+      ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_sxx.c_str(), grad_sxx_dot_n_at_dofs_temp, face, 0.);
+     grad_sxx_dot_n_at_dofs[i_bdry] = grad_sxx_dot_n_at_dofs_temp;
 
     }
 
@@ -417,7 +417,7 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
     weight_iqp_bdry = detJac_iqp_bdry * ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussWeightsPointer()[ig_bdry];
 
-    elem_all[ielGeom_bdry][solFEType_v ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_v_bdry, phi_v_x_bdry,  boost::none, space_dim);
+    elem_all[ielGeom_bdry][solFEType_sxx ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_sxx_bdry, phi_sxx_x_bdry,  boost::none, space_dim);
 
 
 
@@ -433,22 +433,22 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
              }
          }
 
-           double grad_v_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
+           double grad_sxx_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
 
 // dof-based
-         for (unsigned i_bdry = 0; i_bdry < phi_v_bdry.size(); i_bdry ++) {
-           grad_v_dot_n_qp +=  grad_v_dot_n_at_dofs[i_bdry] * phi_v_bdry[i_bdry];
+         for (unsigned i_bdry = 0; i_bdry < phi_sxx_bdry.size(); i_bdry ++) {
+           grad_sxx_dot_n_qp +=  grad_sxx_dot_n_at_dofs[i_bdry] * phi_sxx_bdry[i_bdry];
          }
 
 //---------------------------------------------------------------------------------------------------------
 
 
 
-                  for (unsigned i_bdry = 0; i_bdry < n_dofs_face_v; i_bdry++) {
+                  for (unsigned i_bdry = 0; i_bdry < n_dofs_face_sxx; i_bdry++) {
 
                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i_bdry);
 
-                 Res[i_vol] +=  weight_iqp_bdry * grad_v_dot_n_qp /*grad_u_dot_n*/  * phi_v_bdry[i_bdry];
+                 Res[i_vol] +=  weight_iqp_bdry * grad_sxx_dot_n_qp /*grad_u_dot_n*/  * phi_sxx_bdry[i_bdry];
 
                            }
 
@@ -467,432 +467,6 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 //========= BOUNDARY_IMPLEMENTATION_V - END ==================
 
 
-
-
-
-// // // //========= BOUNDARY_IMPLEMENTATION_S1 - BEGIN ==================
-// // //
-// // // static void natural_loop_1dS1(const MultiLevelProblem *    ml_prob,
-// // //                      const Mesh *                    msh,
-// // //                      const MultiLevelSolution *    ml_sol,
-// // //                      const unsigned iel,
-// // //                      CurrentElem < double > & geom_element,
-// // //                      const unsigned xType,
-// // //                      const std::string solname_s1,
-// // //                      const unsigned solFEType_s1,
-// // //                      std::vector< double > & Res
-// // //                     ) {
-// // //
-// // //      double grad_s1_dot_n = 0.;
-// // //
-// // //     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-// // //
-// // //        geom_element.set_coords_at_dofs_bdry_3d(iel, jface, xType);
-// // //
-// // //        geom_element.set_elem_center_bdry_3d();
-// // //
-// // //        std::vector <  double > xx_face_elem_center(3, 0.);
-// // //           xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
-// // //
-// // //        const int boundary_index = msh->GetMeshElements()->GetFaceElementIndex(iel, jface);
-// // //
-// // //        if ( boundary_index < 0) { //I am on the boundary
-// // //
-// // //          unsigned int face = - (boundary_index + 1);
-// // //
-// // //          bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_s1.c_str(), grad_s1_dot_n, face, 0.);
-// // //          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
-// // //          //while here we pass the FACE ELEMENT CENTER coordinates.
-// // //          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
-// // //
-// // //              if ( !(is_dirichlet)  &&  (grad_s1_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
-// // //
-// // //                    unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_s1);
-// // //
-// // //                   for (unsigned i = 0; i < n_dofs_face; i++) {
-// // //
-// // //                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i);
-// // //
-// // //                  Res[i_vol] +=  grad_s1_dot_n /* * phi[node] = 1. */;
-// // //
-// // //                          }
-// // //
-// // //                     }
-// // //
-// // //               }
-// // //
-// // //     }
-// // //
-// // // }
-// // //
-// // //
-// // // template < class real_num, class real_num_mov >
-// // // static void natural_loop_2d3dS1(const MultiLevelProblem *    ml_prob,
-// // //                        const Mesh *                    msh,
-// // //                        const MultiLevelSolution *    ml_sol,
-// // //                        const unsigned iel,
-// // //                        CurrentElem < double > & geom_element,
-// // //                        const unsigned solType_coords,
-// // //                        const std::string solname_s1,
-// // //                        const unsigned solFEType_s1,
-// // //                        std::vector< double > & Res,
-// // //                        //-----------
-// // //                        std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> *  > >  elem_all,
-// // //                        const unsigned dim,
-// // //                        const unsigned space_dim,
-// // //                        const unsigned max_size
-// // //                     ) {
-// // //
-// // //
-// // //     /// @todo - should put these outside the iel loop --
-// // //     std::vector < std::vector < double > >  JacI_iqp_bdry(space_dim);
-// // //      std::vector < std::vector < double > >  Jac_iqp_bdry(dim-1);
-// // //     for (unsigned d = 0; d < Jac_iqp_bdry.size(); d++) {   Jac_iqp_bdry[d].resize(space_dim); }
-// // //     for (unsigned d = 0; d < JacI_iqp_bdry.size(); d++) { JacI_iqp_bdry[d].resize(dim-1); }
-// // //
-// // //
-// // //
-// // //
-// // //   double detJac_iqp_bdry;
-// // //   double weight_iqp_bdry = 0.;
-// // // // ---
-// // //   //boundary state shape functions
-// // //   std::vector <double> phi_s1_bdry;
-// // //   std::vector <double> phi_s1_x_bdry;
-// // //
-// // //   phi_s1_bdry.reserve(max_size);
-// // //   phi_s1_x_bdry.reserve(max_size * space_dim);
-// // // // ---
-// // //
-// // // // ---
-// // //   std::vector <double> phi_coords_bdry;
-// // //   std::vector <double> phi_coords_x_bdry;
-// // //
-// // //   phi_coords_bdry.reserve(max_size);
-// // //   phi_coords_x_bdry.reserve(max_size * space_dim);
-// // // // ---
-// // //
-// // //
-// // //
-// // //      double grad_s1_dot_n = 0.;
-// // //
-// // //     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-// // //
-// // //        geom_element.set_coords_at_dofs_bdry_3d(iel, jface, solType_coords);
-// // //
-// // //        geom_element.set_elem_center_bdry_3d();
-// // //
-// // //        const unsigned ielGeom_bdry = msh->GetElementFaceType(iel, jface);
-// // //
-// // //
-// // //        std::vector <  double > xx_face_elem_center(3, 0.);
-// // //        xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
-// // //
-// // //        const int boundary_index = msh->GetMeshElements()->GetFaceElementIndex(iel, jface);
-// // //
-// // //        if ( boundary_index < 0) { //I am on the boundary
-// // //
-// // //          unsigned int face = - (boundary_index + 1);
-// // //
-// // //          bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_s1.c_str(), grad_s1_dot_n, face, 0.);
-// // //          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
-// // //          //while here we pass the FACE ELEMENT CENTER coordinates.
-// // //          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
-// // //
-// // //              if ( !(is_dirichlet) /* &&  (grad_u_dot_n != 0.)*/ ) {  //dirichlet == false and nonhomogeneous Neumann
-// // //
-// // //     unsigned n_dofs_face_s1 = msh->GetElementFaceDofNumber(iel, jface, solFEType_s1);
-// // //
-// // // // dof-based - BEGIN
-// // //      std::vector< double > grad_s1_dot_n_at_dofs(n_dofs_face_s1);
-// // //
-// // //
-// // //     for (unsigned i_bdry = 0; i_bdry < grad_s1_dot_n_at_dofs.size(); i_bdry++) {
-// // //         std::vector<double> x_at_node(dim, 0.);
-// // //         for (unsigned jdim = 0; jdim < x_at_node.size(); jdim++) x_at_node[jdim] = geom_element.get_coords_at_dofs_bdry_3d()[jdim][i_bdry];
-// // //
-// // //       double grad_s1_dot_n_at_dofs_temp = 0.;
-// // //       ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_s1.c_str(), grad_s1_dot_n_at_dofs_temp, face, 0.);
-// // //      grad_s1_dot_n_at_dofs[i_bdry] = grad_s1_dot_n_at_dofs_temp;
-// // //
-// // //     }
-// // //
-// // // // dof-based - END
-// // //
-// // //
-// // //                         const unsigned n_gauss_bdry = ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussPointsNumber();
-// // //
-// // //
-// // // 		for(unsigned ig_bdry = 0; ig_bdry < n_gauss_bdry; ig_bdry++) {
-// // //
-// // //      elem_all[ielGeom_bdry][solType_coords]->JacJacInv(geom_element.get_coords_at_dofs_bdry_3d(), ig_bdry, Jac_iqp_bdry, JacI_iqp_bdry, detJac_iqp_bdry, space_dim);
-// // // //      elem_all[ielGeom_bdry][solType_coords]->compute_normal(Jac_iqp_bdry, normal);
-// // //
-// // //     weight_iqp_bdry = detJac_iqp_bdry * ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussWeightsPointer()[ig_bdry];
-// // //
-// // //     elem_all[ielGeom_bdry][solFEType_s1 ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_s1_bdry, phi_s1_x_bdry,  boost::none, space_dim);
-// // //
-// // //
-// // //
-// // // //---------------------------------------------------------------------------------------------------------
-// // //
-// // //      elem_all[ielGeom_bdry][solType_coords ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_coords_bdry, phi_coords_x_bdry,  boost::none, space_dim);
-// // //
-// // //   std::vector<double> x_qp_bdry(dim, 0.);
-// // //
-// // //          for (unsigned i = 0; i < phi_coords_bdry.size(); i++) {
-// // //            	for (unsigned d = 0; d < dim; d++) {
-// // //  	                                                x_qp_bdry[d]    += geom_element.get_coords_at_dofs_bdry_3d()[d][i] * phi_coords_bdry[i]; // fetch of coordinate points
-// // //              }
-// // //          }
-// // //
-// // //            double grad_s1_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
-// // //
-// // // // dof-based
-// // //          for (unsigned i_bdry = 0; i_bdry < phi_s1_bdry.size(); i_bdry ++) {
-// // //            grad_s1_dot_n_qp +=  grad_s1_dot_n_at_dofs[i_bdry] * phi_s1_bdry[i_bdry];
-// // //          }
-// // //
-// // // //---------------------------------------------------------------------------------------------------------
-// // //
-// // //
-// // //
-// // //                   for (unsigned i_bdry = 0; i_bdry < n_dofs_face_s1; i_bdry++) {
-// // //
-// // //                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i_bdry);
-// // //
-// // //                  Res[i_vol] +=  weight_iqp_bdry * grad_s1_dot_n_qp /*grad_u_dot_n*/  * phi_s1_bdry[i_bdry];
-// // //
-// // //                            }
-// // //
-// // //
-// // //                         }
-// // //
-// // //
-// // //                     }
-// // //
-// // //               }
-// // //     }
-// // //
-// // // }
-// // //
-// // //
-// // // //========= BOUNDARY_IMPLEMENTATION_S1 - END ==================
-
-
-
-
-
-
-// // // //========= BOUNDARY_IMPLEMENTATION_S2 - BEGIN ==================
-// // //
-// // // static void natural_loop_1dS2(const MultiLevelProblem *    ml_prob,
-// // //                      const Mesh *                    msh,
-// // //                      const MultiLevelSolution *    ml_sol,
-// // //                      const unsigned iel,
-// // //                      CurrentElem < double > & geom_element,
-// // //                      const unsigned xType,
-// // //                      const std::string solname_s2,
-// // //                      const unsigned solFEType_s2,
-// // //                      std::vector< double > & Res
-// // //                     ) {
-// // //
-// // //      double grad_s2_dot_n = 0.;
-// // //
-// // //     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-// // //
-// // //        geom_element.set_coords_at_dofs_bdry_3d(iel, jface, xType);
-// // //
-// // //        geom_element.set_elem_center_bdry_3d();
-// // //
-// // //        std::vector <  double > xx_face_elem_center(3, 0.);
-// // //           xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
-// // //
-// // //        const int boundary_index = msh->GetMeshElements()->GetFaceElementIndex(iel, jface);
-// // //
-// // //        if ( boundary_index < 0) { //I am on the boundary
-// // //
-// // //          unsigned int face = - (boundary_index + 1);
-// // //
-// // //          bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_s2.c_str(), grad_s2_dot_n, face, 0.);
-// // //          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
-// // //          //while here we pass the FACE ELEMENT CENTER coordinates.
-// // //          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
-// // //
-// // //              if ( !(is_dirichlet)  &&  (grad_s2_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
-// // //
-// // //
-// // //
-// // //                    unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_s2);
-// // //
-// // //                   for (unsigned i = 0; i < n_dofs_face; i++) {
-// // //
-// // //                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i);
-// // //
-// // //                  Res[i_vol] +=  grad_s2_dot_n /* * phi[node] = 1. */;
-// // //
-// // //                          }
-// // //
-// // //                     }
-// // //
-// // //               }
-// // //
-// // //     }
-// // //
-// // // }
-// // //
-// // //
-// // // template < class real_num, class real_num_mov >
-// // // static void natural_loop_2d3dV2(const MultiLevelProblem *    ml_prob,
-// // //                        const Mesh *                    msh,
-// // //                        const MultiLevelSolution *    ml_sol,
-// // //                        const unsigned iel,
-// // //                        CurrentElem < double > & geom_element,
-// // //                        const unsigned solType_coords,
-// // //                        const std::string solname_s2,
-// // //                        const unsigned solFEType_s2,
-// // //                        std::vector< double > & Res,
-// // //                        //-----------
-// // //                        std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> *  > >  elem_all,
-// // //                        const unsigned dim,
-// // //                        const unsigned space_dim,
-// // //                        const unsigned max_size
-// // //                     ) {
-// // //
-// // //
-// // //     /// @todo - should put these outside the iel loop --
-// // //     std::vector < std::vector < double > >  JacI_iqp_bdry(space_dim);
-// // //      std::vector < std::vector < double > >  Jac_iqp_bdry(dim-1);
-// // //     for (unsigned d = 0; d < Jac_iqp_bdry.size(); d++) {   Jac_iqp_bdry[d].resize(space_dim); }
-// // //     for (unsigned d = 0; d < JacI_iqp_bdry.size(); d++) { JacI_iqp_bdry[d].resize(dim-1); }
-// // //
-// // //
-// // //
-// // //
-// // //   double detJac_iqp_bdry;
-// // //   double weight_iqp_bdry = 0.;
-// // // // ---
-// // //   //boundary state shape functions
-// // //   std::vector <double> phi_s2_bdry;
-// // //   std::vector <double> phi_s2_x_bdry;
-// // //
-// // //   phi_s2_bdry.reserve(max_size);
-// // //   phi_s2_x_bdry.reserve(max_size * space_dim);
-// // // // ---
-// // //
-// // // // ---
-// // //   std::vector <double> phi_coords_bdry;
-// // //   std::vector <double> phi_coords_x_bdry;
-// // //
-// // //   phi_coords_bdry.reserve(max_size);
-// // //   phi_coords_x_bdry.reserve(max_size * space_dim);
-// // // // ---
-// // //
-// // //
-// // //
-// // //      double grad_s2_dot_n = 0.;
-// // //
-// // //     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
-// // //
-// // //        geom_element.set_coords_at_dofs_bdry_3d(iel, jface, solType_coords);
-// // //
-// // //        geom_element.set_elem_center_bdry_3d();
-// // //
-// // //        const unsigned ielGeom_bdry = msh->GetElementFaceType(iel, jface);
-// // //
-// // //
-// // //        std::vector <  double > xx_face_elem_center(3, 0.);
-// // //        xx_face_elem_center = geom_element.get_elem_center_bdry_3d();
-// // //
-// // //        const int boundary_index = msh->GetMeshElements()->GetFaceElementIndex(iel, jface);
-// // //
-// // //        if ( boundary_index < 0) { //I am on the boundary
-// // //
-// // //          unsigned int face = - (boundary_index + 1);
-// // //
-// // //          bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_s2.c_str(), grad_s2_dot_n, face, 0.);
-// // //          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
-// // //          //while here we pass the FACE ELEMENT CENTER coordinates.
-// // //          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
-// // //
-// // //              if ( !(is_dirichlet) /* &&  (grad_u_dot_n != 0.)*/ ) {  //dirichlet == false and nonhomogeneous Neumann
-// // //
-// // //     unsigned n_dofs_face_s2 = msh->GetElementFaceDofNumber(iel, jface, solFEType_s2);
-// // //
-// // // // dof-based - BEGIN
-// // //      std::vector< double > grad_s2_dot_n_at_dofs(n_dofs_face_s2);
-// // //
-// // //
-// // //     for (unsigned i_bdry = 0; i_bdry < grad_s2_dot_n_at_dofs.size(); i_bdry++) {
-// // //         std::vector<double> x_at_node(dim, 0.);
-// // //         for (unsigned jdim = 0; jdim < x_at_node.size(); jdim++) x_at_node[jdim] = geom_element.get_coords_at_dofs_bdry_3d()[jdim][i_bdry];
-// // //
-// // //       double grad_s2_dot_n_at_dofs_temp = 0.;
-// // //       ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_s2.c_str(), grad_s2_dot_n_at_dofs_temp, face, 0.);
-// // //      grad_s2_dot_n_at_dofs[i_bdry] = grad_s2_dot_n_at_dofs_temp;
-// // //
-// // //     }
-// // //
-// // // // dof-based - END
-// // //
-// // //
-// // //                         const unsigned n_gauss_bdry = ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussPointsNumber();
-// // //
-// // //
-// // // 		for(unsigned ig_bdry = 0; ig_bdry < n_gauss_bdry; ig_bdry++) {
-// // //
-// // //      elem_all[ielGeom_bdry][solType_coords]->JacJacInv(geom_element.get_coords_at_dofs_bdry_3d(), ig_bdry, Jac_iqp_bdry, JacI_iqp_bdry, detJac_iqp_bdry, space_dim);
-// // //
-// // //     weight_iqp_bdry = detJac_iqp_bdry * ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussWeightsPointer()[ig_bdry];
-// // //
-// // //     elem_all[ielGeom_bdry][solFEType_s2 ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_s2_bdry, phi_s2_x_bdry,  boost::none, space_dim);
-// // //
-// // //
-// // //
-// // // //---------------------------------------------------------------------------------------------------------
-// // //
-// // //      elem_all[ielGeom_bdry][solType_coords ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_coords_bdry, phi_coords_x_bdry,  boost::none, space_dim);
-// // //
-// // //   std::vector<double> x_qp_bdry(dim, 0.);
-// // //
-// // //          for (unsigned i = 0; i < phi_coords_bdry.size(); i++) {
-// // //            	for (unsigned d = 0; d < dim; d++) {
-// // //  	                                                x_qp_bdry[d]    += geom_element.get_coords_at_dofs_bdry_3d()[d][i] * phi_coords_bdry[i]; // fetch of coordinate points
-// // //              }
-// // //          }
-// // //
-// // //            double grad_s2_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
-// // //
-// // // // dof-based
-// // //          for (unsigned i_bdry = 0; i_bdry < phi_s2_bdry.size(); i_bdry ++) {
-// // //            grad_s2_dot_n_qp +=  grad_s2_dot_n_at_dofs[i_bdry] * phi_s2_bdry[i_bdry];
-// // //          }
-// // //
-// // // //---------------------------------------------------------------------------------------------------------
-// // //
-// // //
-// // //
-// // //                   for (unsigned i_bdry = 0; i_bdry < n_dofs_face_s2; i_bdry++) {
-// // //
-// // //                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i_bdry);
-// // //
-// // //                  Res[i_vol] +=  weight_iqp_bdry * grad_s2_dot_n_qp /*grad_u_dot_n*/  * phi_s2_bdry[i_bdry];
-// // //
-// // //                            }
-// // //
-// // //
-// // //                         }
-// // //
-// // //
-// // //                     }
-// // //
-// // //               }
-// // //     }
-// // //
-// // // }
-// // //
-// // //
-// // // //========= BOUNDARY_IMPLEMENTATION_S2 - END ==================
 
 
 static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
@@ -934,35 +508,35 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < adept::adouble >  solu; // local solution
 
-  const std::string solname_v = ml_sol->GetSolName_string_vec()[1];
+  const std::string solname_sxx = ml_sol->GetSolName_string_vec()[1];
 
-  unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());    // get the position of "v" in the ml_sol object
+  unsigned solsxxIndex = ml_sol->GetIndex(solname_sxx.c_str());    // get the position of "sxx" in the ml_sol object
 
-  unsigned solFEType_v = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
+  unsigned solFEType_sxx = ml_sol->GetSolutionType(solsxxIndex);    // get the finite element type for "sxx"
 
-  unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex(solname_v.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsxxPdeIndex = mlPdeSys->GetSolPdeIndex(solname_sxx.c_str());    // get the position of "sxx" in the pdeSys object
 
-  std::vector < adept::adouble >  solv; // local solution
+  std::vector < adept::adouble >  solsxx; // local solution
 
-  const std::string solname_s1 = ml_sol->GetSolName_string_vec()[2];
+  const std::string solname_sxy = ml_sol->GetSolName_string_vec()[2];
 
-  unsigned sols1Index = ml_sol->GetIndex(solname_s1.c_str());    // get the position of "v" in the ml_sol object
+  unsigned solsxyIndex = ml_sol->GetIndex(solname_sxy.c_str());    // get the position of "v" in the ml_sol object
 
-  unsigned solFEType_s1 = ml_sol->GetSolutionType(sols1Index);    // get the finite element type for "v"
+  unsigned solFEType_sxy = ml_sol->GetSolutionType(solsxyIndex);    // get the finite element type for "v"
 
-  unsigned sols1PdeIndex = mlPdeSys->GetSolPdeIndex(solname_s1.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsxyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_sxy.c_str());    // get the position of "v" in the pdeSys object
 
-  std::vector < adept::adouble >  sols1; // local solution
+  std::vector < adept::adouble >  solsxy; // local solution
 
-  const std::string solname_s2 = ml_sol->GetSolName_string_vec()[3];
+  const std::string solname_syy = ml_sol->GetSolName_string_vec()[3];
 
-  unsigned sols2Index = ml_sol->GetIndex(solname_s2.c_str());    // get the position of "v" in the ml_sol object
+  unsigned solsyyIndex = ml_sol->GetIndex(solname_syy.c_str());    // get the position of "v" in the ml_sol object
 
-  unsigned solFEType_s2 = ml_sol->GetSolutionType(sols2Index);    // get the finite element type for "v"
+  unsigned solFEType_syy = ml_sol->GetSolutionType(solsyyIndex);    // get the finite element type for "v"
 
-  unsigned sols2PdeIndex = mlPdeSys->GetSolPdeIndex(solname_s2.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsyyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_syy.c_str());    // get the position of "v" in the pdeSys object
 
-  std::vector < adept::adouble >  sols2; // local solution
+  std::vector < adept::adouble >  solsyy; // local solution
 
   std::vector < std::vector < double > > x(dim);    // local coordinates
   unsigned xType = 2; // get the finite element type for "x", it is always 2 (LAGRANGE QUADRATIC)
@@ -975,18 +549,18 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < double > Res; // local redidual vector
   std::vector < adept::adouble > aResu; // local redidual vector
-  std::vector < adept::adouble > aResv; // local redidual vector
+  std::vector < adept::adouble > aRessxx; // local redidual vector
 
-  std::vector < adept::adouble > aRess1; // local redidual vector
-  std::vector < adept::adouble > aRess2; // local redidual vector
+  std::vector < adept::adouble > aRessxy; // local redidual vector
+  std::vector < adept::adouble > aRessyy; // local redidual vector
 
   // reserve memory for the local standar vectors
   const unsigned maxSize = static_cast< unsigned >(ceil(pow(3, dim)));          // conservative: based on line3, quad9, hex27
   solu.reserve(maxSize);
-  solv.reserve(maxSize);
+  solsxx.reserve(maxSize);
 
-  sols1.reserve(maxSize);
-  sols2.reserve(maxSize);
+  solsxy.reserve(maxSize);
+  solsyy.reserve(maxSize);
 
   for (unsigned i = 0; i < dim; i++)
     x[i].reserve(maxSize);
@@ -1002,10 +576,10 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   Res.reserve(2 * maxSize);
   aResu.reserve(maxSize);
-  aResv.reserve(maxSize);
+  aRessxx.reserve(maxSize);
 
-  aRess1.reserve(maxSize);
-  aRess2.reserve(maxSize);
+  aRessxy.reserve(maxSize);
+  aRessyy.reserve(maxSize);
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
   Jac.reserve(4 * maxSize * maxSize);
@@ -1025,50 +599,50 @@ double nu2 = 2.0 / (1.0 + nu);
     short unsigned ielGeom = msh->GetElementType(iel); 
 
 // // //     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
-    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_v);    // number of solution element dofs
+    unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_sxx);    // number of solution element dofs
 
-    unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
+    unsigned nDofsyy = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
 
     std::vector<unsigned> Sol_n_el_dofs_Mat_vol(4, nDofs);
 
     // resize local arrays
     sysDof.resize(4 * nDofs);
     solu.resize(nDofs);
-    solv.resize(nDofs);
-    sols1.resize(nDofs);
-    sols2.resize(nDofs);
+    solsxx.resize(nDofs);
+    solsxy.resize(nDofs);
+    solsyy.resize(nDofs);
 
     for (int i = 0; i < dim; i++) {
-      x[i].resize(nDofs2);
+      x[i].resize(nDofsyy);
     }
 
     aResu.assign(nDofs, 0.);    //resize
-    aResv.assign(nDofs, 0.);    //resize
-    aRess1.assign(nDofs, 0.0);
-    aRess2.assign(nDofs, 0.0);
+    aRessxx.assign(nDofs, 0.);    //resize
+    aRessxy.assign(nDofs, 0.0);
+    aRessyy.assign(nDofs, 0.0);
 
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
 
 // // //       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
-      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_v);    // global to global mapping between solution node and solution dof
+      unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_sxx);    // global to global mapping between solution node and solution dof
 
 
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
-      solv[i]          = (*sol->_Sol[solvIndex])(solDof);      // global extraction and local storage for the solution
-      sols1[i]         = (*sol->_Sol[sols1Index])(solDof);      // s1  -> secondary row2, col2
-      sols2[i]         = (*sol->_Sol[sols2Index])(solDof);      // s2  -> secondary row1, col2
+      solsxx[i]          = (*sol->_Sol[solsxxIndex])(solDof);      // global extraction and local storage for the solution
+      solsxy[i]         = (*sol->_Sol[solsxyIndex])(solDof);      // sxy  -> secondary row2, col2
+      solsyy[i]         = (*sol->_Sol[solsyyIndex])(solDof);      // syy  -> secondary row1, col2
 
       sysDof[i]             = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
-      sysDof[nDofs + i]     = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
-      sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(sols1Index, sols1PdeIndex, i, iel); // s1
-      sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(sols2Index, sols2PdeIndex, i, iel); // s2
+      sysDof[nDofs + i]     = pdeSys->GetSystemDof(solsxxIndex, solsxxPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(solsxyIndex, solsxyPdeIndex, i, iel); // sxy
+      sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solsyyIndex, solsyyPdeIndex, i, iel); // syy
 
     }
 
     // local storage of coordinates
-    for (unsigned i = 0; i < nDofs2; i++) {
+    for (unsigned i = 0; i < nDofsyy; i++) {
       unsigned xDof  = msh->GetSolutionDof(i, iel, xType); // global to global mapping between coordinates node and coordinate dof
 
       for (unsigned jdim = 0; jdim < dim; jdim++) {
@@ -1081,39 +655,39 @@ double nu2 = 2.0 / (1.0 + nu);
 
     // *** Gauss point loop ***
 
-    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_v]->GetGaussPointNumber(); ig++) {
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_sxx]->GetGaussPointNumber(); ig++) {
 // *** get gauss point weight, test function and test function partial derivatives ***
 
-      msh->_finiteElement[ielGeom][solFEType_v]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
+      msh->_finiteElement[ielGeom][solFEType_sxx]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
       // evaluate the solution, the solution derivatives and the coordinates in the gauss point
       adept::adouble soluGauss = 0;
       std::vector < adept::adouble > soluGauss_x(dim, 0.);
 
-      adept::adouble solvGauss = 0;
-      std::vector < adept::adouble > solvGauss_x(dim, 0.);
+      adept::adouble solsxxGauss = 0;
+      std::vector < adept::adouble > solsxxGauss_x(dim, 0.);
 
-      adept::adouble sols1Gauss = 0;
-      std::vector < adept::adouble > sols1Gauss_x(dim, 0.);
+      adept::adouble solsxyGauss = 0;
+      std::vector < adept::adouble > solsxyGauss_x(dim, 0.);
 
-      adept::adouble sols2Gauss = 0;
-      std::vector < adept::adouble > sols2Gauss_x(dim, 0.);
+      adept::adouble solsyyGauss = 0;
+      std::vector < adept::adouble > solsyyGauss_x(dim, 0.);
 
       std::vector < double > xGauss(dim, 0.);
 
       for (unsigned i = 0; i < nDofs; i++) {
         soluGauss += phi[i] * solu[i];
-        solvGauss += phi[i] * solv[i];
+        solsxxGauss += phi[i] * solsxx[i];
 
-        sols1Gauss += phi[i] * sols1[i];
-        sols2Gauss += phi[i] * sols2[i];
+        solsxyGauss += phi[i] * solsxy[i];
+        solsyyGauss += phi[i] * solsyy[i];
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           soluGauss_x[jdim] += phi_x[i * dim + jdim] * solu[i];
-          solvGauss_x[jdim] += phi_x[i * dim + jdim] * solv[i];
+          solsxxGauss_x[jdim] += phi_x[i * dim + jdim] * solsxx[i];
 
-          sols1Gauss_x[jdim] += phi_x[i * dim + jdim] * sols1[i];
-          sols2Gauss_x[jdim] += phi_x[i * dim + jdim] * sols2[i];
+          solsxyGauss_x[jdim] += phi_x[i * dim + jdim] * solsxy[i];
+          solsyyGauss_x[jdim] += phi_x[i * dim + jdim] * solsyy[i];
 
           xGauss[jdim] += x[jdim][i] * phi[i];
         }
@@ -1122,30 +696,23 @@ double nu2 = 2.0 / (1.0 + nu);
       for (unsigned i = 0; i < nDofs; i++) {
 
         adept::adouble Laplace_u = 0.;
-        adept::adouble Laplace_v = 0.;
+        adept::adouble Laplace_sxx = 0.;
 
-        adept::adouble Laplace_s1 = 0.;
-        adept::adouble Laplace_s2 = 0.;
+        adept::adouble Laplace_sxy = 0.;
+        adept::adouble Laplace_syy = 0.;
 
 
-        adept::adouble Mxxxx_v = phi[i] * solvGauss + nu * phi[i] * solvGauss;
-        adept::adouble Mxyxy_s1 = 2.* (1. - nu) * phi[i] * sols1Gauss;
-        adept::adouble Myyyy_s2 = phi[i] * sols2Gauss + nu * phi[i] * sols2Gauss;
-
-// // //         adept::adouble Mxxyy_s2 = nu * phi[i] * sols2Gauss;
-// // //         adept::adouble Myyxx_v = nu * phi[i] * solvGauss;
-// // //
-// // //
-// // //         adept::adouble Mxxxx1_v =  nu * phi[i] * solvGauss;
-// // //         adept::adouble Myyyy1_s2 = nu * phi[i] * sols2Gauss;
+        adept::adouble M_sxx = phi[i] * solsxxGauss + nu * phi[i] * solsxxGauss;
+        adept::adouble M_sxy = 2.* (1. - nu) * phi[i] * solsxyGauss;
+        adept::adouble M_syy = phi[i] * solsyyGauss + nu * phi[i] * solsyyGauss;
 
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
-          Laplace_v   +=  - phi_x[i * dim + jdim] * solvGauss_x[jdim];
+          Laplace_sxx   +=  - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
 
-          Laplace_s1   +=  - phi_x[i * dim + jdim] * sols1Gauss_x[jdim];
-          Laplace_s2   +=  - phi_x[i * dim + jdim] * sols2Gauss_x[jdim];
+          Laplace_sxy   +=  - phi_x[i * dim + jdim] * solsxyGauss_x[jdim];
+          Laplace_syy   +=  - phi_x[i * dim + jdim] * solsyyGauss_x[jdim];
 
         }
 
@@ -1154,9 +721,9 @@ double nu2 = 2.0 / (1.0 + nu);
     adept::adouble Bxxu = 0.;
     adept::adouble Bxyu = 0.;
     adept::adouble Byyu = 0.;
-    adept::adouble Bxxv = 0.;
-    adept::adouble Bxys1 = 0.;
-    adept::adouble Byys2 = 0.;
+    adept::adouble B_sxx = 0.;
+    adept::adouble B_sxy = 0.;
+    adept::adouble B_syy = 0.;
 
     if (dim == 2) {
 
@@ -1167,21 +734,21 @@ double nu2 = 2.0 / (1.0 + nu);
         Byyu += nu * phi_x[i * dim] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1];
 
 
-        Bxxv += phi_x[i * dim] * solvGauss_x[0] + nu * phi_x[i * dim + 1] * solvGauss_x[1];
+        B_sxx += phi_x[i * dim] * solsxxGauss_x[0] + nu * phi_x[i * dim + 1] * solsxxGauss_x[1];
 
-        Bxys1 +=  ( 1. - nu ) * ( phi_x[i * dim] * sols1Gauss_x[1] + phi_x[i * dim + 1] * sols1Gauss_x[0] );
+        B_sxy +=  ( 1. - nu ) * ( phi_x[i * dim] * solsxyGauss_x[1] + phi_x[i * dim + 1] * solsxyGauss_x[0] );
 
-        Byys2 += nu * phi_x[i * dim] * sols2Gauss_x[0] + phi_x[i * dim + 1] * sols2Gauss_x[1];
+        B_syy += nu * phi_x[i * dim] * solsyyGauss_x[0] + phi_x[i * dim + 1] * solsyyGauss_x[1];
 
 
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += ( Bxxv + Bxys1 + Byys2 + F_term ) * weight;  // M*W + B^T*U = 0
-     aResv[i] += ( Bxxu + Mxxxx_v  ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
-     aRess1[i] += ( Bxyu + Mxyxy_s1 ) * weight;  // C1^T*W + M*S1 = 0
-     aRess2[i] += ( Byyu + Myyyy_s2 ) * weight;  // C2^T*W + M*S2 = 0
+     aResu[i] += ( B_sxx + B_sxy + B_syy + F_term ) * weight;  // M*W + B^T*U = 0
+     aRessxx[i] += ( Bxxu + M_sxx  ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRessxy[i] += ( Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
+     aRessyy[i] += ( Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
 
       } // end phi_i loop
 
@@ -1195,10 +762,10 @@ double nu2 = 2.0 / (1.0 + nu);
 
     for (int i = 0; i < nDofs; i++) {
       Res[i]         = -aResu[i].value();
-      Res[nDofs + i] = -aResv[i].value();
+      Res[nDofs + i] = -aRessxx[i].value();
 
-      Res[2 * nDofs + i  ] = -aRess1[i].value(); // s1
-      Res[3 * nDofs + i  ] = -aRess2[i].value(); // s2
+      Res[2 * nDofs + i  ] = -aRessxy[i].value(); // sxy
+      Res[3 * nDofs + i  ] = -aRessyy[i].value(); // syy
 
     }
 
@@ -1208,23 +775,23 @@ double nu2 = 2.0 / (1.0 + nu);
 
     // define the independent variables
     s.independent(&solu[0], nDofs);
-    s.independent(&solv[0], nDofs);
+    s.independent(&solsxx[0], nDofs);
 
-    s.independent(&sols1[0], nDofs);
-    s.independent(&sols2[0], nDofs);
+    s.independent(&solsxy[0], nDofs);
+    s.independent(&solsyy[0], nDofs);
 
         // define the dependent variables
     s.dependent(&aResu[0], nDofs);
-    s.dependent(&aResv[0], nDofs);
-    s.dependent(&aRess1[0], nDofs);
-    s.dependent(&aRess2[0], nDofs);
+    s.dependent(&aRessxx[0], nDofs);
+    s.dependent(&aRessxy[0], nDofs);
+    s.dependent(&aRessyy[0], nDofs);
 
     // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);
 
     KK->add_matrix_blocked(Jac, sysDof, sysDof);
 
-         constexpr bool print_algebra_local = true;
+         constexpr bool print_algebra_local = false;
      if (print_algebra_local) {
 
          assemble_jacobian<double,double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
