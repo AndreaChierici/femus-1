@@ -53,10 +53,10 @@ Cloud *cld;
 Cloud *cldint;
 
 // // RT
-// const double mu2 = 0.851857;
-// const double mu1 = 0.567904;
-// // const double mu2 = 0.009535;
-// // const double mu1 = 0.006349;
+// // const double mu2 = 0.851857;
+// // const double mu1 = 0.567904;
+// const double mu2 = 0.009535;
+// const double mu1 = 0.006349;
 // const double rho2 = 1.5;
 // const double rho1 = 1.;
 // const double sigma = 0.;
@@ -70,13 +70,21 @@ Cloud *cldint;
 // const double sigma = 24.5;
 // const double gravity = -0.98;
 
-// Turek 2
-const double mu1 = 0.1;
-const double mu2 = 10.;
-const double rho1 = 1.;
-const double rho2 = 1000;
-const double sigma = 1.96;
-const double gravity = -0.98;
+// // Turek 2
+// const double mu1 = 0.1;
+// const double mu2 = 10.;
+// const double rho1 = 1.;
+// const double rho2 = 1000;
+// const double sigma = 1.96;
+// const double gravity = -0.98;
+
+//Parasitic Test
+const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
+const double mu2 = 0.1;
+const double rho1 = 100.;
+const double rho2 = 100.;
+const double sigma = 3.; // ???
+const double gravity = 0.;
 
 std::vector <double> g;
 
@@ -84,7 +92,8 @@ std::vector <double> g;
 #include "../include/GhostPenaltyDGP.hpp"
 #include "../include/Stabilization.hpp"
 
-#define RADIUS 0.25
+// #define RADIUS 0.25
+#define RADIUS 0.2
 #define XG 0.5
 #define YG 0.5
 #define ZG 0.
@@ -100,10 +109,11 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
   bool dirichlet = true; //dirichlet
 
   if(!strcmp(SolName, "U")) {  // strcmp compares two string in lexiographic sense.
+    // if(facename == 1 || facename == 3) dirichlet = false;
     value = 0.;
   }
   else if(!strcmp(SolName, "V")) {
-    if(facename == 2 || facename == 4) dirichlet = false;
+    // if(facename == 2 || facename == 4) dirichlet = false;
     value = 0.;
 //     if(x[0] < 0. && x[1] < 0.5 && x[1] > -0.5 && x[2] < 0.5 && x[2] > -0.5) value = 1.;
   }
@@ -143,9 +153,12 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
 //   mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
-//   mlMsh.ReadCoarseMesh("./input/square_quad.neu", "fifth", scalingFactor);
-  mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
-//   mlMsh.GenerateCoarseBoxMesh(64, 256, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
+  mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
+  // mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
+  // mlMsh.GenerateCoarseBoxMesh(16, 64, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
+  // mlMsh.GenerateCoarseBoxMesh(100, 400, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
+  // mlMsh.GenerateCoarseBoxMesh(128, 512, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
+  // mlMsh.GenerateCoarseBoxMesh(64, 64, 0, 0., 1., 0., 1., 0., 0., QUAD9, "fifth"); // Parasitic Test
   /* "seventh" is the order of accuracy that is used in the gauss integration scheme
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
@@ -237,9 +250,32 @@ int main(int argc, char** args) {
   std::cout << "Testing the class Cloud \n";
 
 
-  unsigned nIterations = 300;
-  unsigned nMrk = 1000;
-  
+  unsigned nIterations = 35000;
+  unsigned nMrk = 800;
+
+// //   Oscillation
+  // double R0 = 0.30;
+  // double eps = 0.01;
+  //
+  // double r = 0.;
+  // double t = 0.;
+  // std::vector<std::vector<double>> x(nMrk, std::vector<double>(2));
+  // std::vector<std::vector<double>> N(nMrk, std::vector<double>(2));
+  // for(unsigned i = 0; i < nMrk; i++){
+  //   t = 2. * M_PI * double(i) / double(nMrk);
+  //   r = R0 * (1. - eps / 4. + eps * 0.5 * (3. * cos(t) * cos(t) - 1.));
+  //   x[i][0] = r * cos(t);
+  //   x[i][1] = r * sin(t);
+  //   N[i][0] = cos(t);
+  //   N[i][1] = sin(t);
+  // }
+  //
+  // cld->AddCloudFromPoints(x, N);
+  // cld->ComputeQuadraticBestFit();
+  // cldint->AddInteriorCloudFromPoints(x);
+  // cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
+
+
 // // Turek 1&2
 // cld->AddEllipse({XG, YG}, {RADIUS, RADIUS}, 8);
   cld->AddEllipse({XG, YG}, {RADIUS, RADIUS}, nMrk);
@@ -256,21 +292,23 @@ int main(int argc, char** args) {
 // // // RT
 //   std::vector < std::vector<double>> x(nMrk, std::vector<double>(dim));
 //   std::vector < std::vector<double>> N(nMrk, std::vector<double>(dim));
-// 
+//
 //   for(unsigned i = 0; i < nMrk - 1; i++){
 //     x[i][0] = - 0.5 + (i * 1. / (nMrk - 1.)) + 1e-10;
 //     x[i][1] = 0.005 * cos(2. * M_PI * x[i][0]) - (1. / 128);
+//     // x[i][1] = 0.0001 * cos(2. * M_PI * x[i][0]) - (1. / 128);
 //     N[i][0] = 0.;
 //     N[i][1] = 1.;
 //   }
-//   x[nMrk-1][0] = 0.5 - 1e-10;  
+//   x[nMrk-1][0] = 0.5 - 1e-10;
 //   x[nMrk-1][1] = 0.005 * cos(2. * M_PI * x[nMrk-1][0]) - (1. / 128);
+//   // x[nMrk-1][1] = 0.0001 * cos(2. * M_PI * x[nMrk-1][0]) - (1. / 128);
 //   N[nMrk-1][0] = 0.;
 //   N[nMrk-1][1] = 1.;
-//   
+//
 //   cld->AddCloudFromPoints(x, N);
 //   cld->ComputeQuadraticBestFit();
-//   
+//
 //   x[0][0] = 0.;
 //   x[0][1] = -0.5;
 //   cldint->AddInteriorCloudFromPoints(x);
@@ -281,6 +319,7 @@ int main(int argc, char** args) {
 
   cld->PrintCSV("markerBefore", 0);
   cld->PrintCSV("marker", 0);
+  cld->PrintMaxX("AAmaxY", 0); //Oscillation
 //   cldint->PrintCSV("markerInt", 0);
   
   
@@ -306,6 +345,7 @@ int main(int argc, char** args) {
   vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, 0);
 
 
+
   for(unsigned it = 1; it <= nIterations; it++) {
 
     mlSol.CopySolutionToOldSolution();
@@ -320,6 +360,7 @@ int main(int argc, char** args) {
     cld->RebuildMarkers(11, 9, 10);
     cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
     cld->PrintCSV("marker", it);
+    cld->PrintMaxX("AAmaxY", it); //Oscillation
     vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, it);
 
   }
@@ -331,8 +372,16 @@ int main(int argc, char** args) {
 }
 
 double TimeStepMultiphase(const double time) {
-//   double dt =  0.005; //RT
-  double dt =  0.01; //Turek
+  // double dt =  0.005; //RT
+  // double dt =  0.001; //RT
+//   // double dt =  0.01; //Turek
+  double sigma = 3;
+  double rho = 100.;
+  // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
+  // double dt =  totalT/800; //Parasitic Test
+
+  double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
+  // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
   return dt;
 }
 

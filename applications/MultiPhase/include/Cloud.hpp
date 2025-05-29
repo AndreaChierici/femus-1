@@ -47,6 +47,7 @@ namespace femus {
       void PrintNoOrder(const unsigned &t);
       void PrintWithOrder(const unsigned &t);
       void PrintCSV(const std::string &filename, const unsigned &t);
+      void PrintMaxX(const std::string &filename, const unsigned &t);
 
       void ComputeQuadraticBestFit();
 
@@ -695,6 +696,48 @@ namespace femus {
     }
   }
 
+  void Cloud::PrintMaxX(const std::string &filename, const unsigned &t) {
+    unsigned iproc = _sol->processor_id();
+    unsigned nprocs = _sol->n_processors();
+    unsigned dim = _sol->GetMesh()->GetDimension();
+
+    double maxValue;
+    for(unsigned kp = 0; kp < nprocs; kp++) {
+      if(kp == iproc) {
+        std::ostringstream foo(std::ostringstream::ate);
+        foo.str("./output/");
+        foo << filename;
+        foo << ".csv";
+        if(kp == 0 && t == 0) _fout.open(foo.str(), std::fstream::out);
+        else _fout.open(foo.str(), std::fstream::app);
+
+
+        // Initialize the maximum value with the smallest possible double
+        maxValue = std::numeric_limits<double>::lowest();
+
+        // Iterate through the vector to find the maximum _yp[i][0]
+        for (int i = 0; i < _yp.size(); ++i) {
+        if (!_yp[i].empty()) {  // Check if the inner vector is not empty
+            if (_yp[i][1] > maxValue) {
+                maxValue = _yp[i][1];
+            }
+        }
+    }
+      }
+      MPI_Barrier(MPI_COMM_WORLD);
+    }
+    double globalMax;
+    MPI_Reduce(&maxValue, &globalMax, 1, MPI_DOUBLE, MPI_MAX, 0,
+               MPI_COMM_WORLD);
+
+    // Print the result
+    if (iproc == 0) {
+      _fout << t<< "," <<globalMax << std::endl;
+      _fout.close();
+    }
+
+  }
+
 
 
   const double PJ[6][4][4][4] = {{}, {}, {},
@@ -712,6 +755,8 @@ namespace femus {
     }
   };
 #include <boost/math/special_functions/math_fwd.hpp>
+#include "Rebuild.cpp"
+
   std::pair<std::vector<std::vector<double>>, std::vector<double>> Cloud::GetCellPointsFromQuadric(const std::vector<std::vector<double>> &xv, const unsigned & iel, unsigned npt, unsigned & nInt, unsigned level) {
 
     unsigned cnt = 0;
@@ -768,6 +813,41 @@ namespace femus {
 
       nInt = cnt;
 //       if(cnt >= 2) nInt = 2;
+
+      // if(cnt == 2) {
+      //
+      //   std::vector<double> Xg(2, 0);
+      //
+      //
+      //   for(unsigned i = 0; i < nve; i++) {
+      //     Xg[0] += xv[0][i];
+      //     Xg[1] += xv[1][i];
+      //   }
+      //   Xg = {Xg[0] / nve, Xg[1] / nve};
+      //
+      //   std::vector<double> P1 = xe[0];
+      //   std::vector<double> P2 = xe[1];
+      //
+      //   BuildMarkersOnConicArc(M_PI/18, npt, Cf, Xg, P1, P2, xe);
+      //
+      //   npt = xe.size();
+      //
+      //   // for(unsigned k = 0; k < npt; k++) {
+      //   //   std::cout << k << " " << xe[k][0] << " " << xe[k][1] << std::endl;
+      //   // }
+      //   // std::cout << std::endl;
+      //
+      //
+      //
+      //   ds.assign(npt, 0);
+      //   for(unsigned i = 0; i < xe.size() - 1; i++) {
+      //     double DS = 0.5 * sqrt((xe[i][0] - xe[i + 1][0]) * (xe[i][0] - xe[i + 1][0]) + (xe[i][1] - xe[i + 1][1]) * (xe[i][1] - xe[i + 1][1]));
+      //     ds[i] += DS;
+      //     ds[i + 1] += DS;
+      //   }
+      //
+      // }
+
 
       if(cnt == 2) {
 
@@ -1003,7 +1083,7 @@ namespace femus {
             _kappaNew.resize(newSize);
             _dsNew.resize(newSize);
           }
-          
+
           double h = 0.;
           unsigned nDofs = msh->GetElementDofNumber(iel, 0);
           for(unsigned i = 0; i < nDofs; i++) {
@@ -1033,7 +1113,7 @@ namespace femus {
               for(unsigned k = 0; k < dim; k++) distj += (_yp[_map[j]][k] - sol.first[i][k]) * (_yp[_map[j]][k] - sol.first[i][k]);
               if(distj < distMin) distMin = distj;
             }
-            if(iel == 61) std::cout << "AAAAA " << distMin << " " << 0.04 * h2 << "\n";
+            // if(iel == 61) std::cout << "AAAAA " << distMin << " " << 0.04 * h2 << "\n";
             if(distMin < 0.04 * h2) {
 
               for(unsigned k = 0; k < dim; k++) {
@@ -1237,7 +1317,7 @@ namespace femus {
             if(i < nDofsL && allSurrounded) {
               double value = (*_sol->_Sol[SolCnIndex])(inode);
               if(value < 0.125) allSurrounded = false;
-              else if (value < 0.5) count1++;
+              else if(value < 0.5) count1++;
               else count2++;
             }
           }
@@ -1245,7 +1325,7 @@ namespace femus {
             newElemNumberLocal++;
             AddInteriorMarkerAndUpdateColorFunctions(iel, cnt, SolCnIndex, SolCIndex, solType, 1.);
           }
-          else if (allSurrounded && count2 > count1) {
+          else if(allSurrounded && count2 > count1) {
             newElemNumberLocal++;
             AddInteriorMarkerAndUpdateColorFunctions(iel, cnt, SolCnIndex, SolCIndex, solType, .75);
           }
@@ -1634,7 +1714,7 @@ namespace femus {
 
 
   double Cloud::GetCost(const std::vector<std::vector<double>>&x,  const std::vector<double> &y, const std::vector<double>&w, const unsigned & iel, const unsigned & nPoints) {
-      
+
 
     Mesh* msh = _sol->GetMesh();
     unsigned dim = _sol->GetMesh()->GetDimension();
@@ -1653,13 +1733,13 @@ namespace femus {
     }
     h /= nDofs;
     double h2 = h * h;
-      
-      
+
+
     double cost = 0;
 //     double h2 = 0.;
 //     Mesh* msh = _sol->GetMesh();
 //     unsigned dim = _sol->GetMesh()->GetDimension();
-// 
+//
 //     unsigned xDof0  = msh->GetSolutionDof(0, iel, 2);
 //     unsigned xDof2  = msh->GetSolutionDof(2, iel, 2);
 //     for(unsigned k = 0; k < dim; k++) {

@@ -39,7 +39,7 @@ typedef cpp_bin_float_oct oct;
 // CutFemWeight <double, double> quad = CutFemWeight<double, double>(QUAD, 5, "legendre");
 CutFemWeight <TypeIO, TypeA> quad  = CutFemWeight<TypeIO, TypeA >(QUAD, 1, "legendre");
 CutFemWeight <TypeIO, TypeA> tri  = CutFemWeight<TypeIO, TypeA >(TRI, 1, "legendre");
-Fem fem = Fem(quad.GetGaussQuadratureOrder(), quad.GetDimension());
+Fem fem = Fem(tri.GetGaussQuadratureOrder(), tri.GetDimension());
 
 
 #include "../include/MyMarker/MyMarker.hpp"
@@ -110,15 +110,16 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
   //mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
-//   mlMsh.ReadCoarseMesh("./input/square_quad.neu", "seventh", scalingFactor);
+  // mlMsh.ReadCoarseMesh("./input/square_quad.neu", "seventh", scalingFactor);
 
-  mlMsh.GenerateCoarseBoxMesh(4, 4, 0, -0.5, 0.5, -0.5, 0.5, 0., 0., TRI6, "seventh");
+  mlMsh.GenerateCoarseBoxMesh(256, 256, 0, -0.5, 0.5, -0.5, 0.5, 0., 0., TRI6, "seventh");
+  // mlMsh.GenerateCoarseBoxMesh(2, 2, 0, -0.5, 0.5, -0.5, 0.5, 0., 0., QUAD9, "seventh");
 
   /* "seventh" is the order of accuracy that is used in the gauss integration scheme
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
 
-  unsigned numberOfUniformLevels = 3;
+  unsigned numberOfUniformLevels = 1;
   unsigned nMax = 4 * pow(2, 6);
   unsigned numberOfSelectiveLevels = 0;
   mlMsh.RefineMesh(numberOfUniformLevels, numberOfUniformLevels + numberOfSelectiveLevels, NULL);
@@ -138,6 +139,7 @@ int main(int argc, char** args) {
   mlSol.AddSolution("P",  DISCONTINUOUS_POLYNOMIAL, FIRST);
 
   mlSol.AddSolution("C", DISCONTINUOUS_POLYNOMIAL, ZERO, false);
+  mlSol.AddSolution("C0", DISCONTINUOUS_POLYNOMIAL, ZERO, false);
   mlSol.AddSolution("Cn", LAGRANGE, SECOND, false);
 
   mlSol.AddSolution("Q", DISCONTINUOUS_POLYNOMIAL, ZERO, false);
@@ -247,7 +249,7 @@ int main(int argc, char** args) {
   std::vector<std::string> velocity = {"U", "V"};
   std::cout << "Testing the class Cloud \n";
 
-  double period = 4;
+  double period = 8;
   unsigned nIterations = 320;
 
   double time = 0.;
@@ -257,16 +259,19 @@ int main(int argc, char** args) {
 //   cldint.AddInteriorQuadric({1.,0.,1.,0.,+0.5,0.04});
 
 //   cld.AddQuadric({0.,0.,0.,0.,1.,0.01}, 8);
-  cld.AddEllipses({{0., -0.25}, {0., +0.25}}, {{0.15, 0.15}, {0.15, 0.15}}, {9, 9});
+  cld.AddEllipses({{0., +0.25}}, {{0.15, 0.15}}, {9});
 //   cldint.AddInteriorQuadric({0.,0.,0.,0.,1.,0.01});
-  cldint.AddInteriorEllipses({{0., -0.25}, {0., +0.25}}, {{0.15, 0.15}, {0.15, 0.15}});
+  cldint.AddInteriorEllipses({ {0., +0.25}}, {{0.15, 0.15}});
 
+  cldint.RebuildInteriorMarkers(cld, "C0", "Cn");
   cldint.RebuildInteriorMarkers(cld, "C", "Cn");
   SetVelocity(sol, velocity, time, period);
   cld.PrintCSV("markerBefore", 0);
   cld.PrintCSV("marker", 0);
   cldint.PrintCSV("markerInternalBefore", 0);
   cldint.PrintCSV("markerInternal", 0);
+
+  vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, 0);
 
 
   double dt = period / nIterations;
@@ -286,7 +291,8 @@ int main(int argc, char** args) {
     cld.PrintCSV("markerBefore", it);
     cld.ComputeQuadraticBestFit();
 
-    cld.RebuildMarkers(9, 12, 9);
+    // cld.RebuildMarkers(9, 12, 9);
+    cld.RebuildMarkers(8, 10, 8);
 
     cldint.RebuildInteriorMarkers(cld, "C", "Cn");
     cldint.PrintCSV("markerInternal", it);

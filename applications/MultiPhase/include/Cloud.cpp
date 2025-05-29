@@ -339,31 +339,31 @@ sigmaChangeSerial:
             else if(delta < 0) _sol->_Sol[SolQIndex]->set(iel, 2); // ellipse;
             else _sol->_Sol[SolQIndex]->set(iel, 3); // hyperpola;
 
-            if(iel == 7762) std::cout << "Apar " << Apar[0] << " " << Apar[1] << " " << Apar[2] << " " << Apar[3] << " " << Apar[4] << " " << Apar[5] << "\n";
-            if(iel == 7762) std::cout << "Acon " << Acon[0] << " " << Acon[1] << " " << Acon[2] << " " << Acon[3] << " " << Acon[4] << " " << Acon[5] << "\n";
+            // if(iel == 7762) std::cout << "Apar " << Apar[0] << " " << Apar[1] << " " << Apar[2] << " " << Apar[3] << " " << Apar[4] << " " << Apar[5] << "\n";
+            // if(iel == 7762) std::cout << "Acon " << Acon[0] << " " << Acon[1] << " " << Acon[2] << " " << Acon[3] << " " << Acon[4] << " " << Acon[5] << "\n";
 
 
-            if(true && ((iel == 7762 && nprocs == 1) || (iel == 324 && nprocs != 1))) {
-                double xMin[2] = { 1.0e10, 1.0e10};
-                double xMax[2] = { -1.0e10, -1.0e10};
-
-                unsigned nDofs =  msh->GetElementDofNumber(iel, 2);
-                for(unsigned i = 0; i < nDofs; i++) {
-                    unsigned xDof  = msh->GetSolutionDof(i, iel, 2);
-                    for(unsigned k = 0; k < dim; k++) {
-                        double x = (*msh->_topology->_Sol[k])(xDof);
-                        if(x < xMin[k]) xMin[k] = x;
-                        if(x > xMax[k]) xMax[k] = x;
-                    }
-                }
-
-                if(nprocs == 1 || iproc == 2) {
-                    std::cerr << iel << " BBBBBBB\n" ; //<< treshold <<  " ";
-                    std::cerr << cost1 << " " << cost2 << std::endl;
-                    std::cerr << "a = " << _A[iel][0] << "; b=" << _A[iel][1] << "; c=" << _A[iel][2] << "; d=" << _A[iel][3] << "; e=" << _A[iel][4] << "; f= " << _A[iel][5] << ";\n";
-                    std::cerr << " {x," << xMin[0] << ", " << xMax[0] << "},{" << "{y," << xMin[1] << ", " << xMax[1] << "}" << std::endl;
-                }
-            }
+            // if(true && ((iel == 7762 && nprocs == 1) || (iel == 324 && nprocs != 1))) {
+            //     double xMin[2] = { 1.0e10, 1.0e10};
+            //     double xMax[2] = { -1.0e10, -1.0e10};
+            //
+            //     unsigned nDofs =  msh->GetElementDofNumber(iel, 2);
+            //     for(unsigned i = 0; i < nDofs; i++) {
+            //         unsigned xDof  = msh->GetSolutionDof(i, iel, 2);
+            //         for(unsigned k = 0; k < dim; k++) {
+            //             double x = (*msh->_topology->_Sol[k])(xDof);
+            //             if(x < xMin[k]) xMin[k] = x;
+            //             if(x > xMax[k]) xMax[k] = x;
+            //         }
+            //     }
+            //
+            //     if(nprocs == 1 || iproc == 2) {
+            //         std::cerr << iel << " BBBBBBB\n" ; //<< treshold <<  " ";
+            //         std::cerr << cost1 << " " << cost2 << std::endl;
+            //         std::cerr << "a = " << _A[iel][0] << "; b=" << _A[iel][1] << "; c=" << _A[iel][2] << "; d=" << _A[iel][3] << "; e=" << _A[iel][4] << "; f= " << _A[iel][5] << ";\n";
+            //         std::cerr << " {x," << xMin[0] << ", " << xMax[0] << "},{" << "{y," << xMin[1] << ", " << xMax[1] << "}" << std::endl;
+            //     }
+            // }
         }
     }
 
@@ -720,10 +720,10 @@ sigmaChangeParallel:
                         double cost2 = GetCost(coord, dotProduct, weight, kel, cnt0);
                         std::vector<double> Apar = _A[kel];
 
-                        if(true && kel == 165) {
-                            std::cout << "a = " << Acon[0] << "; b=" << Acon[1] << "; c=" << Acon[2] << "; d=" << Acon[3] << "; e=" << Acon[4] << "; f= " << Acon[5] << ";\n";
-                            std::cout << "a = " << Apar[0] << "; b=" << Apar[1] << "; c=" << Apar[2] << "; d=" << Apar[3] << "; e=" << Apar[4] << "; f= " << Apar[5] << ";\n";
-                        }
+                        // if(true && kel == 165) {
+                        //     std::cout << "a = " << Acon[0] << "; b=" << Acon[1] << "; c=" << Acon[2] << "; d=" << Acon[3] << "; e=" << Acon[4] << "; f= " << Acon[5] << ";\n";
+                        //     std::cout << "a = " << Apar[0] << "; b=" << Apar[1] << "; c=" << Apar[2] << "; d=" << Apar[3] << "; e=" << Apar[4] << "; f= " << Apar[5] << ";\n";
+                        // }
 
 
                         if(cost1 > 0.00001 && cost2 > 0.00001 && sigmaCnt < 3) {
@@ -779,25 +779,25 @@ sigmaChangeParallel:
                             else _sol->_Sol[SolQIndex]->set(kel, 3); // hyperpola;
 
 
-                            if(true && kel == 165) {
-                                double xMin[2] = { 1.0e10, 1.0e10};
-                                double xMax[2] = { -1.0e10, -1.0e10};
-
-                                unsigned nDofs =  msh->GetElementDofNumber(kel, 2);
-                                for(unsigned i = 0; i < nDofs; i++) {
-                                    unsigned xDof  = msh->GetSolutionDof(i, kel, 2);
-                                    for(unsigned k = 0; k < dim; k++) {
-                                        double x = (*msh->_topology->_Sol[k])(xDof);
-                                        if(x < xMin[k]) xMin[k] = x;
-                                        if(x > xMax[k]) xMax[k] = x;
-                                    }
-                                }
-
-                                std::cout << "BBBBBBB\n" ;//<< treshold <<  " ";
-                                std::cout << cost1 << " " << cost2 << std::endl;
-                                std::cout << "a = " << _A[kel][0] << "; b=" << _A[kel][1] << "; c=" << _A[kel][2] << "; d=" << _A[kel][3] << "; e=" << _A[kel][4] << "; f= " << _A[kel][5] << ";\n";
-                                std::cout << " {x," << xMin[0] << ", " << xMax[0] << "},{" << "{y," << xMin[1] << ", " << xMax[1] << "}" << std::endl;
-                            }
+                            // if(true && kel == 165) {
+                            //     double xMin[2] = { 1.0e10, 1.0e10};
+                            //     double xMax[2] = { -1.0e10, -1.0e10};
+                            //
+                            //     unsigned nDofs =  msh->GetElementDofNumber(kel, 2);
+                            //     for(unsigned i = 0; i < nDofs; i++) {
+                            //         unsigned xDof  = msh->GetSolutionDof(i, kel, 2);
+                            //         for(unsigned k = 0; k < dim; k++) {
+                            //             double x = (*msh->_topology->_Sol[k])(xDof);
+                            //             if(x < xMin[k]) xMin[k] = x;
+                            //             if(x > xMax[k]) xMax[k] = x;
+                            //         }
+                            //     }
+                            //
+                            //     // std::cout << "BBBBBBB\n" ;//<< treshold <<  " ";
+                            //     // std::cout << cost1 << " " << cost2 << std::endl;
+                            //     // std::cout << "a = " << _A[kel][0] << "; b=" << _A[kel][1] << "; c=" << _A[kel][2] << "; d=" << _A[kel][3] << "; e=" << _A[kel][4] << "; f= " << _A[kel][5] << ";\n";
+                            //     // std::cout << " {x," << xMin[0] << ", " << xMax[0] << "},{" << "{y," << xMin[1] << ", " << xMax[1] << "}" << std::endl;
+                            // }
 
 
 
