@@ -519,25 +519,25 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < adept::adouble >  solsxx; // local solution
 
-  const std::string solname_s1 = ml_sol->GetSolName_string_vec()[2];
+  const std::string solname_sxy = ml_sol->GetSolName_string_vec()[2];
 
-  unsigned sols1Index = ml_sol->GetIndex(solname_s1.c_str());    // get the position of "v" in the ml_sol object
+  unsigned solsxyIndex = ml_sol->GetIndex(solname_sxy.c_str());    // get the position of "v" in the ml_sol object
 
-  unsigned solFEType_s1 = ml_sol->GetSolutionType(sols1Index);    // get the finite element type for "v"
+  unsigned solFEType_sxy = ml_sol->GetSolutionType(solsxyIndex);    // get the finite element type for "v"
 
-  unsigned sols1PdeIndex = mlPdeSys->GetSolPdeIndex(solname_s1.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsxyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_sxy.c_str());    // get the position of "v" in the pdeSys object
 
-  std::vector < adept::adouble >  sols1; // local solution
+  std::vector < adept::adouble >  solsxy; // local solution
 
-  const std::string solname_s2 = ml_sol->GetSolName_string_vec()[3];
+  const std::string solname_syy = ml_sol->GetSolName_string_vec()[3];
 
-  unsigned sols2Index = ml_sol->GetIndex(solname_s2.c_str());    // get the position of "v" in the ml_sol object
+  unsigned solsyyIndex = ml_sol->GetIndex(solname_syy.c_str());    // get the position of "v" in the ml_sol object
 
-  unsigned solFEType_s2 = ml_sol->GetSolutionType(sols2Index);    // get the finite element type for "v"
+  unsigned solFEType_syy = ml_sol->GetSolutionType(solsyyIndex);    // get the finite element type for "v"
 
-  unsigned sols2PdeIndex = mlPdeSys->GetSolPdeIndex(solname_s2.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsyyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_syy.c_str());    // get the position of "v" in the pdeSys object
 
-  std::vector < adept::adouble >  sols2; // local solution
+  std::vector < adept::adouble >  solsyy; // local solution
 
   std::vector < std::vector < double > > x(dim);    // local coordinates
   unsigned xType = 2; // get the finite element type for "x", it is always 2 (LAGRANGE QUADRATIC)
@@ -552,16 +552,16 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   std::vector < adept::adouble > aResu; // local redidual vector
   std::vector < adept::adouble > aRessxx; // local redidual vector
 
-  std::vector < adept::adouble > aRess1; // local redidual vector
-  std::vector < adept::adouble > aRess2; // local redidual vector
+  std::vector < adept::adouble > aRessxy; // local redidual vector
+  std::vector < adept::adouble > aRessyy; // local redidual vector
 
   // reserve memory for the local standar vectors
   const unsigned maxSize = static_cast< unsigned >(ceil(pow(3, dim)));          // conservative: based on line3, quad9, hex27
   solu.reserve(maxSize);
   solsxx.reserve(maxSize);
 
-  sols1.reserve(maxSize);
-  sols2.reserve(maxSize);
+  solsxy.reserve(maxSize);
+  solsyy.reserve(maxSize);
 
   for (unsigned i = 0; i < dim; i++)
     x[i].reserve(maxSize);
@@ -579,8 +579,8 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   aResu.reserve(maxSize);
   aRessxx.reserve(maxSize);
 
-  aRess1.reserve(maxSize);
-  aRess2.reserve(maxSize);
+  aRessxy.reserve(maxSize);
+  aRessyy.reserve(maxSize);
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
   Jac.reserve(4 * maxSize * maxSize);
@@ -610,8 +610,8 @@ double nu2 = 2.0 / (1.0 + nu);
     sysDof.resize(4 * nDofs);
     solu.resize(nDofs);
     solsxx.resize(nDofs);
-    sols1.resize(nDofs);
-    sols2.resize(nDofs);
+    solsxy.resize(nDofs);
+    solsyy.resize(nDofs);
 
     for (int i = 0; i < dim; i++) {
       x[i].resize(nDofs2);
@@ -619,8 +619,8 @@ double nu2 = 2.0 / (1.0 + nu);
 
     aResu.assign(nDofs, 0.);    //resize
     aRessxx.assign(nDofs, 0.);    //resize
-    aRess1.assign(nDofs, 0.0);
-    aRess2.assign(nDofs, 0.0);
+    aRessxy.assign(nDofs, 0.0);
+    aRessyy.assign(nDofs, 0.0);
 
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
@@ -632,13 +632,13 @@ double nu2 = 2.0 / (1.0 + nu);
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
       solsxx[i]          = (*sol->_Sol[solsxxIndex])(solDof);      // global extraction and local storage for the solution
-      sols1[i]         = (*sol->_Sol[sols1Index])(solDof);      // s1  -> secondary row2, col2
-      sols2[i]         = (*sol->_Sol[sols2Index])(solDof);      // s2  -> secondary row1, col2
+      solsxy[i]         = (*sol->_Sol[solsxyIndex])(solDof);      // sxy  -> secondary row2, col2
+      solsyy[i]         = (*sol->_Sol[solsyyIndex])(solDof);      // syy  -> secondary row1, col2
 
       sysDof[i]             = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
       sysDof[nDofs + i]     = pdeSys->GetSystemDof(solsxxIndex, solsxxPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
-      sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(sols1Index, sols1PdeIndex, i, iel); // s1
-      sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(sols2Index, sols2PdeIndex, i, iel); // s2
+      sysDof[2 * nDofs + i] = pdeSys->GetSystemDof(solsxyIndex, solsxyPdeIndex, i, iel); // sxy
+      sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solsyyIndex, solsyyPdeIndex, i, iel); // syy
 
     }
 
@@ -656,7 +656,7 @@ double nu2 = 2.0 / (1.0 + nu);
 
     // *** Gauss point loop ***
 
-    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_sxx]->GetGaussPointNumber(); ig++) {
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
 // *** get gauss point weight, test function and test function partial derivatives ***
 
       msh->_finiteElement[ielGeom][solFEType_sxx]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
@@ -668,11 +668,11 @@ double nu2 = 2.0 / (1.0 + nu);
       adept::adouble solsxxGauss = 0;
       std::vector < adept::adouble > solsxxGauss_x(dim, 0.);
 
-      adept::adouble sols1Gauss = 0;
-      std::vector < adept::adouble > sols1Gauss_x(dim, 0.);
+      adept::adouble solsxyGauss = 0;
+      std::vector < adept::adouble > solsxyGauss_x(dim, 0.);
 
-      adept::adouble sols2Gauss = 0;
-      std::vector < adept::adouble > sols2Gauss_x(dim, 0.);
+      adept::adouble solsyyGauss = 0;
+      std::vector < adept::adouble > solsyyGauss_x(dim, 0.);
 
       std::vector < double > xGauss(dim, 0.);
 
@@ -680,15 +680,15 @@ double nu2 = 2.0 / (1.0 + nu);
         soluGauss += phi[i] * solu[i];
         solsxxGauss += phi[i] * solsxx[i];
 
-        sols1Gauss += phi[i] * sols1[i];
-        sols2Gauss += phi[i] * sols2[i];
+        solsxyGauss += phi[i] * solsxy[i];
+        solsyyGauss += phi[i] * solsyy[i];
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           soluGauss_x[jdim] += phi_x[i * dim + jdim] * solu[i];
           solsxxGauss_x[jdim] += phi_x[i * dim + jdim] * solsxx[i];
 
-          sols1Gauss_x[jdim] += phi_x[i * dim + jdim] * sols1[i];
-          sols2Gauss_x[jdim] += phi_x[i * dim + jdim] * sols2[i];
+          solsxyGauss_x[jdim] += phi_x[i * dim + jdim] * solsxy[i];
+          solsyyGauss_x[jdim] += phi_x[i * dim + jdim] * solsyy[i];
 
           xGauss[jdim] += x[jdim][i] * phi[i];
         }
@@ -699,21 +699,21 @@ double nu2 = 2.0 / (1.0 + nu);
         adept::adouble Laplace_u = 0.;
         adept::adouble Laplace_sxx = 0.;
 
-        adept::adouble Laplace_s1 = 0.;
-        adept::adouble Laplace_s2 = 0.;
+        adept::adouble Laplace_sxy = 0.;
+        adept::adouble Laplace_syy = 0.;
 
 
         adept::adouble Mxxxx_sxx = phi[i] * solsxxGauss;
-        adept::adouble Mxyxy_s1 = 2. * phi[i] * sols1Gauss;
-        adept::adouble Myyyy_s2 = phi[i] * sols2Gauss;
+        adept::adouble Mxyxy_sxy = 2. * phi[i] * solsxyGauss;
+        adept::adouble Myyyy_syy = phi[i] * solsyyGauss;
 
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
           Laplace_sxx   +=  - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
 
-          Laplace_s1   +=  - phi_x[i * dim + jdim] * sols1Gauss_x[jdim];
-          Laplace_s2   +=  - phi_x[i * dim + jdim] * sols2Gauss_x[jdim];
+          Laplace_sxy   +=  - phi_x[i * dim + jdim] * solsxyGauss_x[jdim];
+          Laplace_syy   +=  - phi_x[i * dim + jdim] * solsyyGauss_x[jdim];
 
         }
 
@@ -723,8 +723,8 @@ double nu2 = 2.0 / (1.0 + nu);
     adept::adouble Bxyu = 0.;
     adept::adouble Byyu = 0.;
     adept::adouble Bxxsxx = 0.;
-    adept::adouble Bxys1 = 0.;
-    adept::adouble Byys2 = 0.;
+    adept::adouble Bxysxy = 0.;
+    adept::adouble Byysyy = 0.;
 
     if (dim == 2) {
 
@@ -733,18 +733,18 @@ double nu2 = 2.0 / (1.0 + nu);
         Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1];
 
         Bxxsxx += phi_x[i * dim] * solsxxGauss_x[0];
-        Bxys1 +=( (phi_x[i * dim + 1 ] * sols1Gauss_x[0] + phi_x[i * dim ] * sols1Gauss_x[1]) );
-        Byys2 +=  phi_x[i * dim + 1] * sols2Gauss_x[1];
+        Bxysxy +=( (phi_x[i * dim + 1 ] * solsxyGauss_x[0] + phi_x[i * dim ] * solsxyGauss_x[1]) );
+        Byysyy +=  phi_x[i * dim + 1] * solsyyGauss_x[1];
 
 
     }
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
-     aResu[i] += ( Bxxsxx + Bxys1 + Byys2 + F_term ) * weight;
+     aResu[i] += ( Bxxsxx + Bxysxy + Byysyy + F_term ) * weight;
      aRessxx[i] += (Bxxu + Mxxxx_sxx ) * weight;
-     aRess1[i] += ( Bxyu + Mxyxy_s1 ) * weight;
-     aRess2[i] += (Byyu + Myyyy_s2) * weight;
+     aRessxy[i] += ( Bxyu + Mxyxy_sxy ) * weight;
+     aRessyy[i] += (Byyu + Myyyy_syy) * weight;
 
       } // end phi_i loop
 
@@ -760,8 +760,8 @@ double nu2 = 2.0 / (1.0 + nu);
       Res[i]         = -aResu[i].value();
       Res[nDofs + i] = -aRessxx[i].value();
 
-      Res[2 * nDofs + i  ] = -aRess1[i].value(); // s1
-      Res[3 * nDofs + i  ] = -aRess2[i].value(); // s2
+      Res[2 * nDofs + i  ] = -aRessxy[i].value(); // sxy
+      Res[3 * nDofs + i  ] = -aRessyy[i].value(); // syy
 
     }
 
@@ -773,14 +773,14 @@ double nu2 = 2.0 / (1.0 + nu);
     s.independent(&solu[0], nDofs);
     s.independent(&solsxx[0], nDofs);
 
-    s.independent(&sols1[0], nDofs);
-    s.independent(&sols2[0], nDofs);
+    s.independent(&solsxy[0], nDofs);
+    s.independent(&solsyy[0], nDofs);
 
         // define the dependent variables
     s.dependent(&aResu[0], nDofs);
     s.dependent(&aRessxx[0], nDofs);
-    s.dependent(&aRess1[0], nDofs);
-    s.dependent(&aRess2[0], nDofs);
+    s.dependent(&aRessxy[0], nDofs);
+    s.dependent(&aRessyy[0], nDofs);
 
     // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);

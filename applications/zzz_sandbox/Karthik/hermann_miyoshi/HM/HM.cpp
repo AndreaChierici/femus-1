@@ -355,7 +355,7 @@ int main(int argc, char** args) {
 // // //       // convergence for u
 
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "syy",  & system_biharmonic_HM_function_zero_on_boundary_syy);
+      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "sxy",  & system_biharmonic_HM_function_zero_on_boundary_sxy);
 
 
 
