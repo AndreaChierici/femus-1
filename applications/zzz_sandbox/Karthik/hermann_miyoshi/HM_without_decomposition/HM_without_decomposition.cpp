@@ -200,249 +200,146 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
 
 
 int main(int argc, char** args) {
-
-  // init Petsc-MPI communicator
   FemusInit mpinit(argc, args, MPI_COMM_WORLD);
 
-  // ======= Files - BEGIN  ========================
-  const bool use_output_time_folder = false; // This allows you to run the code multiple times without overwriting. This will generate an output folder each time you run.
-  const bool redirect_cout_to_file = false; // puts the output in a log file instead of the term
+  const bool use_output_time_folder = false;
+  const bool redirect_cout_to_file = false;
   Files files;
-        files.CheckIODirectories(use_output_time_folder);
-        files.RedirectCout(redirect_cout_to_file);
+  files.CheckIODirectories(use_output_time_folder);
+  files.RedirectCout(redirect_cout_to_file);
 
-  // ======= Files - END  ========================
+  system_specifics system_biharmonic_HM_D;
 
+  system_biharmonic_HM_D._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
+  const std::string relative_path_to_build_directory = "../../../../../";
+  const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";
+  system_biharmonic_HM_D._mesh_files_path_relative_to_executable.push_back(mesh_file);
 
-    // ======= System Specifics - BEGIN  ==================
-  system_specifics  system_biharmonic_HM;   //me
+  system_biharmonic_HM_D._system_name = "Biharmonic";
+  system_biharmonic_HM_D._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM::biharmonic_HM_without_decomposition::AssembleBilaplaceProblem_AD;
+  system_biharmonic_HM_D._boundary_conditions_types_and_values = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
-  // =========Mesh file - BEGIN ==================
-  system_biharmonic_HM._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
-  const std::string relative_path_to_build_directory =  "../../../../../";
-  const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";  system_biharmonic_HM._mesh_files_path_relative_to_executable.push_back(mesh_file);
- // =========Mesh file - END ==================
+  Domains::square_m05p05::Function_Zero_on_boundary_7<> system_biharmonic_HM_D_function_zero_on_boundary_1;
+    Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> system_biharmonic_HM_D_function_zero_on_boundary_sxx;
 
+  Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> system_biharmonic_HM_D_function_zero_on_boundary_sxy;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> system_biharmonic_HM_D_function_zero_on_boundary_syy;
+  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
 
-  system_biharmonic_HM._system_name = "Biharmonic";
-  system_biharmonic_HM._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM :: biharmonic_HM_without_decomposition :: AssembleBilaplaceProblem_AD;
+  system_biharmonic_HM_D._assemble_function_for_rhs = &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
+  system_biharmonic_HM_D._true_solution_function = &system_biharmonic_HM_D_function_zero_on_boundary_1;
 
-  system_biharmonic_HM._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_1;
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_sxx  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_sxx;
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_sxy  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_sxy;
-
-    Domains::square_m05p05::Function_Zero_on_boundary_7_syy  /*  Function_Zero_on_boundary_5*/ <>   system_biharmonic_HM_function_zero_on_boundary_syy;
-
-
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian /* Function_Zero_on_boundary_5_Laplacian*/ <>   system_biharmonic_HM_function_zero_on_boundary_1_Laplacian;
-
-  system_biharmonic_HM._assemble_function_for_rhs   = & system_biharmonic_HM_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
-  system_biharmonic_HM._true_solution_function      = & system_biharmonic_HM_function_zero_on_boundary_1;
-
-
-
-
-  ///@todo if this is not set, nothing happens here. It is used to compute absolute errors
-    // ======= System Specifics - END ==================
-
-
-
-  // define multilevel mesh
   MultiLevelMesh mlMsh;
-  // read coarse level mesh and generate finers level meshes
-  double scalingFactor = 1.;
-  const std::string mesh_file_total = system_biharmonic_HM._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM._mesh_files[0];
-  mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
+  const std::string mesh_file_total = system_biharmonic_HM_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_D._mesh_files[0];
+  mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  unsigned maxNumberOfMeshes = 4;
+  const unsigned maxNumberOfMeshes = 4;
+  std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
-  std::vector < std::vector < double > > l2Norm;
-  l2Norm.resize(maxNumberOfMeshes);
+  std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
+  std::vector<std::vector<double>> l2Norm_sxx(maxNumberOfMeshes), semiNorm_sxx(maxNumberOfMeshes);
+  std::vector<std::vector<double>> l2Norm_sxy(maxNumberOfMeshes), semiNorm_sxy(maxNumberOfMeshes);
+  std::vector<std::vector<double>> l2Norm_syy(maxNumberOfMeshes), semiNorm_syy(maxNumberOfMeshes);
 
-  std::vector < std::vector < double > > semiNorm;
-  semiNorm.resize(maxNumberOfMeshes);
-
-    std::vector<FEOrder> feOrder;
-    feOrder.push_back(FIRST);
-    feOrder.push_back(SERENDIPITY);
-    feOrder.push_back(SECOND);
-
-
-
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {   // loop on the mesh level
-
-    unsigned numberOfUniformLevels = i + 1;
-    unsigned numberOfSelectiveLevels = 0;
-    mlMsh.RefineMesh(numberOfUniformLevels , numberOfUniformLevels + numberOfSelectiveLevels, NULL);
-
-    // erase all the coarse mesh levels
-    mlMsh.EraseCoarseLevels(numberOfUniformLevels - 1);
-
-    // print mesh info
+  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
+    mlMsh.RefineMesh(i + 1, i + 1, nullptr);
+    mlMsh.EraseCoarseLevels(i);
     mlMsh.PrintInfo();
 
-    l2Norm[i].resize( feOrder.size() );
-    semiNorm[i].resize( feOrder.size() );
+    l2Norm_u[i].resize(feOrder.size());
+    semiNorm_u[i].resize(feOrder.size());
+    l2Norm_sxx[i].resize(feOrder.size());
+    semiNorm_sxx[i].resize(feOrder.size());
+    l2Norm_sxy[i].resize(feOrder.size());
+    semiNorm_sxy[i].resize(feOrder.size());
+    l2Norm_syy[i].resize(feOrder.size());
+    semiNorm_syy[i].resize(feOrder.size());
 
-
-    for (unsigned j = 0; j < feOrder.size(); j++) {   // loop on the FE Order
-
-      // define the multilevel solution and attach the mlMsh object to it
+    for (unsigned j = 0; j < feOrder.size(); j++) {
       MultiLevelSolution mlSol(&mlMsh);
 
-
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", & system_biharmonic_HM_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("sxx", & system_biharmonic_HM_function_zero_on_boundary_sxx);
-
-
+      mlSol.set_analytical_function("sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
 
       mlSol.AddSolution("sxy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("sxy", & system_biharmonic_HM_function_zero_on_boundary_sxy);
+      mlSol.set_analytical_function("sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
 
       mlSol.AddSolution("syy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("syy", & system_biharmonic_HM_function_zero_on_boundary_syy);
-
+      mlSol.set_analytical_function("syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
 
       mlSol.Initialize("All");
 
-
-
-      // define the multilevel problem attach the mlSol object to it
       MultiLevelProblem ml_prob(&mlSol);
-
-      ml_prob.set_app_specs_pointer(& system_biharmonic_HM);
-      // ======= Problem, Files ========================
+      ml_prob.set_app_specs_pointer(&system_biharmonic_HM_D);
       ml_prob.SetFilesHandler(&files);
 
-      // attach the boundary condition function and generate boundary data
-      mlSol.AttachSetBoundaryConditionFunction( system_biharmonic_HM._boundary_conditions_types_and_values );
-      mlSol.GenerateBdc("u", "Steady", & ml_prob);
-      mlSol.GenerateBdc("sxx", "Steady", & ml_prob);
+      mlSol.AttachSetBoundaryConditionFunction(system_biharmonic_HM_D._boundary_conditions_types_and_values);
+      mlSol.GenerateBdc("u", "Steady", &ml_prob);
+      mlSol.GenerateBdc("sxx", "Steady", &ml_prob);
+      mlSol.GenerateBdc("sxy", "Steady", &ml_prob);
+      mlSol.GenerateBdc("syy", "Steady", &ml_prob);
 
-
-      mlSol.GenerateBdc("sxy", "Steady", & ml_prob);
-      mlSol.GenerateBdc("syy", "Steady", & ml_prob);
-
-      // add system Biharmonic in ml_prob as a Linear Implicit System
-      NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_HM._system_name);
-
-      // add solution "u" to system
+      NonLinearImplicitSystem& system = ml_prob.add_system<NonLinearImplicitSystem>(system_biharmonic_HM_D._system_name);
       system.AddSolutionToSystemPDE("u");
       system.AddSolutionToSystemPDE("sxx");
-
-
       system.AddSolutionToSystemPDE("sxy");
       system.AddSolutionToSystemPDE("syy");
+      system.SetAssembleFunction(system_biharmonic_HM_D._assemble_function);
 
-
-      // attach the assembling function to system
-      system.SetAssembleFunction( system_biharmonic_HM._assemble_function );
-
-      // initialize and solve the system
       system.init();
-
       system.MGsolve();
 
+      std::pair<double, double> norm;
 
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
+      l2Norm_u[i][j] = norm.first;
+      semiNorm_u[i][j] = norm.second;
 
-// // //       // convergence for u
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
+      l2Norm_sxx[i][j] = norm.first;
+      semiNorm_sxx[i][j] = norm.second;
 
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
+      l2Norm_sxy[i][j] = norm.first;
+      semiNorm_sxy[i][j] = norm.second;
 
-      std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "sxy",  & system_biharmonic_HM_function_zero_on_boundary_sxy);
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
+      l2Norm_syy[i][j] = norm.first;
+      semiNorm_syy[i][j] = norm.second;
 
-
-
-      l2Norm[i][j]  = norm.first;
-      semiNorm[i][j] = norm.second;
-
-
-
-      // print solutions
-      std::vector < std::string > variablesToBePrinted;
-      variablesToBePrinted.push_back("All");
-
-      std::string  an_func = "test";
       VTKWriter vtkIO(&mlSol);
-      vtkIO.Write(an_func, Files::_application_output_directory, "biquadratic", variablesToBePrinted, i);
-
-
-
+      vtkIO.Write("test", Files::_application_output_directory, "biquadratic", {"All"}, i);
     }
   }
 
-
-  // FE_convergence::output_convergence_order();
-
-
-  // ======= L2 - BEGIN  ========================
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout << "l2 ERROR and ORDER OF CONVERGENCE:\n\n";
-  std::cout << "LEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
-
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
-    std::cout << i + 1 << "\t";
-    std::cout.precision(14);
-
-    for (unsigned j = 0; j < feOrder.size(); j++) {
-      std::cout << l2Norm[i][j] << "\t";
-    }
-
-    std::cout << std::endl;
-
-    if (i < maxNumberOfMeshes - 1) {
-      std::cout.precision(3);
-      std::cout << "\t\t";
-
-      for (unsigned j = 0; j < feOrder.size(); j++) {
-        std::cout << log(l2Norm[i][j] / l2Norm[i + 1][j]) / log(2.) << "\t\t\t";
+  auto print_error = [](const std::vector<std::vector<double>>& error, const std::string& title) {
+    std::cout << "\n" << title << "\nLEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
+    for (unsigned i = 0; i < error.size(); ++i) {
+      std::cout << i + 1 << "\t";
+      for (auto val : error[i]) std::cout << val << "\t";
+      std::cout << "\n";
+      if (i < error.size() - 1) {
+        std::cout << "\t\t";
+        for (unsigned j = 0; j < error[i].size(); ++j) {
+          std::cout << log(error[i][j] / error[i + 1][j]) / log(2.) << "\t\t\t";
+        }
+        std::cout << "\n";
       }
-
-      std::cout << std::endl;
     }
+  };
 
-  }
-  // ======= L2 - END  ========================
-
-
-// ======= H1 - BEGIN  ========================
-
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout << "SEMINORM ERROR and ORDER OF CONVERGENCE:\n\n";
-  std::cout << "LEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
-
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
-    std::cout << i + 1 << "\t";
-    std::cout.precision(14);
-
-    for (unsigned j = 0; j < feOrder.size(); j++) {
-      std::cout << semiNorm[i][j] << "\t";
-    }
-
-    std::cout << std::endl;
-
-    if (i < maxNumberOfMeshes - 1) {
-      std::cout.precision(3);
-      std::cout << "\t\t";
-
-      for (unsigned j = 0; j < feOrder.size(); j++) {
-        std::cout << log(semiNorm[i][j] / semiNorm[i + 1][j]) / log(2.) << "\t\t\t";
-      }
-
-      std::cout << std::endl;
-    }
-
-  }
-
-  // ======= H1 - END  ========================
+  print_error(l2Norm_u, "L2 ERROR for u");
+  print_error(semiNorm_u, "H1 ERROR for u");
+  print_error(l2Norm_sxx, "L2 ERROR for sxx");
+  print_error(semiNorm_sxx, "H1 ERROR for sxx");
+  print_error(l2Norm_sxy, "L2 ERROR for sxy");
+  print_error(semiNorm_sxy, "H1 ERROR for sxy");
+  print_error(l2Norm_syy, "L2 ERROR for syy");
+  print_error(semiNorm_syy, "H1 ERROR for syy");
 
   return 0;
 }
+
