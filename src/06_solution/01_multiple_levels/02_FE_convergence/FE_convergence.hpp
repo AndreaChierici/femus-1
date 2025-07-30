@@ -1453,18 +1453,18 @@ std::pair < double, double > GetErrorNorm_L2_H1_with_analytical_sol(const MultiL
 
 
 
-// ||u_i - u_h||/||u_i-u_(h/2)|| = 2^alpha, alpha is order of conv 
+// ||u_i - u_h||/||u_i-u_(h/2)|| = 2^alpha, alpha is order of conv
 std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolution* ml_sol,
                                           Solution* sol_finer,
                                           std::vector< Unknown > & unknowns_vec,
                                                                     double    (* function_value )  (const std::vector<double> & ),
                                                                     void    (* function_gradient)  (const std::vector < double > & , std::vector < double >&  )
                                           ) {
-  
+
   if (unknowns_vec.size() != 1) abort();
-  
+
   unsigned level = ml_sol->GetMLMesh()->GetNumberOfLevels() - 1u;
-  
+
   //  extract pointers to the several objects that we are going to use
   Mesh*     msh = ml_sol->GetMLMesh()->GetLevel(level);    // pointer to the mesh (level) object
   elem*     el  = msh->GetMeshElements();  // pointer to the elem object in msh (level)
@@ -1492,7 +1492,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
   solu.reserve(maxSize);
 
   std::vector < double >  solu_finer;   solu_finer.reserve(maxSize);
-  
+
   std::vector < double >  solu_exact_at_dofs;   solu_exact_at_dofs.reserve(maxSize);
 
   for (unsigned i = 0; i < dim; i++)
@@ -1511,7 +1511,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
   // element loop: each process loops only on the elements that owns
   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
-    
+
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofu  = msh->GetElementDofNumber(iel, soluType);    // number of solution element dofs
     unsigned nDofx = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
@@ -1533,9 +1533,9 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
         x[jdim][i] = (*msh->GetTopology()->_Sol[jdim])(xDof);  // global extraction and local storage for the element coordinates
       }
     }
-    
+
     const double weird_multigrid_factor = 0.25;  //don't know!
-    
+
          std::vector <double> x_at_node(dim,0.);
       for (unsigned i = 0; i < nDofu; i++) {
          for (unsigned jdim = 0; jdim < dim; jdim++) {
@@ -1556,7 +1556,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
 
     // *** Gauss point loop ***
     for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][soluType]->GetGaussPointNumber(); ig++) {
-        
+
       // *** get gauss point weight, test function and test function partial derivatives ***
       msh->_finiteElement[ielGeom][soluType]->Jacobian(x, ig, weight, phi, phi_x, boost::none);
 
@@ -1644,7 +1644,7 @@ std::pair < double, double > GetErrorNorm_L2_H1_multiple_methods(MultiLevelSolut
   delete norm_vec_inexact;
 
   std::pair < double, double > inexact_pair(sqrt(l2norm_inexact), sqrt(seminorm_inexact));
-  
+
   return std::pair < double, double > (sqrt(l2norm), sqrt(seminorm));
   // return std::pair < double, double > (sqrt(l2norm_exact_dofs), sqrt(seminorm_exact_dofs));  ///@todo does not seem to work
   // return std::pair < double, double > (sqrt(l2norm_inexact), sqrt(seminorm_inexact));        ///@todo does not seem to work

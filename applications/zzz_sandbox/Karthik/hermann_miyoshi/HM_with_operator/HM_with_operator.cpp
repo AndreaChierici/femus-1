@@ -125,7 +125,7 @@ public:
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return -16. * pi * pi * pi * pi * cos(2.*pi*x[0]) * cos(2.*pi*x[1]);
+        return -32. * pi * pi * pi * pi * cos(2.*pi*x[0]) * cos(2.*pi*x[1]);
     }
 
 private:
