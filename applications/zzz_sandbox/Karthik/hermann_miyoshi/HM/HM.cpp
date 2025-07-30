@@ -42,7 +42,7 @@
 
 
 using namespace femus;
-
+/*
 namespace Domains {
 
 namespace  square_m05p05  {
@@ -168,6 +168,199 @@ private:
 
 
 }
+*/
+
+
+
+
+namespace Domains {
+
+namespace square_m05p05  {
+
+// ---- Helper: a = 0.5 for domain [-0.5, 0.5]^2 -----------------------------
+
+template <class type = double>
+class Function_Zero_on_boundary_7 : public Math::Function<type> {
+public:
+    static constexpr type a = static_cast<type>(0.5);
+
+    // u(x,y) = (x^2 - a^2)^2 (y^2 - a^2)^2
+    type value(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        return (Ax*Ax) * (Ay*Ay);
+    }
+
+    // ∇u = [ 4x(x^2-a^2)(y^2-a^2)^2 , 4y(y^2-a^2)(x^2-a^2)^2 ]
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> g(x.size(), 0.);
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        g[0] = static_cast<type>(4.) * x[0] * Ax * (Ay*Ay);
+        g[1] = static_cast<type>(4.) * x[1] * Ay * (Ax*Ax);
+        return g;
+    }
+
+    // Δu = 4(3x^2-a^2)(y^2-a^2)^2 + 4(3y^2-a^2)(x^2-a^2)^2
+    type laplacian(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        const type u_xx = static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
+        const type u_yy = static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
+        return u_xx + u_yy;
+    }
+};
+
+// This is Δu (for your RHS helper usage)
+template <class type = double>
+class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
+public:
+    static constexpr type a = static_cast<type>(0.5);
+
+    type value(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        const type u_xx = static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
+        const type u_yy = static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
+        return u_xx + u_yy;
+    }
+
+    // ∇(Δu) — rarely needed; provided for completeness
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> g(x.size(), 0.);
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+
+        // ∂/∂x Δu = 24 x (Ay^2) + 16 x (3y^2 - a^2) Ax
+        g[0] = static_cast<type>(24.) * x[0] * (Ay*Ay)
+             + static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
+
+        // ∂/∂y Δu = 24 y (Ax^2) + 16 y (3x^2 - a^2) Ay
+        g[1] = static_cast<type>(24.) * x[1] * (Ax*Ax)
+             + static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
+
+        return g;
+    }
+
+    // Δ(Δu) optional; not typically used
+    type laplacian(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        // From differentiating the gradient above:
+        const type d2x = static_cast<type>(24.) * (Ay*Ay)
+                       + static_cast<type>(16.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (static_cast<type>(3.)*x[0]*x[0] - a*a);
+        const type d2y = static_cast<type>(24.) * (Ax*Ax)
+                       + static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a);
+        return d2x + d2y;
+    }
+};
+
+// sxx = u_xx
+template <class type = double>
+class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
+public:
+    static constexpr type a = static_cast<type>(0.5);
+
+    // u_xx = 4(3x^2 - a^2) (y^2 - a^2)^2
+    type value(const std::vector<type>& x) const {
+        const type Ay = x[1]*x[1] - a*a;
+        return static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
+    }
+
+    // ∇(u_xx) = [ 24 x (Ay^2), 16 y (3x^2 - a^2) Ay ]
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> g(x.size(), 0.);
+        const type Ay = x[1]*x[1] - a*a;
+        g[0] = static_cast<type>(24.) * x[0] * (Ay*Ay);
+        g[1] = static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
+        return g;
+    }
+
+    // Δ(u_xx) = 24 (Ay^2) + 16 (3x^2 - a^2)(3y^2 - a^2)
+    type laplacian(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        return static_cast<type>(24.) * (Ay*Ay)
+             + static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a);
+    }
+};
+
+// sxy = u_xy  (use 2*u_xy if your formulation uses engineering shear)
+template <class type = double>
+class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
+public:
+    static constexpr type a = static_cast<type>(0.5);
+
+    // u_xy = 16 x y (x^2 - a^2)(y^2 - a^2)
+    type value(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        return static_cast<type>(16.) * x[0] * x[1] * Ax * Ay;
+    }
+
+    // ∇(u_xy) = [ 16 y (3x^2 - a^2) Ay , 16 x (3y^2 - a^2) Ax ]
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> g(x.size(), 0.);
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        g[0] = static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
+        g[1] = static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
+        return g;
+    }
+
+    // Δ(u_xy) = 96 x y [ (x^2 - a^2) + (y^2 - a^2) ] = 96 x y (x^2 + y^2 - 2a^2)
+    type laplacian(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        const type Ay = x[1]*x[1] - a*a;
+        return static_cast<type>(96.) * x[0] * x[1] * (Ax + Ay);
+    }
+};
+
+// syy = u_yy
+template <class type = double>
+class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
+public:
+    static constexpr type a = static_cast<type>(0.5);
+
+    // u_yy = 4(3y^2 - a^2) (x^2 - a^2)^2
+    type value(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        return static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
+    }
+
+    // ∇(u_yy) = [ 16 x (3y^2 - a^2) Ax , 24 y (Ax^2) ]
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> g(x.size(), 0.);
+        const type Ax = x[0]*x[0] - a*a;
+        g[0] = static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
+        g[1] = static_cast<type>(24.) * x[1] * (Ax*Ax);
+        return g;
+    }
+
+    // Δ(u_yy) = 16 (3x^2 - a^2)(3y^2 - a^2) + 24 (Ax^2)
+    type laplacian(const std::vector<type>& x) const {
+        const type Ax = x[0]*x[0] - a*a;
+        return static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a)
+             + static_cast<type>(24.) * (Ax*Ax);
+    }
+};
+
+} // namespace square_m05p05
+
+} // namespace Domains
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
