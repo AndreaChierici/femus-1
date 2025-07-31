@@ -1314,6 +1314,8 @@ double alpha = .001 ;
 
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
 
+        adept::adouble udr_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->value(xGauss) * phi[i];
+
 // // //         adept::adouble F_term_yd = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian_yd(xGauss) * phi[i];
 
         // System residuals - signs adjusted to match matrix form
@@ -1321,7 +1323,7 @@ double alpha = .001 ;
      aRessxx[i] += (Bxxu + M_sxx ) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxy[i] += (Bxyu + M_sxy ) * weight;  // C1^T*W + M*S1 = 0
      aRessyy[i] += (Byyu + M_syy ) * weight;  // C2^T*W + M*S2 = 0
-     aResud[i] += (M_u + Bxxd + Bxyd + Byyd - F_term) * weight;  // M*W + B^T*U = 0
+     aResud[i] += (M_u + Bxxd + Bxyd + Byyd - udr_term) * weight;  // M*W + B^T*U = 0
      aRessxxd[i] += (Bxxud + M_sxxd) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRessxyd[i] += (Bxyud + M_sxyd) * weight;  // C1^T*W + M*S1 = 0
      aRessyyd[i] += (Byyud + M_syyd ) * weight;  // C2^T*W + M*S2 = 0
