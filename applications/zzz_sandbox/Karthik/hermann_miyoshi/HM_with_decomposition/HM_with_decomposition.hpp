@@ -1167,7 +1167,6 @@ double nu2 = 2.0 / (1.0 + nu);
 
 
 
-
 /*
     adept::adouble C1u_term = 0.;
     adept::adouble C2s1_term = 0.;
