@@ -1012,7 +1012,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
 
-double nu =  0.1 /* Poisson ratio value */;
+double nu =  0.4 /* Poisson ratio value */;
 double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
 double nu2 = 2.0 / (1.0 + nu);
 // // // double nu2 = 1. - nu;
@@ -1143,11 +1143,8 @@ double nu2 = 2.0 / (1.0 + nu);
         }
 
         double pi = acos(-1.);
-        // // // // // // aResu[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
-        // // // // // // aResv[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
-        // // // // // //
-        // // // // // // aRess1[i] += (sols2Gauss * phi[i] -  Laplace_s1) * weight;  // s1 block identical
-        // // // // // // aRess2[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_s2) * weight;  // s2 block identical
+
+
 
     adept::adouble C1s1_term = 0.;
     adept::adouble C2s2_term = 0.;
@@ -1167,6 +1164,35 @@ double nu2 = 2.0 / (1.0 + nu);
      aResv[i] += (Laplace_u + nu1*C1s1_term + nu1*C2s2_term + nu2*F_term) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
      aRess1[i] += (C1v_term + M_s1) * weight;  // C1^T*W + M*S1 = 0
      aRess2[i] += (C2v_term + M_s2) * weight;  // C2^T*W + M*S2 = 0
+
+
+
+
+/*
+    adept::adouble C1u_term = 0.;
+    adept::adouble C2s1_term = 0.;
+    adept::adouble C1v_term = 0.;
+    adept::adouble C2u_term = 0.;
+
+    if (dim == 2) {
+        C1v_term += 0.5 * (phi_x[i * dim ] * solvGauss_x[0] - phi_x[i * dim + 1] * solvGauss_x[1]);
+
+        C2s1_term += 0.5 * (phi_x[i * dim] * sols1Gauss_x[0] - phi_x[i * dim + 1] * sols1Gauss_x[1]);
+
+        C1u_term += 0.5 * (phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim + 0] * soluGauss_x[1]);
+
+        C2u_term += 0.5 * (phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim + 0] * soluGauss_x[1]);
+    }
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+
+        // System residuals - signs adjusted to match matrix form
+     aResu[i] += (nu1 * C1v_term + nu1 * C2s1_term + Laplace_s2 + nu2 * F_term) * weight;  // M*W + B^T*U = 0
+     aResv[i] += (C1u_term + M_v) * weight;  // B*W + ν1*C1*S1 + ν1*C2*S2 = -ν2*F
+     aRess1[i] += (C2u_term + M_s1) * weight;  // C1^T*W + M*S1 = 0
+     aRess2[i] += (Laplace_u + M_s2) * weight;  // C2^T*W + M*S2 = 0
+
+
+     */
 
       } // end phi_i loop
 

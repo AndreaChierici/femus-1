@@ -129,13 +129,36 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
+template <class type = double>
+class Function_Zero_on_boundary_7_W : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 8.*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 16. * pi * pi * pi * cos(2. * pi*x[0]) * sin(2. * pi*x[1]);
+        solGrad[1] = 16. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2.* pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -64. * pi * pi * pi * pi * sin(2. * pi*x[0]) * sin(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
 
 template <class type = double>
 class Function_Zero_on_boundary_7_deviatoric_s1 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 0.;
+        return 0. ;
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
@@ -285,6 +308,8 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2<> system_biharmonic_HM_D_function_zero_on_boundary_s2;
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
 
+   Domains::square_m05p05::Function_Zero_on_boundary_7_W<> system_biharmonic_HM_D_function_zero_on_boundary_1_W;
+
   system_biharmonic_HM_D._assemble_function_for_rhs = &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_HM_D._true_solution_function = &system_biharmonic_HM_D_function_zero_on_boundary_1;
 
@@ -318,7 +343,7 @@ int main(int argc, char** args) {
       MultiLevelSolution mlSol(&mlMsh);
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1_W);
 
       mlSol.AddSolution("v", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("v", &system_biharmonic_HM_D_function_zero_on_boundary_1);
@@ -353,7 +378,7 @@ int main(int argc, char** args) {
 
       std::pair<double, double> norm;
 
-      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian);
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_D_function_zero_on_boundary_1_W);
       l2Norm_u[i][j] = norm.first;
       semiNorm_u[i][j] = norm.second;
 
