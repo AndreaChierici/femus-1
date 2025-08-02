@@ -36,7 +36,7 @@
    #include "01_biharmonic_coupled.hpp"
    #define NAMESPACE_FOR_BIHARMONIC   femus
 #elif LIBRARY_OR_USER == 1
-   #include "HM_without_decomposition.hpp"
+   #include "HM_nonconforming.hpp"
    #define NAMESPACE_FOR_BIHARMONIC_HM   karthik
 #endif
 
@@ -216,7 +216,7 @@ int main(int argc, char** args) {
   system_biharmonic_HM_D._mesh_files_path_relative_to_executable.push_back(mesh_file);
 
   system_biharmonic_HM_D._system_name = "Biharmonic";
-  system_biharmonic_HM_D._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM::biharmonic_HM_without_decomposition::AssembleBilaplaceProblem_AD;
+  system_biharmonic_HM_D._assemble_function = NAMESPACE_FOR_BIHARMONIC_HM::biharmonic_HM_nonconforming::AssembleBilaplaceProblem_AD;
   system_biharmonic_HM_D._boundary_conditions_types_and_values = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
   Domains::square_m05p05::Function_Zero_on_boundary_7<> system_biharmonic_HM_D_function_zero_on_boundary_1;
