@@ -44,11 +44,8 @@ namespace karthik {
 
   public:
 
-
-
-
 //========= BOUNDARY_IMPLEMENTATION_U - BEGIN ==================
-
+// (unchanged from your original file)
 static void natural_loop_1dU(const MultiLevelProblem *    ml_prob,
                      const Mesh *                    msh,
                      const MultiLevelSolution *    ml_sol,
@@ -261,9 +258,8 @@ static void natural_loop_2d3dU(const MultiLevelProblem *    ml_prob,
 
 //========= BOUNDARY_IMPLEMENTATION_U - END ==================
 
-
 //========= BOUNDARY_IMPLEMENTATION_V - BEGIN ==================
-
+// (unchanged from original file)
 static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
                      const Mesh *                    msh,
                      const MultiLevelSolution *    ml_sol,
@@ -327,8 +323,8 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
                        const unsigned iel,
                        CurrentElem < double > & geom_element,
                        const unsigned solType_coords,
-                       const std::string solname_v,
-                       const unsigned solFEType_v,
+                       const std::string solname_sxx,
+                       const unsigned solFEType_sxx,
                        std::vector< double > & Res,
                        //-----------
                        std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> *  > >  elem_all,
@@ -351,11 +347,11 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
   double weight_iqp_bdry = 0.;
 // ---
   //boundary state shape functions
-  std::vector <double> phi_v_bdry;
-  std::vector <double> phi_v_x_bdry;
+  std::vector <double> phi_sxx_bdry;
+  std::vector <double> phi_sxx_x_bdry;
 
-  phi_v_bdry.reserve(max_size);
-  phi_v_x_bdry.reserve(max_size * space_dim);
+  phi_sxx_bdry.reserve(max_size);
+  phi_sxx_x_bdry.reserve(max_size * space_dim);
 // ---
 
 // ---
@@ -368,7 +364,7 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
 
 
-     double grad_v_dot_n = 0.;
+     double grad_sxx_dot_n = 0.;
 
     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
 
@@ -388,26 +384,26 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
          unsigned int face = - (boundary_index + 1);
 
-         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_v.c_str(), grad_v_dot_n, face, 0.);
+         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_sxx.c_str(), grad_sxx_dot_n, face, 0.);
          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
          //while here we pass the FACE ELEMENT CENTER coordinates.
          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
 
              if ( !(is_dirichlet) /* &&  (grad_u_dot_n != 0.)*/ ) {  //dirichlet == false and nonhomogeneous Neumann
 
-    unsigned n_dofs_face_v = msh->GetElementFaceDofNumber(iel, jface, solFEType_v);
+    unsigned n_dofs_face_sxx = msh->GetElementFaceDofNumber(iel, jface, solFEType_sxx);
 
 // dof-based - BEGIN
-     std::vector< double > grad_v_dot_n_at_dofs(n_dofs_face_v);
+     std::vector< double > grad_sxx_dot_n_at_dofs(n_dofs_face_sxx);
 
 
-    for (unsigned i_bdry = 0; i_bdry < grad_v_dot_n_at_dofs.size(); i_bdry++) {
+    for (unsigned i_bdry = 0; i_bdry < grad_sxx_dot_n_at_dofs.size(); i_bdry++) {
         std::vector<double> x_at_node(dim, 0.);
         for (unsigned jdim = 0; jdim < x_at_node.size(); jdim++) x_at_node[jdim] = geom_element.get_coords_at_dofs_bdry_3d()[jdim][i_bdry];
 
-      double grad_v_dot_n_at_dofs_temp = 0.;
-      ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_v.c_str(), grad_v_dot_n_at_dofs_temp, face, 0.);
-     grad_v_dot_n_at_dofs[i_bdry] = grad_v_dot_n_at_dofs_temp;
+      double grad_sxx_dot_n_at_dofs_temp = 0.;
+      ml_sol->GetBdcFunctionMLProb()(ml_prob, x_at_node, solname_sxx.c_str(), grad_sxx_dot_n_at_dofs_temp, face, 0.);
+     grad_sxx_dot_n_at_dofs[i_bdry] = grad_sxx_dot_n_at_dofs_temp;
 
     }
 
@@ -424,7 +420,7 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
     weight_iqp_bdry = detJac_iqp_bdry * ml_prob->GetQuadratureRule(ielGeom_bdry).GetGaussWeightsPointer()[ig_bdry];
 
-    elem_all[ielGeom_bdry][solFEType_v ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_v_bdry, phi_v_x_bdry,  boost::none, space_dim);
+    elem_all[ielGeom_bdry][solFEType_sxx ]->shape_funcs_current_elem(ig_bdry, JacI_iqp_bdry, phi_sxx_bdry, phi_sxx_x_bdry,  boost::none, space_dim);
 
 
 
@@ -440,11 +436,11 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
              }
          }
 
-           double grad_v_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
+           double grad_sxx_dot_n_qp = 0.;  ///@todo here we should do a function that provides the gradient at the boundary, and then we do "dot n" with the normal at qp
 
 // dof-based
-         for (unsigned i_bdry = 0; i_bdry < phi_v_bdry.size(); i_bdry ++) {
-           grad_v_dot_n_qp +=  grad_v_dot_n_at_dofs[i_bdry] * phi_v_bdry[i_bdry];
+         for (unsigned i_bdry = 0; i_bdry < phi_sxx_bdry.size(); i_bdry ++) {
+           grad_sxx_dot_n_qp +=  grad_sxx_dot_n_at_dofs[i_bdry] * phi_sxx_bdry[i_bdry];
          }
 
 // quadrature point based
@@ -454,11 +450,11 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
 
 
-                  for (unsigned i_bdry = 0; i_bdry < n_dofs_face_v; i_bdry++) {
+                  for (unsigned i_bdry = 0; i_bdry < n_dofs_face_sxx; i_bdry++) {
 
                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i_bdry);
 
-                 Res[i_vol] +=  weight_iqp_bdry * grad_v_dot_n_qp /*grad_u_dot_n*/  * phi_v_bdry[i_bdry];
+                 Res[i_vol] +=  weight_iqp_bdry * grad_sxx_dot_n_qp /*grad_u_dot_n*/  * phi_sxx_bdry[i_bdry];
 
                            }
 
@@ -505,11 +501,9 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   unsigned    iproc = msh->processor_id(); // get the process_id (for parallel computation)
 
 
- const std::string solname_u = ml_sol->GetSolName_string_vec()[0];
+  const std::string solname_u = ml_sol->GetSolName_string_vec()[0];
 
-  //solution variable
   unsigned soluIndex = ml_sol->GetIndex(solname_u.c_str());    // get the position of "u" in the ml_sol object
-// // //   unsigned soluType = ml_sol->GetSolutionType(soluIndex);    // get the finite element type for "u"
   unsigned solFEType_u = ml_sol->GetSolutionType(soluIndex);    // get the finite element type for "u"
 
   unsigned soluPdeIndex = mlPdeSys->GetSolPdeIndex(solname_u.c_str());    // get the position of "u" in the pdeSys object
@@ -519,22 +513,30 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   std::vector < adept::adouble >  solu; // local solution
 
 
-  const std::string solname_v = ml_sol->GetSolName_string_vec()[1];
+  const std::string solname_sxx = ml_sol->GetSolName_string_vec()[1];
 
-  unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());    // get the position of "v" in the ml_sol object
-// // //   unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());    // get the position of "v" in the ml_sol object
-// // // // ---------------------------------------------------------------------
-// // //   const std::string solname_v = ml_sol->GetSolName_string_vec()[1];
-// // //   unsigned solvIndex = ml_sol->GetIndex(solname_v.c_str());
-// // // //----------------------------------------------------------------------
+  unsigned solsxxIndex = ml_sol->GetIndex(solname_sxx.c_str());    // get the position of "sxx" in the ml_sol object
 
-// // //   unsigned solvType = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
-  unsigned solFEType_v = ml_sol->GetSolutionType(solvIndex);    // get the finite element type for "v"
+  unsigned solFEType_sxx = ml_sol->GetSolutionType(solsxxIndex);    // get the finite element type for "sxx"
 
-// // //   unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex("v");    // get the position of "v" in the pdeSys object
-  unsigned solvPdeIndex = mlPdeSys->GetSolPdeIndex(solname_v.c_str());    // get the position of "v" in the pdeSys object
+  unsigned solsxxPdeIndex = mlPdeSys->GetSolPdeIndex(solname_sxx.c_str());    // get the position of "sxx" in the pdeSys object
 
-  std::vector < adept::adouble >  solv; // local solution
+  std::vector < adept::adouble >  solsxx; // local solution
+
+
+  // ---------- NEW: sxy, syy ----------
+  const std::string solname_sxy = ml_sol->GetSolName_string_vec()[2];
+  unsigned solsxyIndex   = ml_sol->GetIndex(solname_sxy.c_str());
+  unsigned solFEType_sxy = ml_sol->GetSolutionType(solsxyIndex);
+  unsigned solsxyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_sxy.c_str());
+  std::vector < adept::adouble >  solsxy;
+
+  const std::string solname_syy = ml_sol->GetSolName_string_vec()[3];
+  unsigned solsyyIndex   = ml_sol->GetIndex(solname_syy.c_str());
+  unsigned solFEType_syy = ml_sol->GetSolutionType(solsyyIndex);
+  unsigned solsyyPdeIndex = mlPdeSys->GetSolPdeIndex(solname_syy.c_str());
+  std::vector < adept::adouble >  solsyy;
+  // -----------------------------------
 
 
   std::vector < std::vector < double > > x(dim);    // local coordinates
@@ -548,29 +550,37 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < double > Res; // local redidual vector
   std::vector < adept::adouble > aResu; // local redidual vector
-  std::vector < adept::adouble > aResv; // local redidual vector
+  std::vector < adept::adouble > aRessxx; // local redidual vector
+  // new residuals for sxy,syy
+  std::vector < adept::adouble > aRessxy;
+  std::vector < adept::adouble > aRessyy;
 
 
   // reserve memory for the local standar vectors
   const unsigned maxSize = static_cast< unsigned >(ceil(pow(3, dim)));          // conservative: based on line3, quad9, hex27
   solu.reserve(maxSize);
-  solv.reserve(maxSize);
+  solsxx.reserve(maxSize);
+  solsxy.reserve(maxSize);
+  solsyy.reserve(maxSize);
 
-  for (unsigned i = 0; i < dim; i++)
-    x[i].reserve(maxSize);
+  for (unsigned i = 0; i < dim; i++){
+    x[i].reserve(maxSize);}
 
-  sysDof.reserve(2 * maxSize);
+  sysDof.reserve(4 * maxSize);
   phi.reserve(maxSize);
   phi_x.reserve(maxSize * dim);
   unsigned dim2 = (3 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
   phi_xx.reserve(maxSize * dim2);
 
-  Res.reserve(2 * maxSize);
+  Res.reserve(4 * maxSize);
   aResu.reserve(maxSize);
-  aResv.reserve(maxSize);
+  aRessxx.reserve(maxSize);
+  aRessxy.reserve(maxSize);
+  aRessyy.reserve(maxSize);
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
-  Jac.reserve(4 * maxSize * maxSize);
+  // reserve enough for a 4x4 block (16 blocks)
+  Jac.reserve(16 * maxSize * maxSize);
 
 
   KK->zero(); // Set to zero all the entries of the Global Matrix
@@ -579,36 +589,45 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
 
     short unsigned ielGeom = msh->GetElementType(iel);
-// // //     unsigned nDofs  = msh->GetElementDofNumber(iel, soluType);    // number of solution element dofs
 
     unsigned nDofs  = msh->GetElementDofNumber(iel, solFEType_u);    // number of solution element dofs
 
 
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
 
-       std::vector<unsigned> Sol_n_el_dofs_Mat_vol(2, nDofs);
+       std::vector<unsigned> Sol_n_el_dofs_Mat_vol(4, nDofs); // changed to 4 blocks
 
     // resize local arrays
-    sysDof.resize(2 * nDofs);
+    sysDof.resize(4 * nDofs);
     solu.resize(nDofs);
-    solv.resize(nDofs);
+    solsxx.resize(nDofs);
+    solsxy.resize(nDofs);
+    solsyy.resize(nDofs);
 
     for (int i = 0; i < dim; i++) {
       x[i].resize(nDofs2);
     }
 
     aResu.assign(nDofs, 0.);    //resize
-    aResv.assign(nDofs, 0.);    //resize
+    aRessxx.assign(nDofs, 0.);    //resize
+    aRessxy.assign(nDofs, 0.);   //resize
+    aRessyy.assign(nDofs, 0.);   //resize
 
     // local storage of global mapping and solution
     for (unsigned i = 0; i < nDofs; i++) {
-// // //       unsigned solDof = msh->GetSolutionDof(i, iel, soluType);    // global to global mapping between solution node and solution dof
       unsigned solDof = msh->GetSolutionDof(i, iel, solFEType_u);    // global to global mapping between solution node and solution dof
 
       solu[i]          = (*sol->_Sol[soluIndex])(solDof);      // global extraction and local storage for the solution
-      solv[i]          = (*sol->_Sol[solvIndex])(solDof);      // global extraction and local storage for the solution
-      sysDof[i]         = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
-      sysDof[nDofs + i] = pdeSys->GetSystemDof(solvIndex, solvPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      solsxx[i]          = (*sol->_Sol[solsxxIndex])(solDof);      // global extraction and local storage for the solution
+
+      // sxy and syy use the same mapping of local node to solution dof (assuming they share FE nodes)
+      solsxy[i]         = (*sol->_Sol[solsxyIndex])(solDof);
+      solsyy[i]         = (*sol->_Sol[solsyyIndex])(solDof);
+
+      sysDof[i]               = pdeSys->GetSystemDof(soluIndex, soluPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      sysDof[nDofs + i]       = pdeSys->GetSystemDof(solsxxIndex, solsxxPdeIndex, i, iel);    // global to global mapping between solution node and pdeSys dof
+      sysDof[2 * nDofs + i]   = pdeSys->GetSystemDof(solsxyIndex, solsxyPdeIndex, i, iel);  // sxy
+      sysDof[3 * nDofs + i]   = pdeSys->GetSystemDof(solsyyIndex, solsyyPdeIndex, i, iel);  // syy
     }
 
     // local storage of coordinates
@@ -624,11 +643,9 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     s.new_recording();
 
     // *** Gauss point loop ***
-// // //     for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][soluType]->GetGaussPointNumber(); ig++) {
 
     for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
-// *** get gauss point weight, test function and test function partial derivatives ***
-// // //       msh->_finiteElement[ielGeom][soluType]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
+      // *** get gauss point weight, test function and test function partial derivatives ***
       msh->_finiteElement[ielGeom][solFEType_u]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
 
@@ -636,36 +653,135 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
       adept::adouble soluGauss = 0;
       std::vector < adept::adouble > soluGauss_x(dim, 0.);
 
-      adept::adouble solvGauss = 0;
-      std::vector < adept::adouble > solvGauss_x(dim, 0.);
+      adept::adouble solsxxGauss = 0;
+      std::vector < adept::adouble > solsxxGauss_x(dim, 0.);
+
+      adept::adouble solsxyGauss = 0;
+      std::vector < adept::adouble > solsxyGauss_x(dim, 0.);
+
+      adept::adouble solsyyGauss = 0;
+      std::vector < adept::adouble > solsyyGauss_x(dim, 0.);
 
       std::vector < double > xGauss(dim, 0.);
 
       for (unsigned i = 0; i < nDofs; i++) {
-        soluGauss += phi[i] * solu[i];
-        solvGauss += phi[i] * solv[i];
+        soluGauss   += phi[i] * solu[i];
+        solsxxGauss   += phi[i] * solsxx[i];
+        solsxyGauss  += phi[i] * solsxy[i];
+        solsyyGauss  += phi[i] * solsyy[i];
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
-          soluGauss_x[jdim] += phi_x[i * dim + jdim] * solu[i];
-          solvGauss_x[jdim] += phi_x[i * dim + jdim] * solv[i];
+          soluGauss_x[jdim]  += phi_x[i * dim + jdim] * solu[i];
+          solsxxGauss_x[jdim]  += phi_x[i * dim + jdim] * solsxx[i];
+          solsxyGauss_x[jdim] += phi_x[i * dim + jdim] * solsxy[i];
+          solsyyGauss_x[jdim] += phi_x[i * dim + jdim] * solsyy[i];
+
           xGauss[jdim] += x[jdim][i] * phi[i];
         }
       }
-
       // *** phi_i loop ***
       for (unsigned i = 0; i < nDofs; i++) {
 
         adept::adouble Laplace_u = 0.;
-        adept::adouble Laplace_v = 0.;
+        adept::adouble Laplace_sxx = 0.;
+
+        adept::adouble Laplace_sxy = 0.;
+        adept::adouble Laplace_syy = 0.;
+        adept::adouble Mxxxx_sxx = phi[i] * solsxxGauss;
+        adept::adouble Mxyxy_sxy = 2. * phi[i] * solsxyGauss;
+        adept::adouble Myyyy_syy = phi[i] * solsyyGauss;
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
-          Laplace_v   +=  - phi_x[i * dim + jdim] * solvGauss_x[jdim];
+          Laplace_sxx   +=  - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
+
+          Laplace_sxy  +=  - phi_x[i * dim + jdim] * solsxyGauss_x[jdim];
+          Laplace_syy  +=  - phi_x[i * dim + jdim] * solsyyGauss_x[jdim];
+        }
+/*
+    adept::adouble Bxxu = 0.;
+    adept::adouble Bxyu = 0.;
+    adept::adouble Byyu = 0.;
+    adept::adouble Bxxsxx = 0.;
+    adept::adouble Bxysxy = 0.;
+    adept::adouble Byysyy = 0.;
+
+        for (unsigned jdim = 0; jdim < dim; jdim++) {
+          Bxxu   +=  - phi_x[ jdim] * soluGauss_x[jdim];
+          Byyu   +=  - phi_x[ jdim] * soluGauss_x[jdim];
+          Bxxsxx   +=  - phi_x[ jdim] * solsxxGauss_x[jdim];
+          Byysyy   +=  - phi_x[ jdim] * solsyyGauss_x[jdim];
+          Bxyu   +=  - phi_x[jdim * dim + i] * soluGauss_x[jdim];
+          Bxysxy   +=  - phi_x[jdim * dim + i] * solsxyGauss_x[jdim];
+
         }
 
+    for (unsigned jdim = 0; jdim < dim; jdim++) {
+          Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
+          Laplace_sxx   +=  - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
+          Laplace_sxy  +=  - phi_x[i * dim + jdim] * solsxyGauss_x[jdim];
+          Laplace_syy  +=  - phi_x[i * dim + jdim] * solsyyGauss_x[jdim];
+        }
+
+
+        for (unsigned i = 0; i < nDofs; ++i) {
+    adept::adouble divSigmaDotGradPhi_i =
+        (solsxxGauss_x[0] + solsxyGauss_x[1]) * phi_x[i * dim + 0] +
+        (solsxyGauss_x[0] + solsyyGauss_x[1]) * phi_x[i * dim + 1];
+        }
+
+
+        for (unsigned i = 0; i < nDofs; ++i) {
+    adept::adouble grad_u_dot_div_phi = 0.;
+    for (unsigned d = 0; d < dim; ++d) {
+        grad_u_dot_div_phi += soluGauss_x[d] * phi_x[i * dim + d];
+    }
+    }
+*/
+
+
+/*
+        if (dim == 2) {
+
+// // //         Bxx_lap += (phi_x[i * dim]*phi_x[i * dim] + phi_x[i * dim + 1]*phi_x[i * dim + 1]) * solu[i];
+        Bxyu +=   phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim ] * soluGauss_x[1] ;
+        Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1];
+
+        Bxxsxx += phi_x[i * dim] * solsxxGauss_x[0];
+        Bxysxy +=( (phi_x[i * dim + 1 ] * solsxyGauss_x[0] + phi_x[i * dim ] * solsxyGauss_x[1]) );
+        Byysyy +=  phi_x[i * dim + 1] * solsyyGauss_x[1];
+
+
+    }*/
+
+/*
         double pi = acos(-1.);
-        aResv[i] += (solvGauss * phi[i] -  Laplace_u) * weight;
-        aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] -  Laplace_v) * weight;
+
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+
+        // original equations for (u,v)
+        aResu[i] += ( Bxxsxx+Bxysxy+Byysyy + F_term) * weight;
+        aRessxx[i] += (Bxxu + Mxxxx_sxx ) * weight;
+
+        // duplicate the same structure for (sxy,syy) — same RHS and same operators
+        aRessxy[i] += (Bxyu + 2.0* Mxyxy_sxy) * weight;
+        aRessyy[i] += (Byyu + Myyyy_syy) * weight;
+
+*/
+
+        // For u-equation (with RHS load term f)
+
+
+        aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] - Laplace_sxx) * weight;
+
+// For sigma equations (no RHS load)
+        aRessxx[i] += (solsxxGauss * phi[i] - Laplace_u) * weight;
+        aRessxy[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] - Laplace_syy) * weight;
+        aRessyy[i] += (solsyyGauss * phi[i] - Laplace_sxy) * weight;
+
+
+
+
       } // end phi_i loop
     } // end gauss point loop
 
@@ -673,24 +789,31 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     // Add the local Matrix/Vector into the global Matrix/Vector
 
     //copy the value of the adept::adoube aRes in double Res and store
-    Res.resize(2 * nDofs);
+    Res.resize(4 * nDofs);
 
     for (int i = 0; i < nDofs; i++) {
-      Res[i]         = -aResu[i].value();
-      Res[nDofs + i] = -aResv[i].value();
+      Res[i]              = -aResu[i].value();
+      Res[nDofs + i]      = -aRessxx[i].value();
+      Res[2 * nDofs + i]  = -aRessxy[i].value();
+      Res[3 * nDofs + i]  = -aRessyy[i].value();
     }
 
     RES->add_vector_blocked(Res, sysDof);
 
-    Jac.resize( 4 * nDofs * nDofs );
+    // resize jacobian for 4x4 blocked element: 16 blocks
+    Jac.resize(16 * nDofs * nDofs);
 
-    // define the dependent variables
-    s.dependent(&aResu[0], nDofs);
-    s.dependent(&aResv[0], nDofs);
+    // define the dependent variables (order matters — must match residual ordering)
+    s.dependent(&aResu[0],  nDofs);
+    s.dependent(&aRessxx[0],  nDofs);
+    s.dependent(&aRessxy[0], nDofs);
+    s.dependent(&aRessyy[0], nDofs);
 
-    // define the independent variables
-    s.independent(&solu[0], nDofs);
-    s.independent(&solv[0], nDofs);
+    // define the independent variables (order matters — will define jacobian column ordering)
+    s.independent(&solu[0],  nDofs);
+    s.independent(&solsxx[0],  nDofs);
+    s.independent(&solsxy[0], nDofs);
+    s.independent(&solsyy[0], nDofs);
 
     // get the jacobian matrix (ordered by column)
     s.jacobian(&Jac[0], true);
