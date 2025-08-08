@@ -687,9 +687,9 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
         adept::adouble Laplace_sxy = 0.;
         adept::adouble Laplace_syy = 0.;
-        adept::adouble Mxxxx_sxx = phi[i] * solsxxGauss;
-        adept::adouble Mxyxy_sxy = 2. * phi[i] * solsxyGauss;
-        adept::adouble Myyyy_syy = phi[i] * solsyyGauss;
+
+
+
 
         for (unsigned jdim = 0; jdim < dim; jdim++) {
           Laplace_u   +=  - phi_x[i * dim + jdim] * soluGauss_x[jdim];
@@ -709,64 +709,18 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   }
 
-/*
-    adept::adouble Bxxu = 0.;
-    adept::adouble Bxyu = 0.;
-    adept::adouble Byyu = 0.;
-    adept::adouble Bxxsxx = 0.;
-    adept::adouble Bxysxy = 0.;
-    adept::adouble Byysyy = 0.;
-
-        for (unsigned jdim = 0; jdim < dim; jdim++) {
-          Bxxu   +=  - phi_x[ jdim] * soluGauss_x[jdim];
-          Byyu   +=  - phi_x[ jdim] * soluGauss_x[jdim];
-          Bxxsxx   +=  - phi_x[ jdim] * solsxxGauss_x[jdim];
-          Byysyy   +=  - phi_x[ jdim] * solsyyGauss_x[jdim];
-          Bxyu   +=  - phi_x[jdim * dim + i] * soluGauss_x[jdim];
-          Bxysxy   +=  - phi_x[jdim * dim + i] * solsxyGauss_x[jdim];
-
-        }
-
-*/
-
-
-/*
-        if (dim == 2) {
-
-// // //         Bxx_lap += (phi_x[i * dim]*phi_x[i * dim] + phi_x[i * dim + 1]*phi_x[i * dim + 1]) * solu[i];
-        Bxyu +=   phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim ] * soluGauss_x[1] ;
-        Byyu +=  phi_x[i * dim + 1] * soluGauss_x[1];
-
-        Bxxsxx += phi_x[i * dim] * solsxxGauss_x[0];
-        Bxysxy +=( (phi_x[i * dim + 1 ] * solsxyGauss_x[0] + phi_x[i * dim ] * solsxyGauss_x[1]) );
-        Byysyy +=  phi_x[i * dim + 1] * solsyyGauss_x[1];
-
-
-    }*/
-
-/*
-        double pi = acos(-1.);
-
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
-
-        // original equations for (u,v)
-        aResu[i] += ( Bxxsxx+Bxysxy+Byysyy + F_term) * weight;
-        aRessxx[i] += (Bxxu + Mxxxx_sxx ) * weight;
-
-        // duplicate the same structure for (sxy,syy) — same RHS and same operators
-        aRessxy[i] += (Bxyu + 2.0* Mxyxy_sxy) * weight;
-        aRessyy[i] += (Byyu + Myyyy_syy) * weight;
-
-*/
-
-        // For u-equation (with RHS load term f)
-
-
 
     adept::adouble A_Laplace_u = 0.0;
     adept::adouble A_Laplace_sxx = 0.0;
     adept::adouble A_Laplace_sxy = 0.0;
     adept::adouble A_Laplace_syy = 0.0;
+    adept::adouble B_sxx = 0.0;
+    adept::adouble B_sxy = 0.0;
+    adept::adouble B_syy = 0.0;
+    adept::adouble B_u_sxx= 0.0;
+    adept::adouble B_u_sxy= 0.0;
+    adept::adouble B_u_syy= 0.0;
+
 
 
     for (unsigned j = 0; j < nDofs; ++j) {
@@ -775,21 +729,32 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         adept::adouble dphi_i_dy = phi_x[i * dim + 1];
         adept::adouble dphi_j_dy = phi_x[j * dim + 1];
 
-
         A_Laplace_u += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solu[j];
         A_Laplace_sxx += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxx[j];
         A_Laplace_sxy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxy[j];
         A_Laplace_syy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsyy[j];
 
+
+        B_sxx += - dphi_i_dx * dphi_j_dx * solsxx[j];
+        B_sxy += - ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solsxy[j];
+        B_syy += - dphi_i_dy * dphi_j_dy * solsyy[j];
+
+
+        B_u_sxx += - dphi_i_dx * dphi_j_dx * solu[j];
+        B_u_sxy += - dphi_i_dx * dphi_j_dx * solu[j];
+        B_u_syy += - dphi_i_dx * dphi_j_dx * solu[j];
+
+
     }
 
+        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-        aResu[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] - A_Laplace_sxx) * weight;
+        aResu[i] += ( B_sxx + B_sxy + B_syy + F_term) * weight;
 
 // For sigma equations (no RHS load)
-        aRessxx[i] += (solsxxGauss * phi[i] - A_Laplace_u) * weight;
-        aRessxy[i] += (ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i] - A_Laplace_syy) * weight;
-        aRessyy[i] += (solsyyGauss * phi[i] - A_Laplace_sxy) * weight;
+        aRessxx[i] += (B_u_sxx + solsxxGauss * phi[i] ) * weight;
+        aRessxy[i] += (B_u_sxy + 2 * solsxyGauss * phi[i] ) * weight;
+        aRessyy[i] += ( B_u_syy + solsyyGauss * phi[i] ) * weight;
 
 
 
