@@ -43,7 +43,132 @@
 
 using namespace femus;
 
+namespace Domains {
 
+namespace  square_m05p05  {
+
+template <class type = double>
+class Function_Zero_on_boundary_7 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 2. * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = 2. * pi * sin(2. * pi * x[0]) * cos(2.* pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -8. * pi * pi * sin(2.* pi * x[0]) * sin(2.*pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -8.*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -16. * pi * pi * pi * cos(2. * pi*x[0]) * sin(2. * pi*x[1]);
+        solGrad[1] = -16. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2.* pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 64. * pi * pi * pi * pi * sin(2. * pi*x[0]) * sin(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -4. * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -8. * pi * pi * pi * cos(2.* pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * sin(2.* pi * x[0]) * cos(2. * pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 32. * pi * pi * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return  4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin( 2. * pi * x[1] );
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -32. * pi * pi * pi * pi * cos(2.*pi*x[0]) * cos(2.*pi*x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -4. * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos( 2. * pi*x[1] );
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 32. * pi * pi * pi * pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+}
+
+
+}
+/*
 namespace Domains {
 
 namespace square_m05p05  {
@@ -220,7 +345,7 @@ public:
 
 } // namespace Domains
 
-
+*/
 
 //====Set boundary condition-BEGIN==============================
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
@@ -279,15 +404,15 @@ int main(int argc, char** args) {
 
   system_biharmonic_coupled._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
-
+/*
    Domains::square_m05p05::Function_NonZero_on_boundary_4<>   system_biharmonic_coupled_function_zero_on_boundary_1;
    Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
    system_biharmonic_coupled._assemble_function_for_rhs   = & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
 
    system_biharmonic_coupled._true_solution_function      = & system_biharmonic_coupled_function_zero_on_boundary_1;
 
+*/
 
-/*
      Domains::square_m05p05::Function_Zero_on_boundary_7<> system_biharmonic_coupled_function_zero_on_boundary_1;
     Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
 
@@ -299,7 +424,7 @@ int main(int argc, char** args) {
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
 
 
-*/
+
 
 
   ///@todo if this is not set, nothing happens here. It is used to compute absolute errors
@@ -356,15 +481,15 @@ int main(int argc, char** args) {
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
 
-      mlSol.set_analytical_function("sxx", & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("sxx", & system_biharmonic_coupled_function_zero_on_boundary_sxx);
 
       // ---------- ADDED: sxy and syy (same FE order as u,v) ----------
       // IMPORTANT: register in this order so assembler receives [u, v, sxy, syy]
       mlSol.AddSolution("sxy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("sxy", & system_biharmonic_coupled_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("sxy", & system_biharmonic_coupled_function_zero_on_boundary_sxy);
 
       mlSol.AddSolution("syy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("syy", & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian);
+      mlSol.set_analytical_function("syy", & system_biharmonic_coupled_function_zero_on_boundary_syy);
       // ------------------------------------------------------------
 
 

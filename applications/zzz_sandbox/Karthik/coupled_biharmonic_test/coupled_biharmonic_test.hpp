@@ -266,12 +266,12 @@ static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
                      const unsigned iel,
                      CurrentElem < double > & geom_element,
                      const unsigned xType,
-                     const std::string solname_v,
-                     const unsigned solFEType_v,
+                     const std::string solname_sxx,
+                     const unsigned solFEType_sxx,
                      std::vector< double > & Res
                     ) {
 
-     double grad_v_dot_n = 0.;
+     double grad_sxx_dot_n = 0.;
 
     for (unsigned jface = 0; jface < msh->GetElementFaceNumber(iel); jface++) {
 
@@ -288,22 +288,22 @@ static void natural_loop_1dV(const MultiLevelProblem *    ml_prob,
 
          unsigned int face = - (boundary_index + 1);
 
-         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_v.c_str(), grad_v_dot_n, face, 0.);
+         bool is_dirichlet =  ml_sol->GetBdcFunctionMLProb()(ml_prob, xx_face_elem_center, solname_sxx.c_str(), grad_sxx_dot_n, face, 0.);
          //we have to be careful here, because in GenerateBdc those coordinates are passed as NODE coordinates,
          //while here we pass the FACE ELEMENT CENTER coordinates.
          // So, if we use this for enforcing space-dependent Dirichlet or Neumann values, we need to be careful!
 
-             if ( !(is_dirichlet)  &&  (grad_v_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
+             if ( !(is_dirichlet)  &&  (grad_sxx_dot_n != 0.) ) {  //dirichlet == false and nonhomogeneous Neumann
 
 
 
-                   unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_v);
+                   unsigned n_dofs_face = msh->GetElementFaceDofNumber(iel, jface, solFEType_sxx);
 
                   for (unsigned i = 0; i < n_dofs_face; i++) {
 
                  unsigned int i_vol = msh->GetLocalFaceVertexIndex(iel, jface, i);
 
-                 Res[i_vol] +=  grad_v_dot_n /* * phi[node] = 1. */;
+                 Res[i_vol] +=  grad_sxx_dot_n /* * phi[node] = 1. */;
 
                          }
 
@@ -569,7 +569,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
   sysDof.reserve(4 * maxSize);
   phi.reserve(maxSize);
   phi_x.reserve(maxSize * dim);
-  unsigned dim2 = (3 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
+  unsigned dim2 = (6 * (dim - 1) + !(dim - 1));        // dim2 is the number of second order partial derivatives (1,3,6 depending on the dimension)
   phi_xx.reserve(maxSize * dim2);
 
   Res.reserve(4 * maxSize);
@@ -580,7 +580,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
   // reserve enough for a 4x4 block (16 blocks)
-  Jac.reserve(16 * maxSize * maxSize);
+  Jac.reserve(256 * maxSize * maxSize);
 
 
   KK->zero(); // Set to zero all the entries of the Global Matrix
@@ -699,28 +699,20 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
           Laplace_syy  +=  - phi_x[i * dim + jdim] * solsyyGauss_x[jdim];
         }
 
-       adept::adouble Axx_i = 0.0;
-
-  for (unsigned j = 0; j < nDofs; ++j) {
-    double dphi_i_dx = phi_x[i * dim + 0];  // x-derivative of φ_i
-    double dphi_j_dx = phi_x[j * dim + 0];  // x-derivative of φ_j
-
-     Axx_i += dphi_i_dx * dphi_j_dx * solu[j]; // scalar sum over j
-
-  }
 
 
     adept::adouble A_Laplace_u = 0.0;
     adept::adouble A_Laplace_sxx = 0.0;
     adept::adouble A_Laplace_sxy = 0.0;
     adept::adouble A_Laplace_syy = 0.0;
+    /*
     adept::adouble B_sxx = 0.0;
     adept::adouble B_sxy = 0.0;
     adept::adouble B_syy = 0.0;
     adept::adouble B_u_sxx= 0.0;
     adept::adouble B_u_sxy= 0.0;
     adept::adouble B_u_syy= 0.0;
-
+*/
 
 
     for (unsigned j = 0; j < nDofs; ++j) {
@@ -734,30 +726,52 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         A_Laplace_sxy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxy[j];
         A_Laplace_syy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsyy[j];
 
+/*
+        B_sxx +=  dphi_i_dx * dphi_j_dx * solsxx[j];
+        B_sxy +=  ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solsxy[j];
+        B_syy +=  dphi_i_dy * dphi_j_dy * solsyy[j];
 
-        B_sxx += - dphi_i_dx * dphi_j_dx * solsxx[j];
-        B_sxy += - ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solsxy[j];
-        B_syy += - dphi_i_dy * dphi_j_dy * solsyy[j];
 
-
-        B_u_sxx += - dphi_i_dx * dphi_j_dx * solu[j];
-        B_u_sxy += - dphi_i_dx * dphi_j_dx * solu[j];
-        B_u_syy += - dphi_i_dx * dphi_j_dx * solu[j];
-
+        B_u_sxx +=  dphi_i_dx * dphi_j_dx * solu[j];
+        B_u_sxy +=  ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solu[j];
+        B_u_syy +=  dphi_i_dy * dphi_j_dy * solu[j];
+*/
 
     }
+    adept::adouble B_sxx = phi_x[i * dim + 0] * solsxxGauss_x[0];
+adept::adouble B_syy = phi_x[i * dim + 1] * solsyyGauss_x[1];
+adept::adouble B_sxy = phi_x[i * dim + 1] * solsxyGauss_x[0]
+                    + phi_x[i * dim + 0] * solsxyGauss_x[1];
+
+adept::adouble B_u_sxx = phi_x[i * dim + 0] * soluGauss_x[0];
+adept::adouble B_u_syy = phi_x[i * dim + 1] * soluGauss_x[1];
+adept::adouble B_u_sxy = phi_x[i * dim + 1] * soluGauss_x[0]
+                       + phi_x[i * dim + 0] * soluGauss_x[1];
 
         adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
         aResu[i] += ( B_sxx + B_sxy + B_syy + F_term) * weight;
-
-// For sigma equations (no RHS load)
         aRessxx[i] += (B_u_sxx + solsxxGauss * phi[i] ) * weight;
         aRessxy[i] += (B_u_sxy + 2 * solsxyGauss * phi[i] ) * weight;
         aRessyy[i] += ( B_u_syy + solsyyGauss * phi[i] ) * weight;
 
 
+/*
+        if (iel == msh->GetElementOffset(iproc)) {
+  std::cout<<"solFEType_u="<<solFEType_u
+           <<" solFEType_sxx="<<solFEType_sxx
+           <<" solFEType_sxy="<<solFEType_sxy
+           <<" solFEType_syy="<<solFEType_syy<<"\n";
+}
 
+*/
+
+/*
+        aResu[i] += (F_term - A_Laplace_sxx) * weight;
+        aRessxx[i] += (solsxxGauss * phi[i] -  A_Laplace_u ) * weight;
+        aRessxy[i] += (F_term - A_Laplace_syy ) * weight;
+        aRessyy[i] += ( solsyyGauss * phi[i] -  A_Laplace_sxy ) * weight;
+*/
 
       } // end phi_i loop
     } // end gauss point loop
