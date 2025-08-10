@@ -510,6 +510,8 @@ int main(int argc, char** args) {
 
   std::vector<std::vector<double>> l2Norm_q(maxNumberOfMeshes), semiNorm_q(maxNumberOfMeshes);
 
+  std::vector<std::vector<double>> l2Norm_u_dr(maxNumberOfMeshes), semiNorm_u_dr(maxNumberOfMeshes);
+
 
 
   for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
@@ -529,6 +531,10 @@ int main(int argc, char** args) {
     l2Norm_syyd[i].resize(feOrder.size());semiNorm_syyd[i].resize(feOrder.size());
 
     l2Norm_q[i].resize(feOrder.size());   semiNorm_q[i].resize(feOrder.size());
+
+ //   l2Norm_u_dr[i].resize(feOrder.size());
+ //   semiNorm_u_dr[i].resize(feOrder.size());
+
 
 
     for (unsigned j = 0; j < feOrder.size(); j++) {
@@ -561,6 +567,10 @@ int main(int argc, char** args) {
       mlSol.AddSolution("q", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("q", &system_biharmonic_HM_function_zero_on_boundary_q);
 
+    //  mlSol.AddSolution("u_dr", LAGRANGE, feOrder[j]);
+   //   mlSol.set_analytical_function("u_dr", &system_biharmonic_HM_function_zero_on_boundary_u_dr);
+
+
 
       mlSol.Initialize("All");
 
@@ -579,6 +589,8 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("sxyd", "Steady", &ml_prob);
       mlSol.GenerateBdc("syyd", "Steady", &ml_prob);
 
+    //  mlSol.GenerateBdc("u_dr", "Steady", &ml_prob);
+
 
       mlSol.GenerateBdc("q", "Steady", &ml_prob);
 
@@ -588,10 +600,13 @@ int main(int argc, char** args) {
       system.AddSolutionToSystemPDE("sxy");
       system.AddSolutionToSystemPDE("syy");
 
-            system.AddSolutionToSystemPDE("ud");
+      system.AddSolutionToSystemPDE("ud");
       system.AddSolutionToSystemPDE("sxxd");
       system.AddSolutionToSystemPDE("sxyd");
       system.AddSolutionToSystemPDE("syyd");
+
+   //   system.AddSolutionToSystemPDE("u_dr");
+
 
       system.AddSolutionToSystemPDE("q");
 
@@ -619,6 +634,10 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
       put_err("syyd", &system_biharmonic_HM_function_zero_on_boundary_syy,  l2Norm_syyd, semiNorm_syyd);
 
       put_err("q",    &system_biharmonic_HM_function_zero_on_boundary_q,    l2Norm_q,    semiNorm_q);
+
+
+  //    put_err("u", &system_biharmonic_HM_function_zero_on_boundary_u_dr, l2Norm_u_dr, semiNorm_u_dr);
+
 
       // Output VTK
       VTKWriter vtkIO(&mlSol);
@@ -652,7 +671,7 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
   print_error(l2Norm_syy, "L2 ERROR for syy");
   print_error(semiNorm_syy, "H1 ERROR for syy");
 
-    print_error(l2Norm_u, "L2 ERROR for ud");
+  print_error(l2Norm_u, "L2 ERROR for ud");
   print_error(semiNorm_u, "H1 ERROR for ud");
   print_error(l2Norm_sxx, "L2 ERROR for sxxd");
   print_error(semiNorm_sxx, "H1 ERROR for sxxd");
@@ -661,8 +680,12 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
   print_error(l2Norm_syy, "L2 ERROR for syyd");
   print_error(semiNorm_syy, "H1 ERROR for syyd");
 
-    print_error(l2Norm_syy, "L2 ERROR for q");
+  print_error(l2Norm_syy, "L2 ERROR for q");
   print_error(semiNorm_syy, "H1 ERROR for q");
+
+ // print_error(l2Norm_u_dr, "L2 ERROR for u vs u_dr");
+ // print_error(semiNorm_u_dr, "H1 ERROR for u vs u_dr");
+
 
   return 0;
 }

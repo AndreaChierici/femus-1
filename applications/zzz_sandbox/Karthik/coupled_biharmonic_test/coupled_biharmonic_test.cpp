@@ -48,7 +48,7 @@ namespace Domains {
 namespace  square_m05p05  {
 
 template <class type = double>
-class Function_Zero_on_boundary_7 : public Math::Function<type> {
+class Function_Zero_on_boundary_9 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
@@ -71,7 +71,7 @@ private:
 };
 
 template <class type = double>
-class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
+class Function_Zero_on_boundary_9_Laplacian : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
@@ -95,7 +95,7 @@ private:
 
 
 template <class type = double>
-class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
+class Function_Zero_on_boundary_9_sxx : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
@@ -118,7 +118,7 @@ private:
 };
 
 template <class type = double>
-class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
+class Function_Zero_on_boundary_9_sxy : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
@@ -141,7 +141,7 @@ private:
 };
 
 template <class type = double>
-class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
+class Function_Zero_on_boundary_9_syy : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
@@ -413,12 +413,12 @@ int main(int argc, char** args) {
 
 */
 
-     Domains::square_m05p05::Function_Zero_on_boundary_7<> system_biharmonic_coupled_function_zero_on_boundary_1;
-    Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
+     Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
+    Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
 
-  Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> system_biharmonic_coupled_function_zero_on_boundary_sxy;
-  Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> system_biharmonic_coupled_function_zero_on_boundary_syy;
-  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_9_sxy<> system_biharmonic_coupled_function_zero_on_boundary_sxy;
+  Domains::square_m05p05::Function_Zero_on_boundary_9_syy<> system_biharmonic_coupled_function_zero_on_boundary_syy;
+  Domains::square_m05p05::Function_Zero_on_boundary_9_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
 
   system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
@@ -437,9 +437,9 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
   const std::string mesh_file_total = system_biharmonic_coupled._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_coupled._mesh_files[0];
-  mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", scalingFactor);
+  mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "sixth", scalingFactor);
 
-  unsigned maxNumberOfMeshes = 4;
+  unsigned maxNumberOfMeshes = 6;
 
   std::vector < std::vector < double > > l2Norm;
   l2Norm.resize(maxNumberOfMeshes);
