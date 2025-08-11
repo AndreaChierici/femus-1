@@ -291,7 +291,7 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
     adept::adouble A_Laplace_sxx = 0.0;
     adept::adouble A_Laplace_sxy = 0.0;
     adept::adouble A_Laplace_syy = 0.0;
-
+/*
     adept::adouble B_sxx = 0.0;
     adept::adouble B_sxy = 0.0;
     adept::adouble B_syy = 0.0;
@@ -312,7 +312,6 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
         A_Laplace_sxy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxy[j];
         A_Laplace_syy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsyy[j];
 
-
         B_sxx +=  dphi_i_dx * dphi_j_dx * solsxx[j];
         B_sxy +=   ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solsxy[j];
 // // //         B_sxy +=  2. * ( dphi_i_dy * dphi_j_dx ) * solsxy[j];
@@ -328,6 +327,7 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
 
 
     }
+    */
     /*
     adept::adouble B_sxx = phi_x[i * dim + 0] * solsxxGauss_x[0];
     adept::adouble B_syy = phi_x[i * dim + 1] * solsyyGauss_x[1];
@@ -338,12 +338,34 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
     adept::adouble B_u_syy = phi_x[i * dim + 1] * soluGauss_x[1];
     adept::adouble B_u_sxy = phi_x[i * dim + 0] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1];
 */
-        adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+    adept::adouble B_sxx = 0.0;
+    adept::adouble B_sxy = 0.0;
+    adept::adouble B_syy = 0.0;
+    adept::adouble B_u_sxx= 0.0;
+    adept::adouble B_u_sxy= 0.0;
+    adept::adouble B_u_syy= 0.0;
 
-        aResu[i] += ( B_sxx + B_sxy + B_syy + F_term) * weight;
-        aRessxx[i] += (B_u_sxx + solsxxGauss * phi[i] ) * weight;
-        aRessxy[i] += (B_u_sxy + 2 * solsxyGauss * phi[i] ) * weight;
-        aRessyy[i] += ( B_u_syy + solsyyGauss * phi[i] ) * weight;
+
+    adept::adouble F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
+     B_sxx = phi_x[i * dim + 0] * solsxxGauss_x[0];
+     B_syy = ( solsyyGauss_x[1] * phi_x[i * dim + 1]);
+     B_sxy =  ( solsxyGauss_x[0] * phi_x[i * dim + 1] + solsxyGauss_x[1] * phi_x[i * dim + 0] );
+
+     B_u_sxx = ( soluGauss_x[0] * phi_x[i * dim + 0] );
+     B_u_syy = ( soluGauss_x[1] * phi_x[i * dim + 1] );
+     B_u_sxy = ( soluGauss_x[0] * phi_x[i * dim + 1] + soluGauss_x[1] * phi_x[i * dim + 0] );
+
+
+        aResu[i] += (( B_sxx + B_sxy + B_syy + F_term ) ) * weight;
+
+
+        aRessxx[i] += (( B_u_sxx + (solsxxGauss * phi[i])) ) * weight;
+
+
+        aRessxy[i] += ( (B_u_sxy +  2. * phi[i] * solsxyGauss) ) * weight;
+
+
+        aRessyy[i] += ( (B_u_syy + (solsyyGauss * phi[i] )) )  * weight;
 
 
 /*
