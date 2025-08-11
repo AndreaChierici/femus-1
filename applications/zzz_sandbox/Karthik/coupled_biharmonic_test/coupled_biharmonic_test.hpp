@@ -159,7 +159,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
   std::vector < double > Jac; // local Jacobian matrix (ordered by column, adept)
   // reserve enough for a 4x4 block (16 blocks)
-  Jac.reserve(256 * maxSize * maxSize);
+  Jac.reserve(16 * maxSize * maxSize);
 
 
   KK->zero(); // Set to zero all the entries of the Global Matrix
@@ -173,11 +173,6 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
 
 
     unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);    // number of coordinate element dofs
-
-
-    unsigned nDofs_u   = msh->GetElementDofNumber(iel, solFEType_u);
-unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
-// same for sxy and syy
 
 
 
@@ -291,15 +286,6 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
     adept::adouble A_Laplace_sxx = 0.0;
     adept::adouble A_Laplace_sxy = 0.0;
     adept::adouble A_Laplace_syy = 0.0;
-/*
-    adept::adouble B_sxx = 0.0;
-    adept::adouble B_sxy = 0.0;
-    adept::adouble B_syy = 0.0;
-    adept::adouble B_u_sxx= 0.0;
-    adept::adouble B_u_sxy= 0.0;
-    adept::adouble B_u_syy= 0.0;
-
-
 
     for (unsigned j = 0; j < nDofs; ++j) {
         adept::adouble dphi_i_dx = phi_x[i * dim + 0];
@@ -311,7 +297,7 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
         A_Laplace_sxx += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxx[j];
         A_Laplace_sxy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsxy[j];
         A_Laplace_syy += - (dphi_i_dx * dphi_j_dx + dphi_i_dy * dphi_j_dy) * solsyy[j];
-
+/*
         B_sxx +=  dphi_i_dx * dphi_j_dx * solsxx[j];
         B_sxy +=   ( dphi_i_dy * dphi_j_dx  + dphi_i_dx * dphi_j_dy ) * solsxy[j];
 // // //         B_sxy +=  2. * ( dphi_i_dy * dphi_j_dx ) * solsxy[j];
@@ -324,20 +310,11 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
 // // //         B_u_sxy += 2. *  ( dphi_i_dy * dphi_j_dx  ) * solu[j];
 
         B_u_syy +=  dphi_i_dy * dphi_j_dy * solu[j];
-
+*/
 
     }
-    */
-    /*
-    adept::adouble B_sxx = phi_x[i * dim + 0] * solsxxGauss_x[0];
-    adept::adouble B_syy = phi_x[i * dim + 1] * solsyyGauss_x[1];
-    adept::adouble B_sxy = phi_x[i * dim + 0] * solsxyGauss_x[0]
-                    + phi_x[i * dim + 1] * solsxyGauss_x[1];
 
-    adept::adouble B_u_sxx = phi_x[i * dim + 0] * soluGauss_x[0];
-    adept::adouble B_u_syy = phi_x[i * dim + 1] * soluGauss_x[1];
-    adept::adouble B_u_sxy = phi_x[i * dim + 0] * soluGauss_x[0] + phi_x[i * dim + 1] * soluGauss_x[1];
-*/
+
     adept::adouble B_sxx = 0.0;
     adept::adouble B_sxy = 0.0;
     adept::adouble B_syy = 0.0;
@@ -353,7 +330,7 @@ unsigned nDofs_sxx = msh->GetElementDofNumber(iel, solFEType_sxx);
 
      B_u_sxx = ( soluGauss_x[0] * phi_x[i * dim + 0] );
      B_u_syy = ( soluGauss_x[1] * phi_x[i * dim + 1] );
-     B_u_sxy = ( soluGauss_x[0] * phi_x[i * dim + 1] + soluGauss_x[1] * phi_x[i * dim + 0] );
+     B_u_sxy = ( soluGauss_x[1] * phi_x[i * dim + 0] + soluGauss_x[0] * phi_x[i * dim + 1] );
 
 
         aResu[i] += (( B_sxx + B_sxy + B_syy + F_term ) ) * weight;

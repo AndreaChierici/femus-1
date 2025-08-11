@@ -335,25 +335,27 @@ class Function_Zero_on_boundary_7_deviatoric_f : public Math::Function<type> {
 public:
     type value(const std::vector<type>& x) const {
         type base = sin(2*pi*x[0])*sin(2*pi*x[1]);
-        return (1. + 0.001 * 4096.*pow(pi, 8)) * base;; // 4096π⁸ = (8π²)⁴
+        return (1. + a * 4096.*pow(pi, 8)) * base;; // 4096π⁸ = (8π²)⁴
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        type factor = (1. + 0.001 * 4096.*pow(pi, 8));
+        type factor = (1. + a * 4096.*pow(pi, 8));
         solGrad[0] = factor * 2.*pi * cos(2.*pi*x[0]) * sin(2.*pi*x[1]);
         solGrad[1] = factor * 2.*pi * sin(2.*pi*x[0]) * cos(2.*pi*x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        type factor = (1. + 0.001 * 4096.*pow(pi, 8));
+        type factor = (1. + a * 4096.*pow(pi, 8));
         type base = sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
         return -8.*pi*pi * factor * base;
     }
 
 private:
     static constexpr double pi = acos(-1.);
+    static constexpr double a = 0.001;
+
 };
 
 
@@ -510,7 +512,8 @@ int main(int argc, char** args) {
 
   std::vector<std::vector<double>> l2Norm_q(maxNumberOfMeshes), semiNorm_q(maxNumberOfMeshes);
 
-  std::vector<std::vector<double>> l2Norm_u_dr(maxNumberOfMeshes), semiNorm_u_dr(maxNumberOfMeshes);
+  std::vector<std::vector<double>> l2Norm_u_dr_vs_u(maxNumberOfMeshes), semiNorm_u_dr_vs_u(maxNumberOfMeshes);
+
 
 
 
@@ -532,8 +535,8 @@ int main(int argc, char** args) {
 
     l2Norm_q[i].resize(feOrder.size());   semiNorm_q[i].resize(feOrder.size());
 
- //   l2Norm_u_dr[i].resize(feOrder.size());
- //   semiNorm_u_dr[i].resize(feOrder.size());
+
+
 
 
 
@@ -567,8 +570,13 @@ int main(int argc, char** args) {
       mlSol.AddSolution("q", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("q", &system_biharmonic_HM_function_zero_on_boundary_q);
 
-    //  mlSol.AddSolution("u_dr", LAGRANGE, feOrder[j]);
-   //   mlSol.set_analytical_function("u_dr", &system_biharmonic_HM_function_zero_on_boundary_u_dr);
+          l2Norm_u_dr_vs_u[i].resize(feOrder.size());
+    semiNorm_u_dr_vs_u[i].resize(feOrder.size());
+
+      mlSol.AddSolution("u_dr", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("u_dr", &system_biharmonic_HM_function_zero_on_boundary_u_dr);
+
+
 
 
 
@@ -589,7 +597,7 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("sxyd", "Steady", &ml_prob);
       mlSol.GenerateBdc("syyd", "Steady", &ml_prob);
 
-    //  mlSol.GenerateBdc("u_dr", "Steady", &ml_prob);
+      mlSol.GenerateBdc("u_dr", "Steady", &ml_prob);
 
 
       mlSol.GenerateBdc("q", "Steady", &ml_prob);
@@ -605,7 +613,7 @@ int main(int argc, char** args) {
       system.AddSolutionToSystemPDE("sxyd");
       system.AddSolutionToSystemPDE("syyd");
 
-   //   system.AddSolutionToSystemPDE("u_dr");
+// // //       system.AddSolutionToSystemPDE("u_dr");
 
 
       system.AddSolutionToSystemPDE("q");
@@ -636,7 +644,7 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
       put_err("q",    &system_biharmonic_HM_function_zero_on_boundary_q,    l2Norm_q,    semiNorm_q);
 
 
-  //    put_err("u", &system_biharmonic_HM_function_zero_on_boundary_u_dr, l2Norm_u_dr, semiNorm_u_dr);
+     put_err("u", &system_biharmonic_HM_function_zero_on_boundary_u_dr, l2Norm_u_dr_vs_u, semiNorm_u_dr_vs_u);
 
 
       // Output VTK
@@ -683,8 +691,8 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
   print_error(l2Norm_syy, "L2 ERROR for q");
   print_error(semiNorm_syy, "H1 ERROR for q");
 
- // print_error(l2Norm_u_dr, "L2 ERROR for u vs u_dr");
- // print_error(semiNorm_u_dr, "H1 ERROR for u vs u_dr");
+  print_error(l2Norm_u_dr_vs_u, "L2 ERROR for u vs u_dr");
+  print_error(semiNorm_u_dr_vs_u, "H1 ERROR for u vs u_dr");
 
 
   return 0;
