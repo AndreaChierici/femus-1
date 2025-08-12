@@ -48,7 +48,7 @@ namespace Domains {
 namespace  square_m05p05  {
 
 
-    template <class type = double>
+template <class type = double>
 class Function_Zero_on_boundary_f_9 : public Math::Function<type> {
 
 public:

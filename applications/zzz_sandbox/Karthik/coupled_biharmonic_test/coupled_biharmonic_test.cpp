@@ -164,10 +164,34 @@ private:
 };
 
 
+template <class type = double>
+class Function_Zero_on_boundary_9_f : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+       return 1.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+         std::vector<type> solGrad(x.size(), 0.);
+          solGrad[0] = 0.;
+          solGrad[1] = 0.;
+          return solGrad;
+        }
+
+    type laplacian(const std::vector<type>& x) const {
+         return 0.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+}
 }
 
 
-}
+
 /*
 namespace Domains {
 
@@ -324,7 +348,6 @@ public:
         return static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
     }
 
-    // ∇(u_yy) = [ 16 x (3y^2 - a^2) Ax , 24 y (Ax^2) ]
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> g(x.size(), 0.);
         const type Ax = x[0]*x[0] - a*a;
@@ -394,7 +417,10 @@ int main(int argc, char** args) {
 
   // =========Mesh file - BEGIN ==================
   system_biharmonic_coupled._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
-  const std::string relative_path_to_build_directory =  "../../../../";
+
+    // // // system_biharmonic_coupled._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_1x1_triangles.med");
+
+    const std::string relative_path_to_build_directory =  "../../../../";
   const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";  system_biharmonic_coupled._mesh_files_path_relative_to_executable.push_back(mesh_file);
  // =========Mesh file - END ==================
 
@@ -420,7 +446,9 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_9_syy<> system_biharmonic_coupled_function_zero_on_boundary_syy;
   Domains::square_m05p05::Function_Zero_on_boundary_9_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
 
-  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
+  Domains::square_m05p05::Function_Zero_on_boundary_9_f<> system_biharmonic_coupled_function_zero_on_boundary_f;
+
+  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_f;
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
 
 
