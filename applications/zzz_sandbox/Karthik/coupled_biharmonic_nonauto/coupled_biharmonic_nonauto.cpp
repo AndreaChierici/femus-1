@@ -35,7 +35,7 @@
    #include "01_biharmonic_coupled.hpp"
    #define NAMESPACE_FOR_BIHARMONIC   femus
 #elif LIBRARY_OR_USER == 1
-   #include "coupled_biharmonic_test.hpp"
+   #include "coupled_biharmonic_nonauto.hpp"
    #define NAMESPACE_FOR_BIHARMONIC_COUPLED   karthik
 #endif
 
@@ -46,6 +46,30 @@ using namespace femus;
 namespace Domains {
 
 namespace  square_m05p05  {
+
+
+    template <class type = double>
+class Function_Zero_on_boundary_f_9 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 1.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
 
 template <class type = double>
 class Function_Zero_on_boundary_9 : public Math::Function<type> {
@@ -176,7 +200,7 @@ namespace square_m05p05  {
 // ---- Helper: a = 0.5 for domain [-0.5, 0.5]^2 -----------------------------
 
 template <class type = double>
-class Function_Zero_on_boundary_7 : public Math::Function<type> {
+class Function_Zero_on_boundary_9 : public Math::Function<type> {
 public:
     static constexpr type a = static_cast<type>(0.5);
 
@@ -209,7 +233,7 @@ public:
 
 // This is Δu (for your RHS helper usage)
 template <class type = double>
-class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
+class Function_Zero_on_boundary_9_Laplacian : public Math::Function<type> {
 public:
     static constexpr type a = static_cast<type>(0.5);
 
@@ -253,7 +277,7 @@ public:
 
 // sxx = u_xx
 template <class type = double>
-class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
+class Function_Zero_on_boundary_9_sxx : public Math::Function<type> {
 public:
     static constexpr type a = static_cast<type>(0.5);
 
@@ -283,7 +307,7 @@ public:
 
 // sxy = u_xy  (use 2*u_xy if your formulation uses engineering shear)
 template <class type = double>
-class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
+class Function_Zero_on_boundary_9_sxy : public Math::Function<type> {
 public:
     static constexpr type a = static_cast<type>(0.5);
 
@@ -314,7 +338,7 @@ public:
 
 // syy = u_yy
 template <class type = double>
-class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
+class Function_Zero_on_boundary_9_syy : public Math::Function<type> {
 public:
     static constexpr type a = static_cast<type>(0.5);
 
@@ -344,8 +368,8 @@ public:
 } // namespace square_m05p05
 
 } // namespace Domains
-
 */
+
 
 //====Set boundary condition-BEGIN==============================
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
@@ -413,14 +437,19 @@ int main(int argc, char** args) {
 
 */
 
-     Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
-    Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
+  Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
+   Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
 
   Domains::square_m05p05::Function_Zero_on_boundary_9_sxy<> system_biharmonic_coupled_function_zero_on_boundary_sxy;
   Domains::square_m05p05::Function_Zero_on_boundary_9_syy<> system_biharmonic_coupled_function_zero_on_boundary_syy;
   Domains::square_m05p05::Function_Zero_on_boundary_9_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
 
-  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
+
+  Domains::square_m05p05::Function_Zero_on_boundary_f_9<> system_biharmonic_coupled_function_zero_on_boundary_f;
+
+
+
+  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_f;
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
 
 

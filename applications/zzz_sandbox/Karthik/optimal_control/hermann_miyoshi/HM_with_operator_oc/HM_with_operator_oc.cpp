@@ -658,10 +658,10 @@ auto put_err = [&](const char* name, Math::Function<double>* exact,
     std::cout << "\n" << title << "\nLEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
     for (unsigned i = 0; i < error.size(); ++i) {
       std::cout << i + 1 << "\t";
-      for (auto val : error[i]) std::cout << val << "\t";
+      for (auto val : error[i]) std::cout << val << "\t\t\t";
       std::cout << "\n";
       if (i < error.size() - 1) {
-        std::cout << "\t\t";
+        std::cout << "\t\t\t";
         for (unsigned j = 0; j < error[i].size(); ++j) {
           std::cout << log(error[i][j] / error[i + 1][j]) / log(2.) << "\t\t\t";
         }
