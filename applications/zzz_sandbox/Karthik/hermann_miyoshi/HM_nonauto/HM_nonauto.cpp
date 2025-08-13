@@ -1,16 +1,3 @@
-/** tutorial/Ex3
- * This example shows how to set and solve the weak form of the nonlinear problem
- *                     -\Delta^2 u = f(x) \text{ on }\Omega,
- *            u=0 \text{ on } \Gamma,
- *      du/dn=0 \text{ on } \Gamma,
- * on a box domain $\Omega$ with boundary $\Gamma$,
- * by using a system of second order partial differential equation.
- * all the coarse-level meshes are removed;
- * a multilevel problem and an equation system are initialized;
- * a direct solver is used to solve the problem.
- **/
-
-
 
 #include "FemusInit.hpp"
 #include "Files.hpp"
@@ -27,7 +14,7 @@
 
 #include "Solution_functions_over_domains_or_mesh_files.hpp"
 
-#include "adept.h"
+// // // #include "adept.h"
 
 
 #define LIBRARY_OR_USER   1 //0: library; 1: user
@@ -163,202 +150,59 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
+template <class type = double>
+class Function_Zero_on_boundary_7_f : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 12. * ( x[0]* x[0] + x[1]* x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 12. * ( 2. * x[0] );
+        solGrad[1] = 12. * ( 2. * x[1] );
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 48.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_7_u : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return  x[0]* x[0]* x[0]* x[0] + x[1] * x[1]* x[1]* x[1] ;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 4. * x[0]* x[0]* x[0];
+        solGrad[1] = 4. * x[1]* x[1]* x[1];
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 12. * ( x[0]* x[0] + x[1]* x[1] );
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
 
 }
 
 
 }
-
-
-
-/*
-
-namespace Domains {
-
-namespace square_m05p05  {
-
-// ---- Helper: a = 0.5 for domain [-0.5, 0.5]^2 -----------------------------
-
-template <class type = double>
-class Function_Zero_on_boundary_7 : public Math::Function<type> {
-public:
-    static constexpr type a = static_cast<type>(0.5);
-
-    // u(x,y) = (x^2 - a^2)^2 (y^2 - a^2)^2
-    type value(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        return (Ax*Ax) * (Ay*Ay);
-    }
-
-    // ∇u = [ 4x(x^2-a^2)(y^2-a^2)^2 , 4y(y^2-a^2)(x^2-a^2)^2 ]
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> g(x.size(), 0.);
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        g[0] = static_cast<type>(4.) * x[0] * Ax * (Ay*Ay);
-        g[1] = static_cast<type>(4.) * x[1] * Ay * (Ax*Ax);
-        return g;
-    }
-
-    // Δu = 4(3x^2-a^2)(y^2-a^2)^2 + 4(3y^2-a^2)(x^2-a^2)^2
-    type laplacian(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        const type u_xx = static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
-        const type u_yy = static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
-        return u_xx + u_yy;
-    }
-};
-
-// This is Δu (for your RHS helper usage)
-template <class type = double>
-class Function_Zero_on_boundary_7_Laplacian : public Math::Function<type> {
-public:
-    static constexpr type a = static_cast<type>(0.5);
-
-    type value(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        const type u_xx = static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
-        const type u_yy = static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
-        return u_xx + u_yy;
-    }
-
-    // ∇(Δu) — rarely needed; provided for completeness
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> g(x.size(), 0.);
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-
-        // ∂/∂x Δu = 24 x (Ay^2) + 16 x (3y^2 - a^2) Ax
-        g[0] = static_cast<type>(24.) * x[0] * (Ay*Ay)
-             + static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
-
-        // ∂/∂y Δu = 24 y (Ax^2) + 16 y (3x^2 - a^2) Ay
-        g[1] = static_cast<type>(24.) * x[1] * (Ax*Ax)
-             + static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
-
-        return g;
-    }
-
-    // Δ(Δu) optional; not typically used
-    type laplacian(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        // From differentiating the gradient above:
-        const type d2x = static_cast<type>(24.) * (Ay*Ay)
-                       + static_cast<type>(16.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (static_cast<type>(3.)*x[0]*x[0] - a*a);
-        const type d2y = static_cast<type>(24.) * (Ax*Ax)
-                       + static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a);
-        return d2x + d2y;
-    }
-};
-
-// sxx = u_xx
-template <class type = double>
-class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
-public:
-    static constexpr type a = static_cast<type>(0.5);
-
-    // u_xx = 4(3x^2 - a^2) (y^2 - a^2)^2
-    type value(const std::vector<type>& x) const {
-        const type Ay = x[1]*x[1] - a*a;
-        return static_cast<type>(4.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (Ay*Ay);
-    }
-
-    // ∇(u_xx) = [ 24 x (Ay^2), 16 y (3x^2 - a^2) Ay ]
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> g(x.size(), 0.);
-        const type Ay = x[1]*x[1] - a*a;
-        g[0] = static_cast<type>(24.) * x[0] * (Ay*Ay);
-        g[1] = static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
-        return g;
-    }
-
-    // Δ(u_xx) = 24 (Ay^2) + 16 (3x^2 - a^2)(3y^2 - a^2)
-    type laplacian(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        return static_cast<type>(24.) * (Ay*Ay)
-             + static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a);
-    }
-};
-
-// sxy = u_xy  (use 2*u_xy if your formulation uses engineering shear)
-template <class type = double>
-class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
-public:
-    static constexpr type a = static_cast<type>(0.5);
-
-    // u_xy = 16 x y (x^2 - a^2)(y^2 - a^2)
-    type value(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        return static_cast<type>(16.) * x[0] * x[1] * Ax * Ay;
-    }
-
-    // ∇(u_xy) = [ 16 y (3x^2 - a^2) Ay , 16 x (3y^2 - a^2) Ax ]
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> g(x.size(), 0.);
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        g[0] = static_cast<type>(16.) * x[1] * (static_cast<type>(3.)*x[0]*x[0] - a*a) * Ay;
-        g[1] = static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
-        return g;
-    }
-
-    // Δ(u_xy) = 96 x y [ (x^2 - a^2) + (y^2 - a^2) ] = 96 x y (x^2 + y^2 - 2a^2)
-    type laplacian(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        const type Ay = x[1]*x[1] - a*a;
-        return static_cast<type>(96.) * x[0] * x[1] * (Ax + Ay);
-    }
-};
-
-// syy = u_yy
-template <class type = double>
-class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
-public:
-    static constexpr type a = static_cast<type>(0.5);
-
-    // u_yy = 4(3y^2 - a^2) (x^2 - a^2)^2
-    type value(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        return static_cast<type>(4.) * (static_cast<type>(3.)*x[1]*x[1] - a*a) * (Ax*Ax);
-    }
-
-    // ∇(u_yy) = [ 16 x (3y^2 - a^2) Ax , 24 y (Ax^2) ]
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> g(x.size(), 0.);
-        const type Ax = x[0]*x[0] - a*a;
-        g[0] = static_cast<type>(16.) * x[0] * (static_cast<type>(3.)*x[1]*x[1] - a*a) * Ax;
-        g[1] = static_cast<type>(24.) * x[1] * (Ax*Ax);
-        return g;
-    }
-
-    // Δ(u_yy) = 16 (3x^2 - a^2)(3y^2 - a^2) + 24 (Ax^2)
-    type laplacian(const std::vector<type>& x) const {
-        const type Ax = x[0]*x[0] - a*a;
-        return static_cast<type>(16.) * (static_cast<type>(3.)*x[0]*x[0] - a*a) * (static_cast<type>(3.)*x[1]*x[1] - a*a)
-             + static_cast<type>(24.) * (Ax*Ax);
-    }
-};
-
-} // namespace square_m05p05
-
-} // namespace Domains
-
-
-
-*/
-
-
-
-
-
-
-
 
 
 
@@ -392,8 +236,6 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
 
 
 
-
-
 int main(int argc, char** args) {
   FemusInit mpinit(argc, args, MPI_COMM_WORLD);
 
@@ -421,14 +263,18 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_syy;
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_Laplacian;
 
-  system_biharmonic_HM_nonauto_D._assemble_function_for_rhs = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_Laplacian;
-  system_biharmonic_HM_nonauto_D._true_solution_function = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1;
+    Domains::square_m05p05::Function_Zero_on_boundary_7_f<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_f;
+
+        Domains::square_m05p05::Function_Zero_on_boundary_7_u<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u;
+
+  system_biharmonic_HM_nonauto_D._assemble_function_for_rhs = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_f;
+  system_biharmonic_HM_nonauto_D._true_solution_function = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u;
 
   MultiLevelMesh mlMsh;
   const std::string mesh_file_total = system_biharmonic_HM_nonauto_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_nonauto_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 5;
+  const unsigned maxNumberOfMeshes = 7;
   std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
@@ -454,7 +300,7 @@ int main(int argc, char** args) {
       MultiLevelSolution mlSol(&mlMsh);
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u);
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("sxx", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_sxx);
@@ -489,7 +335,7 @@ int main(int argc, char** args) {
 
       std::pair<double, double> norm;
 
-      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1);
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u);
       l2Norm_u[i][j] = norm.first;
       semiNorm_u[i][j] = norm.second;
 
@@ -514,10 +360,10 @@ int main(int argc, char** args) {
     std::cout << "\n" << title << "\nLEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
     for (unsigned i = 0; i < error.size(); ++i) {
       std::cout << i + 1 << "\t";
-      for (auto val : error[i]) std::cout << val << "\t";
+      for (auto val : error[i]) std::cout << val << "\t\t\t";
       std::cout << "\n";
       if (i < error.size() - 1) {
-        std::cout << "\t\t";
+        std::cout << "\t\t\t";
         for (unsigned j = 0; j < error[i].size(); ++j) {
           std::cout << log(error[i][j] / error[i + 1][j]) / log(2.) << "\t\t\t";
         }
