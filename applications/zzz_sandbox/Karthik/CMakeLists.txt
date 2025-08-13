@@ -4,6 +4,8 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
   
 
   ADD_SUBDIRECTORY(./poisson/)
+  ADD_SUBDIRECTORY(./poisson_nonauto/)
+
   ADD_SUBDIRECTORY(./coupled_biharmonic/)
   ADD_SUBDIRECTORY(./coupled_biharmonic_test/)
   ADD_SUBDIRECTORY(./uncoupled_biharmonic/)
