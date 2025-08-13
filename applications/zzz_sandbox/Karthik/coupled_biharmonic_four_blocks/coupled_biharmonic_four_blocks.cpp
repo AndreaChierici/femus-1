@@ -35,7 +35,7 @@
    #include "01_biharmonic_coupled.hpp"
    #define NAMESPACE_FOR_BIHARMONIC   femus
 #elif LIBRARY_OR_USER == 1
-   #include "coupled_biharmonic_nonauto.hpp"
+   #include "coupled_biharmonic_four_blocks.hpp"
    #define NAMESPACE_FOR_BIHARMONIC_COUPLED   karthik
 #endif
 
@@ -117,10 +117,54 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
+template <class type = double>
+class Function_Zero_on_boundary_9_sxy : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return  4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin( 2. * pi * x[1] );
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return -32. * pi * pi * pi * pi * cos(2.*pi*x[0]) * cos(2.*pi*x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_9_syy : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return -4. * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        solGrad[1] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos( 2. * pi*x[1] );
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 32. * pi * pi * pi * pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
 
 }
-
-
 }
 
 
@@ -137,6 +181,14 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
   else if (!strcmp(SolName, "sxx")) {
       Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     Value = sxx -> value(x);
+  }
+  else if (!strcmp(SolName, "sxy")) {
+      Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      Value = sxy -> value(x);
+  }
+  else if (!strcmp(SolName, "syy")) {
+      Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      Value = syy -> value(x);
   }
   return dirichlet;
 }
@@ -164,7 +216,10 @@ int main(int argc, char** args) {
 
   // =========Mesh file - BEGIN ==================
   system_biharmonic_coupled._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
-  const std::string relative_path_to_build_directory =  "../../../../";
+
+    // // // system_biharmonic_coupled._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_1x1_triangles.med");
+
+    const std::string relative_path_to_build_directory =  "../../../../";
   const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";  system_biharmonic_coupled._mesh_files_path_relative_to_executable.push_back(mesh_file);
  // =========Mesh file - END ==================
 
@@ -175,19 +230,27 @@ int main(int argc, char** args) {
   system_biharmonic_coupled._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
 
+   Domains::square_m05p05::Function_NonZero_on_boundary_4<>   system_biharmonic_coupled_function_zero_on_boundary_1;
+   Domains::square_m05p05::Function_NonZero_on_boundary_4_Laplacian<>   system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
+   system_biharmonic_coupled._assemble_function_for_rhs   = & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian; //this is the RHS for the auxiliary variable v = -Delta u
 
-  Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
-   Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
+   system_biharmonic_coupled._true_solution_function      = & system_biharmonic_coupled_function_zero_on_boundary_1;
 
+
+/*
+     Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
+    Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
+
+  Domains::square_m05p05::Function_Zero_on_boundary_9_sxy<> system_biharmonic_coupled_function_zero_on_boundary_sxy;
+  Domains::square_m05p05::Function_Zero_on_boundary_9_syy<> system_biharmonic_coupled_function_zero_on_boundary_syy;
   Domains::square_m05p05::Function_Zero_on_boundary_9_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
 
+  Domains::square_m05p05::Function_Zero_on_boundary_9_f<> system_biharmonic_coupled_function_zero_on_boundary_f;
 
-
-
-  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
+  system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_f;
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
 
-
+*/
 
 
 
@@ -247,6 +310,15 @@ int main(int argc, char** args) {
 
       mlSol.set_analytical_function("sxx", & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian);
 
+      // ---------- ADDED: sxy and syy (same FE order as u,v) ----------
+      // IMPORTANT: register in this order so assembler receives [u, v, sxy, syy]
+      mlSol.AddSolution("sxy", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("sxy", & system_biharmonic_coupled_function_zero_on_boundary_1);
+
+      mlSol.AddSolution("syy", LAGRANGE, feOrder[j]);
+      mlSol.set_analytical_function("syy", & system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian);
+      // ------------------------------------------------------------
+
 
       mlSol.Initialize("All");
 
@@ -264,6 +336,11 @@ int main(int argc, char** args) {
       mlSol.GenerateBdc("u", "Steady", & ml_prob);
       mlSol.GenerateBdc("sxx", "Steady", & ml_prob);
 
+      // ---------- generate BDC for sxy, syy as well ----------
+      mlSol.GenerateBdc("sxy", "Steady", & ml_prob);
+      mlSol.GenerateBdc("syy", "Steady", & ml_prob);
+      // -----------------------------------------------------
+
 
       // add system Biharmonic in ml_prob as a Linear Implicit System
       NonLinearImplicitSystem& system = ml_prob.add_system < NonLinearImplicitSystem > (system_biharmonic_coupled._system_name);
@@ -271,6 +348,11 @@ int main(int argc, char** args) {
       // add solution "u" to system
       system.AddSolutionToSystemPDE("u");
       system.AddSolutionToSystemPDE("sxx");
+
+      // ---------- register sxy, syy in the PDE system ----------
+      system.AddSolutionToSystemPDE("sxy");
+      system.AddSolutionToSystemPDE("syy");
+      // -------------------------------------------------------
 
       // attach the assembling function to system
       system.SetAssembleFunction( system_biharmonic_coupled._assemble_function );

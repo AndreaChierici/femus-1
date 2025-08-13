@@ -25,7 +25,7 @@
 
 #include "Solution_functions_over_domains_or_mesh_files.hpp"
 
-#include "adept.h"
+// // // #include "adept.h"
 // // // extern Domains::square_m05p05::Function_Zero_on_boundary_4<double> analytical_function;
 
 
