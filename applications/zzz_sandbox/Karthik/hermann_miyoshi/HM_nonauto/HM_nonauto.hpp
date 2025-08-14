@@ -1,7 +1,7 @@
 #ifndef __femus_biharmonic_HM_nonauto_D_hpp__
 #define __femus_biharmonic_HM_nonauto_D_hpp__
 
-// // // #include "FemusInit.hpp"  //for the adept stack
+#include "FemusInit.hpp"  //for the adept stack
 
 #include "MultiLevelProblem.hpp"
 #include "MultiLevelMesh.hpp"
@@ -632,7 +632,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
                 for (unsigned j = 0; j < nDofs; j++) {
                     const unsigned num_rows_cols = 4 * nDofs;
 
-                    // d(aResu[i]) / d(solu[j]) = 0 (no dependency)
+                    // d(aResu[i]) / d(solu[j]) = 0
                     // d(aResu[i]) / d(solsxx[j])
                     Jac[(nDofs + j) * num_rows_cols + i] += (phi_x[i * dim] * phi_x[j * dim]) * weight;
                     // d(aResu[i]) / d(solsxy[j])

@@ -155,18 +155,18 @@ class Function_Zero_on_boundary_7_f : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 12. * ( x[0]* x[0] + x[1]* x[1]);
+        return 1.;
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 12. * ( 2. * x[0] );
-        solGrad[1] = 12. * ( 2. * x[1] );
+        solGrad[0] = 0.;
+        solGrad[1] =0.;
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 48.;
+        return 0.;
     }
 
 private:
@@ -240,7 +240,7 @@ int main(int argc, char** args) {
   FemusInit mpinit(argc, args, MPI_COMM_WORLD);
 
   const bool use_output_time_folder = false;
-  const bool redirect_cout_to_file = false;
+  const bool redirect_cout_to_file = true;
   Files files;
   files.CheckIODirectories(use_output_time_folder);
   files.RedirectCout(redirect_cout_to_file);
@@ -268,14 +268,17 @@ int main(int argc, char** args) {
         Domains::square_m05p05::Function_Zero_on_boundary_7_u<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u;
 
   system_biharmonic_HM_nonauto_D._assemble_function_for_rhs = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_f;
-  system_biharmonic_HM_nonauto_D._true_solution_function = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u;
+  system_biharmonic_HM_nonauto_D._true_solution_function = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1;
 
   MultiLevelMesh mlMsh;
   const std::string mesh_file_total = system_biharmonic_HM_nonauto_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_nonauto_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 7;
-  std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+  const unsigned maxNumberOfMeshes = 6;
+  // // // std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+
+
+    std::vector<FEOrder> feOrder = { SERENDIPITY };
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_sxx(maxNumberOfMeshes), semiNorm_sxx(maxNumberOfMeshes);
@@ -300,7 +303,7 @@ int main(int argc, char** args) {
       MultiLevelSolution mlSol(&mlMsh);
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u);
+      mlSol.set_analytical_function("u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1);
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
       mlSol.set_analytical_function("sxx", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_sxx);
@@ -335,7 +338,7 @@ int main(int argc, char** args) {
 
       std::pair<double, double> norm;
 
-      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u);
+      norm = GetErrorNorm_L2_H1_with_analytical_sol(&mlSol, "u", &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1);
       l2Norm_u[i][j] = norm.first;
       semiNorm_u[i][j] = norm.second;
 
