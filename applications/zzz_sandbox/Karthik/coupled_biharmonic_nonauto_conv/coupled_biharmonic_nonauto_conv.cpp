@@ -124,14 +124,21 @@ private:
 }
 
 
-double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * name) {
+double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * SolName) {
+    double value = 0.0; // Initialize with a default value
 
-Math::Function< double > *  exact_sol =  ml_prob->get_ml_solution()->get_analytical_function(name);
+    // Check the solution name to apply the correct analytical initial value
+    if (!strcmp(SolName, "u")) {
+        Math::Function <double> * u = ml_prob->get_ml_solution()->get_analytical_function(SolName);
+        value = u->value(x);
+    }
+    else if (!strcmp(SolName, "sxx")) {
+        Math::Function <double> * sxx = ml_prob->get_ml_solution()->get_analytical_function(SolName);
+        value = sxx->value(x);
+    }
+    // Add more else if blocks here if you have other solutions to initialize with different logic
 
-double value = exact_sol->value(x);
-
-   return value;
-
+    return value;
 }
 
 
@@ -185,19 +192,14 @@ int main(int argc, char** args) {
   system_biharmonic_coupled._boundary_conditions_types_and_values             = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
 
 
-
   Domains::square_m05p05::Function_Zero_on_boundary_9<> system_biharmonic_coupled_function_zero_on_boundary_1;
    Domains::square_m05p05::Function_Zero_on_boundary_9_sxx<> system_biharmonic_coupled_function_zero_on_boundary_sxx;
 
   Domains::square_m05p05::Function_Zero_on_boundary_9_Laplacian<> system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
 
 
-
-
   system_biharmonic_coupled._assemble_function_for_rhs = &system_biharmonic_coupled_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_coupled._true_solution_function = &system_biharmonic_coupled_function_zero_on_boundary_1;
-
-
 
 
 
@@ -261,7 +263,6 @@ int main(int argc, char** args) {
       mlSol.Initialize("All");
 
 
-
       // define the multilevel problem attach the mlSol object to it
       MultiLevelProblem ml_prob(&mlSol);
 
@@ -291,7 +292,6 @@ int main(int argc, char** args) {
       system.MGsolve();
 
 
-
 // // //       // convergence for u
       std::pair< double , double > norm = GetErrorNorm_L2_H1_with_analytical_sol(& mlSol, "u",  & system_biharmonic_coupled_function_zero_on_boundary_1);
 
@@ -314,72 +314,9 @@ int main(int argc, char** args) {
   }
 
 
-  // FE_convergence::output_convergence_order();
-
-
-  // ======= L2 - BEGIN  ========================
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout << "l2 ERROR and ORDER OF CONVERGENCE:\n\n";
-  std::cout << "LEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
-
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
-    std::cout << i + 1 << "\t";
-    std::cout.precision(14);
-
-    for (unsigned j = 0; j < feOrder.size(); j++) {
-      std::cout << l2Norm[i][j] << "\t";
-    }
-
-    std::cout << std::endl;
-
-    if (i < maxNumberOfMeshes - 1) {
-      std::cout.precision(3);
-      std::cout << "\t\t";
-
-      for (unsigned j = 0; j < feOrder.size(); j++) {
-        std::cout << log(l2Norm[i][j] / l2Norm[i + 1][j]) / log(2.) << "\t\t\t";
-      }
-
-      std::cout << std::endl;
-    }
-
-  }
-  // ======= L2 - END  ========================
 
 
 
-  // ======= H1 - BEGIN  ========================
-
-  std::cout << std::endl;
-  std::cout << std::endl;
-  std::cout << "SEMINORM ERROR and ORDER OF CONVERGENCE:\n\n";
-  std::cout << "LEVEL\tFIRST\t\t\tSERENDIPITY\t\tSECOND\n";
-
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
-    std::cout << i + 1 << "\t";
-    std::cout.precision(14);
-
-    for (unsigned j = 0; j < feOrder.size(); j++) {
-      std::cout << semiNorm[i][j] << "\t";
-    }
-
-    std::cout << std::endl;
-
-    if (i < maxNumberOfMeshes - 1) {
-      std::cout.precision(3);
-      std::cout << "\t\t";
-
-      for (unsigned j = 0; j < feOrder.size(); j++) {
-        std::cout << log(semiNorm[i][j] / semiNorm[i + 1][j]) / log(2.) << "\t\t\t";
-      }
-
-      std::cout << std::endl;
-    }
-
-  }
-
-  // ======= H1 - END  ========================
 
 
   return 0;
