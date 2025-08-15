@@ -399,34 +399,34 @@ int main(int argc, char** args) {
     // Various choices - END ================
     
 
-    // // // // ======= Convergence study ========================
-    // // // FE_convergence<>::convergence_study(ml_prob,
-    // // //                                  ml_mesh,
-    // // //                                  & ml_mesh_all_levels_Needed_for_incremental/*NULL*/,
-    // // //                                  max_number_of_meshes,
-    // // //                                  convergence_rate_computation_method_Flag,
-    // // //                                  volume_or_boundary_Flag,
-    // // //                                  sobolev_norms_Flag,
-    // // //                                  my_solution_generation_has_equation_solve,
-    // // //                                  my_solution_generation,
-    // // //                                  unknowns,
-    // // //                                  unknowns_analytical_functions_Needed_for_absolute/* std::vector< Math::Function< double > * > () */,
-    // // //                                  Solution_set_initial_conditions_with_analytical_sol,
-    // // //                                  Solution_set_boundary_conditions_all_dirichlet_nonhomogeneous
-    // // //                                 );
+    // ======= Convergence study ========================
+    FE_convergence<>::convergence_study(ml_prob,
+                                     ml_mesh,
+                                     & ml_mesh_all_levels_Needed_for_incremental/*NULL*/,
+                                     max_number_of_meshes,
+                                     convergence_rate_computation_method_Flag,
+                                     volume_or_boundary_Flag,
+                                     sobolev_norms_Flag,
+                                     my_solution_generation_has_equation_solve,
+                                     my_solution_generation,
+                                     unknowns,
+                                     unknowns_analytical_functions_Needed_for_absolute/* std::vector< Math::Function< double > * > () */,
+                                     Solution_set_initial_conditions_with_analytical_sol,
+                                     Solution_set_boundary_conditions_all_dirichlet_nonhomogeneous
+                                    );
 
       
-    // ======= Normal run (without convergence study) ========================
-    my_solution_generation.run_on_single_level(ml_prob,
-                                               ml_mesh,
-                                               max_number_of_meshes,
-                                               unknowns,
-                                               unknowns_analytical_functions_Needed_for_absolute,
-                                               Solution_set_initial_conditions_with_analytical_sol,
-                                               Solution_set_boundary_conditions_all_dirichlet_nonhomogeneous,
-                                               my_solution_generation_has_equation_solve);
-    
-    // ======= Convergence study - END ========================
+// // //     // ======= Normal run (without convergence study) ========================
+// // //     my_solution_generation.run_on_single_level(ml_prob,
+// // //                                                ml_mesh,
+// // //                                                max_number_of_meshes,
+// // //                                                unknowns,
+// // //                                                unknowns_analytical_functions_Needed_for_absolute,
+// // //                                                Solution_set_initial_conditions_with_analytical_sol,
+// // //                                                Solution_set_boundary_conditions_all_dirichlet_nonhomogeneous,
+// // //                                                my_solution_generation_has_equation_solve);
+// // //
+// // //     // ======= Convergence study - END ========================
 
     
     
