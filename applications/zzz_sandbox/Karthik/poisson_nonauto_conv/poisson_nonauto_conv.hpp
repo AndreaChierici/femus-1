@@ -294,11 +294,11 @@ void  assemble_jacobian< double, double >::compute_jacobian_inside_integration_l
   const unsigned int dim_offset_grad = 3;
 
   
-    constexpr unsigned int pos_unk = 0/*unk_vec[0].SolPdeIndex*/;
+    constexpr unsigned int pos_unk = 0;
 
 // *** phi_j loop ***
     for (unsigned j = 0; j < Sol_n_el_dofs[ pos_unk ]; j++) {
-        /*real_num*/double laplace_weak_jac = 0.;
+        double laplace_weak_jac = 0.;
 
         for (unsigned kdim = 0; kdim < dim; kdim++) {
             laplace_weak_jac += (phi[ pos_unk].phi_grad(i * dim_offset_grad + kdim) * phi[ pos_unk ].phi_grad(j * dim_offset_grad + kdim));
