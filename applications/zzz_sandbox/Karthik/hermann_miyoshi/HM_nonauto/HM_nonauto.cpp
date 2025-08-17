@@ -240,7 +240,7 @@ int main(int argc, char** args) {
   FemusInit mpinit(argc, args, MPI_COMM_WORLD);
 
   const bool use_output_time_folder = false;
-  const bool redirect_cout_to_file = true;
+  const bool redirect_cout_to_file = false;
   Files files;
   files.CheckIODirectories(use_output_time_folder);
   files.RedirectCout(redirect_cout_to_file);
@@ -267,18 +267,18 @@ int main(int argc, char** args) {
 
         Domains::square_m05p05::Function_Zero_on_boundary_7_u<> system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_u;
 
-  system_biharmonic_HM_nonauto_D._assemble_function_for_rhs = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_f;
+  system_biharmonic_HM_nonauto_D._assemble_function_for_rhs = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_HM_nonauto_D._true_solution_function = &system_biharmonic_HM_nonauto_D_function_zero_on_boundary_1;
 
   MultiLevelMesh mlMsh;
   const std::string mesh_file_total = system_biharmonic_HM_nonauto_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_nonauto_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 6;
-  // // // std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+  const unsigned maxNumberOfMeshes = 4;
+  std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
 
-    std::vector<FEOrder> feOrder = { SERENDIPITY };
+// // //     std::vector<FEOrder> feOrder = { SERENDIPITY };
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_sxx(maxNumberOfMeshes), semiNorm_sxx(maxNumberOfMeshes);

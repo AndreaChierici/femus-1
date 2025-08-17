@@ -55,17 +55,6 @@ namespace karthik {
  * $J_{s_{xx}u} = \partial R_{s_{xx}} / \partial u_j = \int_\Omega (\nabla \phi_j \cdot \nabla \phi_i) d\Omega$
  * $J_{s_{xx}s_{xx}} = \partial R_{s_{xx}} / \partial s_{xx_j} = \int_\Omega (-\phi_j \cdot \phi_i) d\Omega$
  *
- * @tparam system_type Type of the PDE system (e.g., NonLinearImplicitSystem).
- * @tparam real_num Numeric type for solution variables (e.g., double).
- * @tparam real_num_mov Numeric type for moving domain variables (e.g., double).
- * @param elem_all Vector of element types for shape function evaluation.
- * @param elem_all_for_domain Vector of element types for domain geometry evaluation.
- * @param quad_rules Quadrature rules for integration.
- * @param mlPdeSys MultiLevel PDE system.
- * @param ml_mesh_in MultiLevel mesh.
- * @param ml_sol_in MultiLevel solution.
- * @param unknowns Vector of Unknown objects defining the problem's unknowns.
- * @param source_functions Vector of Math::Function objects for the source term.
  */
 template < class system_type, class real_num, class real_num_mov >
 static void AssembleBilaplaceProblem(
@@ -246,7 +235,7 @@ static void AssembleBilaplaceProblem(
                 for (unsigned jdim = 0; jdim < dim_offset_grad; jdim++) {
                     laplace_sxx_term_res += unknowns_phi_dof_qp[0].phi_grad(i * dim_offset_grad + jdim) * gradSolu_sxx_gss[jdim];
                 }
-                double f_source_term = source_functions[0]->laplacian(x_gss); // The 'f' term
+                double f_source_term = source_functions[0]->value(x_gss); // The 'f' term
                 unk_element_jac_res.res()[i] += (laplace_sxx_term_res - f_source_term * unknowns_phi_dof_qp[0].phi(i)) * weight_qp;
 
 
@@ -308,7 +297,7 @@ static void AssembleBilaplaceProblem(
         KK->add_matrix_blocked(unk_element_jac_res.jac(), unk_element_jac_res.dof_map(), unk_element_jac_res.dof_map());
 
         // Optional: Print elemental algebra for debugging
-        constexpr bool print_algebra_local = false;
+        constexpr bool print_algebra_local = true;
         if (print_algebra_local) {
             // These variables are now correctly declared within this scope
             const unsigned nDofs_u_local = unknowns_local[0].num_elem_dofs();

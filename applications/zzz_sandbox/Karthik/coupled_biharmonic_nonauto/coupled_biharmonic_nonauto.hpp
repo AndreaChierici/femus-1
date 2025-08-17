@@ -172,17 +172,17 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
                 // Calculate residual for 'u' (Res_u: Δsxx = -f)
                 double Laplace_sxx_term = 0.;
                 for (unsigned jdim = 0; jdim < dim; jdim++) {
-                    Laplace_sxx_term += phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
+                    Laplace_sxx_term += - phi_x[i * dim + jdim] * solsxxGauss_x[jdim];
                 }
                 double F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
-                Res_el_u[i] += (Laplace_sxx_term - F_term) * weight;
+                Res_el_u[i] += (-Laplace_sxx_term + F_term) * weight;
 
                 // Calculate residual for 'sxx' (Res_sxx: Δu = -sxx)
                 double Laplace_u_term = 0.;
                 for (unsigned jdim = 0; jdim < dim; jdim++) {
-                    Laplace_u_term += phi_x[i * dim + jdim] * soluGauss_x[jdim];
+                    Laplace_u_term += - phi_x[i * dim + jdim] * soluGauss_x[jdim];
                 }
-                Res_el_sxx[i] += (Laplace_u_term - solsxxGauss * phi[i]) * weight;
+                Res_el_sxx[i] += (-Laplace_u_term + solsxxGauss * phi[i]) * weight;
 
                 // Manual Jacobian calculation loop
                 for (unsigned j = 0; j < nDofs_u; j++) {
@@ -219,7 +219,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         RES->add_vector_blocked(Res_total, sysDof);
         KK->add_matrix_blocked(Jac_el, sysDof, sysDof);
 
-        constexpr bool print_algebra_local = false;
+        constexpr bool print_algebra_local = true;
         if (print_algebra_local) {
             assemble_jacobian<double,double>::print_element_jacobian(iel, Jac_el, Sol_n_el_dofs_Mat_vol, 10, 5);
             assemble_jacobian<double,double>::print_element_residual(iel, Res_total, Sol_n_el_dofs_Mat_vol, 10, 5);

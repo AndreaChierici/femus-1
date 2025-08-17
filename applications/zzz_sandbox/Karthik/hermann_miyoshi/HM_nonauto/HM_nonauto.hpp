@@ -23,10 +23,7 @@ namespace karthik {
 
   public:
 
-
-
-
-//========= BOUNDARY_IMPLEMENTATION_U - BEGIN ==================
+// ========= BOUNDARY_IMPLEMENTATION_U - BEGIN ==================
 
 static void natural_loop_1dU(const MultiLevelProblem *    ml_prob,
                      const Mesh *                    msh,
@@ -526,6 +523,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
     // Loop through elements
     for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
         short unsigned ielGeom = msh->GetElementType(iel);
+        // number of dofs per element for the solution FE
         unsigned nDofs = msh->GetElementDofNumber(iel, solFEType_sxx);
         unsigned nDofs2 = msh->GetElementDofNumber(iel, xType);
         std::vector<unsigned> Sol_n_el_dofs_Mat_vol(4, nDofs);
@@ -536,7 +534,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
         solsxx.resize(nDofs);
         solsxy.resize(nDofs);
         solsyy.resize(nDofs);
-        for (int i = 0; i < dim; i++) {
+        for (int i = 0; i < (int)dim; i++) {
             x[i].resize(nDofs2);
         }
         std::vector<double> local_aResu(nDofs, 0.);
@@ -558,7 +556,7 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
             sysDof[3 * nDofs + i] = pdeSys->GetSystemDof(solsyyIndex, solsyyPdeIndex, i, iel);
         }
 
-        // Local storage of coordinates
+        // local storage of coordinates
         for (unsigned i = 0; i < nDofs2; i++) {
             unsigned xDof = msh->GetSolutionDof(i, iel, xType);
             for (unsigned jdim = 0; jdim < dim; jdim++) {
@@ -566,123 +564,125 @@ static void AssembleBilaplaceProblem_AD(MultiLevelProblem& ml_prob) {
             }
         }
 
-        // Residual and Jacobian computation
-        Jac.assign(16 * nDofs * nDofs, 0.0);
+        // prepare local jacobian and residual containers
+        const unsigned m = 4 * nDofs;               // total rows/cols in blocked Jacobian
+        Jac.assign(m * m, 0.0);
+        Res.assign(m, 0.0);
 
-        // Gauss point loop
-        for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solFEType_u]->GetGaussPointNumber(); ig++) {
+        // Gauss point loop (use the finite element object to compute phi,phi_x,phi_xx,weight)
+        unsigned nGauss = msh->_finiteElement[ielGeom][solFEType_sxx]->GetGaussPointNumber();
+        for (unsigned ig = 0; ig < nGauss; ig++) {
+
+            // fill phi, phi_x, phi_xx and get weight (Jacobian included by this call in FEMuS style)
             msh->_finiteElement[ielGeom][solFEType_sxx]->Jacobian(x, ig, weight, phi, phi_x, phi_xx);
 
-            // Evaluate solution and its derivatives at the Gauss point
-            double soluGauss = 0;
-            std::vector<double> soluGauss_x(dim, 0.);
-            double solsxxGauss = 0;
-            std::vector<double> solsxxGauss_x(dim, 0.);
-            double solsxyGauss = 0;
-            std::vector<double> solsxyGauss_x(dim, 0.);
-            double solsyyGauss = 0;
-            std::vector<double> solsyyGauss_x(dim, 0.);
-            std::vector<double> xGauss(dim, 0.);
+            // evaluate the (nodal) solution and gradients at this Gauss point
+            double soluGauss = 0.0;
+            std::vector<double> soluGauss_x(dim, 0.0);
+            double solsxxGauss = 0.0;
+            std::vector<double> solsxxGauss_x(dim, 0.0);
+            double solsxyGauss = 0.0;
+            std::vector<double> solsxyGauss_x(dim, 0.0);
+            double solsyyGauss = 0.0;
+            std::vector<double> solsyyGauss_x(dim, 0.0);
+            std::vector<double> xGauss(dim, 0.0);
 
-            for (unsigned i = 0; i < nDofs; i++) {
-                soluGauss += phi[i] * solu[i];
-                solsxxGauss += phi[i] * solsxx[i];
-                solsxyGauss += phi[i] * solsxy[i];
-                solsyyGauss += phi[i] * solsyy[i];
+            for (unsigned a = 0; a < nDofs; ++a) {
+                soluGauss += phi[a] * solu[a];
+                solsxxGauss += phi[a] * solsxx[a];
+                solsxyGauss += phi[a] * solsxy[a];
+                solsyyGauss += phi[a] * solsyy[a];
 
-                for (unsigned jdim = 0; jdim < dim; jdim++) {
-                    soluGauss_x[jdim] += phi_x[i * dim + jdim] * solu[i];
-                    solsxxGauss_x[jdim] += phi_x[i * dim + jdim] * solsxx[i];
-                    solsxyGauss_x[jdim] += phi_x[i * dim + jdim] * solsxy[i];
-                    solsyyGauss_x[jdim] += phi_x[i * dim + jdim] * solsyy[i];
+                for (unsigned d = 0; d < dim; ++d) {
+                    soluGauss_x[d] += phi_x[a * dim + d] * solu[a];
+                    solsxxGauss_x[d] += phi_x[a * dim + d] * solsxx[a];
+                    solsxyGauss_x[d] += phi_x[a * dim + d] * solsxy[a];
+                    solsyyGauss_x[d] += phi_x[a * dim + d] * solsyy[a];
+                    xGauss[d] += x[d][a] * phi[a];
                 }
             }
 
-            // phi_i loop for residuals and Jacobian
-            for (unsigned i = 0; i < nDofs; i++) {
-                // Calculate residual terms at the gauss point
-                double Bxxsxx = phi_x[i * dim] * solsxxGauss_x[0];
-                double Bxysxy = phi_x[i * dim + 1] * solsxyGauss_x[0] + phi_x[i * dim] * solsxyGauss_x[1];
-                double Byysyy = phi_x[i * dim + 1] * solsyyGauss_x[1];
+            // phi_i loop: residual contributions
+            for (unsigned i = 0; i < nDofs; ++i) {
 
-                double Bxxu = phi_x[i * dim] * soluGauss_x[0];
-                double Bxyu = phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim] * soluGauss_x[1];
-                double Byyu = phi_x[i * dim + 1] * soluGauss_x[1];
+                const double Bxxsxx = phi_x[i * dim + 0] * solsxxGauss_x[0];
+                const double Bxysxy = phi_x[i * dim + 1] * solsxyGauss_x[0] + phi_x[i * dim + 0] * solsxyGauss_x[1];
+                const double Byysyy = phi_x[i * dim + 1] * solsyyGauss_x[1];
 
-                double Mxxxx_sxx = phi[i] * solsxxGauss;
-                double Mxyxy_sxy = 2. * phi[i] * solsxyGauss;
-                double Myyyy_syy = phi[i] * solsyyGauss;
+                const double Bxxu = phi_x[i * dim + 0] * soluGauss_x[0];
+                const double Bxyu = phi_x[i * dim + 1] * soluGauss_x[0] + phi_x[i * dim + 0] * soluGauss_x[1];
+                const double Byyu = phi_x[i * dim + 1] * soluGauss_x[1];
 
-                std::vector<double> xGauss(dim, 0.);
-                for (unsigned k=0; k<nDofs; k++) {
-                    for(unsigned jdim=0; jdim<dim; jdim++) {
-                        xGauss[jdim] += x[jdim][k] * phi[k];
-                    }
-                }
+                const double Mxxxx_sxx = phi[i] * solsxxGauss;
+                const double Mxyxy_sxy = 2.0 * phi[i] * solsxyGauss;
+                const double Myyyy_syy = phi[i] * solsyyGauss;
 
                 double F_term = ml_prob.get_app_specs_pointer()->_assemble_function_for_rhs->laplacian(xGauss) * phi[i];
 
-                // System residuals
-                local_aResu[i] += (Bxxsxx + Bxysxy + Byysyy + F_term) * weight;
-                local_aRessxx[i] += (Bxxu + Mxxxx_sxx) * weight;
-                local_aRessxy[i] += (Bxyu + Mxyxy_sxy) * weight;
-                local_aRessyy[i] += (Byyu + Myyyy_syy) * weight;
+                local_aResu[i]    += (Bxxsxx + Bxysxy + Byysyy + F_term) * weight;
+                local_aRessxx[i]  += (Bxxu + Mxxxx_sxx) * weight;
+                local_aRessxy[i]  += (Bxyu + Mxyxy_sxy) * weight;
+                local_aRessyy[i]  += (Byyu + Myyyy_syy) * weight;
+            } // end phi_i
 
-                // Loop for Jacobian calculation
-                for (unsigned j = 0; j < nDofs; j++) {
-                    const unsigned num_rows_cols = 4 * nDofs;
+            // Now assemble Jacobian contributions for this Gauss point:
+            // use column-major layout for Jac: entry(row, col) => Jac[row + col*m]
+            auto idx = [&](unsigned row, unsigned col) -> unsigned { return row + col * m; };
 
-                    // d(aResu[i]) / d(solu[j]) = 0
-                    // d(aResu[i]) / d(solsxx[j])
-                    Jac[(nDofs + j) * num_rows_cols + i] += (phi_x[i * dim] * phi_x[j * dim]) * weight;
-                    // d(aResu[i]) / d(solsxy[j])
-                    Jac[(2 * nDofs + j) * num_rows_cols + i] += (phi_x[i * dim + 1] * phi_x[j * dim] + phi_x[i * dim] * phi_x[j * dim + 1]) * weight;
-                    // d(aResu[i]) / d(solsyy[j])
-                    Jac[(3 * nDofs + j) * num_rows_cols + i] += (phi_x[i * dim + 1] * phi_x[j * dim + 1]) * weight;
+            for (unsigned i = 0; i < nDofs; ++i) {
+                const double dphii_dx = phi_x[i * dim + 0];
+                const double dphii_dy = phi_x[i * dim + 1];
+                for (unsigned j = 0; j < nDofs; ++j) {
+                    const double dphij_dx = phi_x[j * dim + 0];
+                    const double dphij_dy = phi_x[j * dim + 1];
+                    const double Mij = phi[i] * phi[j];
 
-                    // d(aRessxx[i]) / d(solu[j])
-                    Jac[j * num_rows_cols + (nDofs + i)] += (phi_x[i * dim] * phi_x[j * dim]) * weight;
-                    // d(aRessxx[i]) / d(solsxx[j])
-                    Jac[(nDofs + j) * num_rows_cols + (nDofs + i)] += phi[i] * phi[j] * weight;
-                    // d(aRessxx[i]) / d(solsxy[j]) = 0
-                    // d(aRessxx[i]) / d(solsyy[j]) = 0
+                    const double Bxx_ij = dphii_dx * dphij_dx;
+                    const double Bxy_ij = dphii_dy * dphij_dx + dphii_dx * dphij_dy;
+                    const double Byy_ij = dphii_dy * dphij_dy;
 
-                    // d(aRessxy[i]) / d(solu[j])
-                    Jac[j * num_rows_cols + (2 * nDofs + i)] += (phi_x[i * dim + 1] * phi_x[j * dim] + phi_x[i * dim] * phi_x[j * dim + 1]) * weight;
-                    // d(aRessxy[i]) / d(solsxx[j]) = 0
-                    // d(aRessxy[i]) / d(solsxy[j])
-                    Jac[(2 * nDofs + j) * num_rows_cols + (2 * nDofs + i)] += 2. * phi[i] * phi[j] * weight;
-                    // d(aRessxy[i]) / d(solsyy[j]) = 0
+                    // --- u equation coupling (row = i) ---
+                    Jac[idx(i, nDofs + j)]     += Bxx_ij * weight;       // d(aResu[i]) / d(solsxx[j])
+                    Jac[idx(i, 2*nDofs + j)]   += Bxy_ij * weight;       // d(aResu[i]) / d(solsxy[j])
+                    Jac[idx(i, 3*nDofs + j)]   += Byy_ij * weight;       // d(aResu[i]) / d(solsyy[j])
 
-                    // d(aRessyy[i]) / d(solu[j])
-                    Jac[j * num_rows_cols + (3 * nDofs + i)] += (phi_x[i * dim + 1] * phi_x[j * dim + 1]) * weight;
-                    // d(aRessyy[i]) / d(solsxx[j]) = 0
-                    // d(aRessyy[i]) / d(solsxy[j]) = 0
-                    // d(aRessyy[i]) / d(solsyy[j])
-                    Jac[(3 * nDofs + j) * num_rows_cols + (3 * nDofs + i)] += phi[i] * phi[j] * weight;
+                    // --- sxx equation (row = nDofs + i) ---
+                    Jac[idx(nDofs + i, j)]             += Bxx_ij * weight; // d(aRessxx[i]) / d(solu[j])
+                    Jac[idx(nDofs + i, nDofs + j)]     += Mij * weight;    // d(aRessxx[i]) / d(solsxx[j])
+
+                    // --- sxy equation (row = 2*nDofs + i) ---
+                    Jac[idx(2*nDofs + i, j)]               += Bxy_ij * weight;     // d(aRessxy[i]) / d(solu[j])
+                    Jac[idx(2*nDofs + i, 2*nDofs + j)]     += 2.0 * Mij * weight;   // d(aRessxy[i]) / d(solsxy[j])
+
+                    // --- syy equation (row = 3*nDofs + i) ---
+                    Jac[idx(3*nDofs + i, j)]               += Byy_ij * weight; // d(aRessyy[i]) / d(solu[j])
+                    Jac[idx(3*nDofs + i, 3*nDofs + j)]     += Mij * weight;    // d(aRessyy[i]) / d(solsyy[j])
                 }
             }
+
+        } // end gauss loop
+
+        // copy local residuals into blocked Res (note sign convention: residual stored negative when assembling)
+        for (unsigned i = 0; i < nDofs; ++i) {
+            Res[i]            = - local_aResu[i];
+            Res[nDofs + i]    = - local_aRessxx[i];
+            Res[2*nDofs + i]  = - local_aRessxy[i];
+            Res[3*nDofs + i]  = - local_aRessyy[i];
         }
 
-        // Copy values from local residuals to the global residual vector
-        Res.resize(4 * nDofs);
-        for (int i = 0; i < nDofs; i++) {
-            Res[i] = -local_aResu[i];
-            Res[nDofs + i] = -local_aRessxx[i];
-            Res[2 * nDofs + i] = -local_aRessxy[i];
-            Res[3 * nDofs + i] = -local_aRessyy[i];
-        }
-
+        // assemble into global system
         RES->add_vector_blocked(Res, sysDof);
         KK->add_matrix_blocked(Jac, sysDof, sysDof);
 
-        constexpr bool print_algebra_local = false;
+        constexpr bool print_algebra_local = true;
         if (print_algebra_local) {
             assemble_jacobian<double, double>::print_element_jacobian(iel, Jac, Sol_n_el_dofs_Mat_vol, 10, 5);
             assemble_jacobian<double, double>::print_element_residual(iel, Res, Sol_n_el_dofs_Mat_vol, 10, 5);
         }
-    }
 
+    } // end element loop
+
+    // close global vectors/matrices
     RES->close();
     KK->close();
 }
