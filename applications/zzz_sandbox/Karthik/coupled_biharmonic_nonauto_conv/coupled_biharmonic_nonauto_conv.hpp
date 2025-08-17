@@ -68,6 +68,10 @@ static void AssembleBilaplaceProblem(
                             const std::vector< Math::Function< double > * > & source_functions) {
 
     // level is the level of the PDE system to be assembled
+
+
+    /*
+
     const unsigned level = mlPdeSys->GetLevelToAssemble();
     const bool assembleMatrix = mlPdeSys->GetAssembleMatrix();
 
@@ -98,8 +102,8 @@ static void AssembleBilaplaceProblem(
     constexpr unsigned int space_dim = 3; // Assuming max spatial dimension 3 for general compatibility
     const unsigned int dim_offset_grad = dim; // Use actual problem dimension for gradients
 
-    std::vector < std::vector < /*double*/ real_num_mov > > JacI_qp(space_dim);
-    std::vector < std::vector < /*double*/ real_num_mov > > Jac_qp(dim);
+    std::vector < std::vector <  real_num_mov > > JacI_qp(space_dim);
+    std::vector < std::vector < real_num_mov > > Jac_qp(dim);
     for (unsigned d = 0; d < dim; d++) { Jac_qp[d].resize(space_dim); }
     for (unsigned d = 0; d < space_dim; d++) { JacI_qp[d].resize(dim); }
 
@@ -124,7 +128,7 @@ static void AssembleBilaplaceProblem(
 
     for(int u = 0; u < n_unknowns; u++) {
         unknowns_local[u].initialize(dim_offset_grad, unknowns[u], ml_sol, mlPdeSys);
-        // assert(u == unknowns_local[u].pde_index()); // This assertion might fail if pde_index doesn't match the vector index
+        assert(u == unknowns_local[u].pde_index()); // This assertion might fail if pde_index doesn't match the vector index
     }
 
     //=============== Unknowns, Elem matrix and Rhs - BEGIN ========================================
@@ -315,6 +319,260 @@ static void AssembleBilaplaceProblem(
 
     // ***************** END ASSEMBLY *******************
 }
+
+*/
+
+
+
+
+    // level is the level of the PDE system to be assembled
+    const unsigned level = mlPdeSys->GetLevelToAssemble();
+    const bool assembleMatrix = mlPdeSys->GetAssembleMatrix();
+
+    Mesh* msh = ml_mesh_in->GetLevel(level);
+
+    MultiLevelSolution* ml_sol = ml_sol_in;
+    Solution* sol = ml_sol->GetSolutionLevel(level);
+
+    LinearEquationSolver* pdeSys = mlPdeSys->_LinSolver[level];
+    SparseMatrix* KK = pdeSys->_KK;
+    NumericVector* RES = pdeSys->_RES;
+
+    const unsigned dim = msh->GetDimension();
+    const unsigned iproc = msh->processor_id(); // get the process_id (for parallel computation)
+
+    RES->zero();
+    if (assembleMatrix) KK->zero();
+
+    // keep same conventions as your code
+    constexpr unsigned int space_dim = 2; // max spatial dimension
+    const unsigned int dim_offset_grad = dim;
+
+    // jacobian geometry containers (will be resized per element/gauss below)
+    std::vector< std::vector< real_num_mov > > JacI_qp(space_dim);
+    std::vector< std::vector< real_num_mov > > Jac_qp(dim);
+    for (unsigned d = 0; d < dim; d++) Jac_qp[d].resize(space_dim);
+    for (unsigned d = 0; d < space_dim; d++) JacI_qp[d].resize(dim);
+    real_num_mov detJac_qp = (real_num_mov)0.0;
+    real_num_mov weight_qp = (real_num_mov)0.0;
+
+    unsigned xType = CONTINUOUS_BIQUADRATIC; // geometry FE type (adjust if needed)
+
+    CurrentElem < real_num_mov > geom_element(dim, msh);
+    Phi < real_num_mov > geom_element_phi_dof_qp(dim_offset_grad);
+
+    // Unknowns setup
+    const unsigned int n_unknowns = mlPdeSys->GetSolPdeIndex().size(); // expect 2
+    if (n_unknowns < 2) {
+        std::cerr << "AssembleBilaplaceProblem: expected 2 unknowns (u,sxx) but found " << n_unknowns << "\n";
+        return;
+    }
+
+    std::vector < UnknownLocal < real_num > > unknowns_local(n_unknowns);
+    std::vector < Phi < real_num > > unknowns_phi_dof_qp(n_unknowns, Phi< real_num >(dim_offset_grad));
+
+    for (int u = 0; u < (int)n_unknowns; u++) {
+        unknowns_local[u].initialize(dim_offset_grad, unknowns[u], ml_sol, mlPdeSys);
+    }
+
+    ElementJacRes < real_num > unk_element_jac_res(dim, unknowns_local);
+
+    // element loop: each process loops only on the elements it owns
+    for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); iel++) {
+
+        // Geometry
+        geom_element.set_coords_at_dofs_and_geom_type(iel, xType);
+        geom_element.set_elem_center_3d(iel, xType);
+        const short unsigned ielGeom = geom_element.geom_type();
+
+        // Unknown local DOFs
+        for (unsigned u = 0; u < n_unknowns; u++) {
+            unknowns_local[u].set_elem_dofs(iel, msh, sol);
+        }
+
+        // prepare local mapping / storage
+        unk_element_jac_res.set_loc_to_glob_map(iel, msh, pdeSys);
+        const unsigned total_local_dofs = unk_element_jac_res.dof_map().size();
+        unk_element_jac_res.res().assign(total_local_dofs, (real_num)0.0);
+        unk_element_jac_res.jac().assign(total_local_dofs * total_local_dofs, (real_num)0.0);
+
+        // small cache of per-unknown number of local dofs
+        std::vector<unsigned> unk_num_elem_dofs(n_unknowns);
+        unsigned sum_unk_num_elem_dofs = 0;
+        for (unsigned u = 0; u < n_unknowns; u++) {
+            unk_num_elem_dofs[u] = unknowns_local[u].num_elem_dofs();
+            sum_unk_num_elem_dofs += unk_num_elem_dofs[u];
+        }
+
+        // Sanity: check dof_map ordering assumption (expect concatenation of unknown blocks)
+        if (sum_unk_num_elem_dofs != total_local_dofs) {
+            std::cerr << "Warning: sum of unknown local dofs (" << sum_unk_num_elem_dofs
+                      << ") != total_local_dofs (" << total_local_dofs << "). Check ordering.\n";
+        }
+        // local lengths
+        const unsigned nDofs_u = unk_num_elem_dofs[0];
+        const unsigned nDofs_sxx = unk_num_elem_dofs[1];
+
+        // Gauss loop (use quad_rules for this geometry type)
+        const unsigned nGauss = quad_rules[ielGeom].GetGaussPointsNumber();
+        for (unsigned ig = 0; ig < nGauss; ig++) {
+
+            // Jacobian (element geometry)
+            elem_all_for_domain[ielGeom][xType]->JacJacInv(geom_element.get_coords_at_dofs_3d(), ig, Jac_qp, JacI_qp, detJac_qp, space_dim);
+            weight_qp = detJac_qp * quad_rules[ielGeom].GetGaussWeightsPointer()[ig];
+
+            // Evaluate shape functions for each unknown at this gauss point
+            for (unsigned u = 0; u < n_unknowns; u++) {
+                elem_all[ielGeom][unknowns_local[u].fe_type()]->shape_funcs_current_elem(
+                    ig, JacI_qp,
+                    unknowns_phi_dof_qp[u].phi(),
+                    unknowns_phi_dof_qp[u].phi_grad(),
+                    unknowns_phi_dof_qp[u].phi_hess(),
+                    space_dim
+                );
+            }
+            // geometry phi
+            elem_all_for_domain[ielGeom][xType]->shape_funcs_current_elem(
+                ig, JacI_qp,
+                geom_element_phi_dof_qp.phi(),
+                geom_element_phi_dof_qp.phi_grad(),
+                geom_element_phi_dof_qp.phi_hess(),
+                space_dim
+            );
+
+            // local references to avoid repeated calls and to make indexing explicit
+            auto & phi_u      = unknowns_phi_dof_qp[0].phi();
+            auto & gradphi_u  = unknowns_phi_dof_qp[0].phi_grad(); // layout: local_i * dim + comp
+            auto & phi_sxx    = unknowns_phi_dof_qp[1].phi();
+            auto & gradphi_sxx= unknowns_phi_dof_qp[1].phi_grad();
+
+            // Interpolate solution values & gradients at gauss point for each unknown
+            real_num_mov u_val_g = (real_num_mov)0.0;
+            std::vector< real_num_mov > grad_u_g(dim_offset_grad, (real_num_mov)0.0);
+            for (unsigned a = 0; a < nDofs_u; ++a) {
+                u_val_g += (real_num_mov) phi_u[a] * (real_num_mov) unknowns_local[0].elem_dofs()[a];
+                for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                    grad_u_g[d] += (real_num_mov) gradphi_u[a * dim_offset_grad + d] * (real_num_mov) unknowns_local[0].elem_dofs()[a];
+                }
+            }
+
+            real_num_mov sxx_val_g = (real_num_mov)0.0;
+            std::vector< real_num_mov > grad_sxx_g(dim_offset_grad, (real_num_mov)0.0);
+            for (unsigned a = 0; a < nDofs_sxx; ++a) {
+                sxx_val_g += (real_num_mov) phi_sxx[a] * (real_num_mov) unknowns_local[1].elem_dofs()[a];
+                for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                    grad_sxx_g[d] += (real_num_mov) gradphi_sxx[a * dim_offset_grad + d] * (real_num_mov) unknowns_local[1].elem_dofs()[a];
+                }
+            }
+
+            // Compute physical coordinates x_gss at gauss point
+            std::vector< real_num_mov > x_gss(dim, (real_num_mov)0.0);
+            auto & coords = geom_element.get_coords_at_dofs();
+            const unsigned nGeomDofs = coords[0].size();
+            for (unsigned a = 0; a < nGeomDofs; ++a) {
+                const real_num_mov geom_phi = (real_num_mov) geom_element_phi_dof_qp.phi()[a];
+                for (unsigned d = 0; d < dim; ++d) {
+                    x_gss[d] += (real_num_mov) coords[d][a] * geom_phi;
+                }
+            }
+
+            // Source f(x) at gauss point (convert to real_num_mov)
+            const real_num_mov f_val = (real_num_mov) source_functions[0]->value(x_gss);
+
+            // ----------------- Residual and Jacobian contributions -----------------
+            // Test functions for R_u (first equation): test index i in [0,nDofs_u)
+            for (unsigned i = 0; i < nDofs_u; ++i) {
+                const real_num phi_i_u = (real_num) phi_u[i];
+
+                // (∇ sxx ⋅ ∇ v_u) contribution -> integrate grad_sxx ⋅ grad(phi_i^u)
+                real_num_mov grad_dot = (real_num_mov)0.0;
+                for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                    grad_dot += grad_sxx_g[d] * (real_num_mov) gradphi_u[i * dim_offset_grad + d];
+                }
+                // Residual R_u: ∫ (∇ sxx ⋅ ∇ v_u - f * v_u)
+                unk_element_jac_res.res()[ i ] += (real_num) ( (grad_dot - f_val * (real_num_mov)phi_i_u) * weight_qp );
+
+                // Jacobian: derivative of R_u wrt sxx_j -> ∫ ∇φ_j^{sxx} ⋅ ∇φ_i^{u}
+                for (unsigned j = 0; j < nDofs_sxx; ++j) {
+                    real_num_mov dot_grad = (real_num_mov)0.0;
+                    for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                        const real_num_mov g_i = (real_num_mov) gradphi_u[i * dim_offset_grad + d];
+                        const real_num_mov g_j = (real_num_mov) gradphi_sxx[j * dim_offset_grad + d];
+                        dot_grad += g_i * g_j;
+                    }
+                    // row = i (R_u), col = nDofs_u + j (sxx_j)
+                    unk_element_jac_res.jac()[ i * total_local_dofs + (nDofs_u + j) ] += (real_num) ( dot_grad * weight_qp );
+                }
+                // J_uu block is zero (no contribution)
+            }
+
+            // Test functions for R_sxx (second equation): i in [0,nDofs_sxx)
+            for (unsigned i = 0; i < nDofs_sxx; ++i) {
+                const real_num phi_i_sxx = (real_num) phi_sxx[i];
+
+                // (∇ u ⋅ ∇ v_sxx)
+                real_num_mov grad_dot = (real_num_mov)0.0;
+                for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                    grad_dot += grad_u_g[d] * (real_num_mov) gradphi_sxx[i * dim_offset_grad + d];
+                }
+                // Residual R_sxx: ∫ (∇ u ⋅ ∇ v_sxx - sxx * v_sxx)
+                unk_element_jac_res.res()[ nDofs_u + i ] += (real_num) ( (grad_dot - sxx_val_g * (real_num_mov)phi_i_sxx) * weight_qp );
+
+                // Jacobian: derivative wrt u_j (J_sxxu)
+                for (unsigned j = 0; j < nDofs_u; ++j) {
+                    real_num_mov dot_grad = (real_num_mov)0.0;
+                    for (unsigned d = 0; d < dim_offset_grad; ++d) {
+                        const real_num_mov g_i = (real_num_mov) gradphi_sxx[i * dim_offset_grad + d];
+                        const real_num_mov g_j = (real_num_mov) gradphi_u[j * dim_offset_grad + d];
+                        dot_grad += g_i * g_j;
+                    }
+                    // row = nDofs_u + i, col = j
+                    unk_element_jac_res.jac()[ (nDofs_u + i) * total_local_dofs + j ] += (real_num) ( dot_grad * weight_qp );
+                }
+
+                // Jacobian: derivative wrt sxx_j (mass-like block with a - sign)
+                for (unsigned j = 0; j < nDofs_sxx; ++j) {
+                    real_num_mov val = - (real_num_mov) ( phi_sxx[i] * phi_sxx[j] );
+                    unk_element_jac_res.jac()[ (nDofs_u + i) * total_local_dofs + (nDofs_u + j) ] += (real_num) ( val * weight_qp );
+                }
+            }
+
+        } // end gauss loop
+
+        // Finalize local residual (FEMUS convention negative)
+        std::vector<double> Res_total( unk_element_jac_res.res().size() );
+        for (size_t kk = 0; kk < unk_element_jac_res.res().size(); ++kk) {
+            Res_total[kk] = - ( double ) ( unk_element_jac_res.res()[kk] );
+        }
+
+        RES->add_vector_blocked(Res_total, unk_element_jac_res.dof_map());
+
+        if (assembleMatrix) {
+            KK->add_matrix_blocked( unk_element_jac_res.jac(), unk_element_jac_res.dof_map(), unk_element_jac_res.dof_map() );
+        }
+
+        // Optional printing
+        constexpr bool print_algebra_local = false;
+        if (print_algebra_local) {
+            const unsigned nDofs_u_local = unk_num_elem_dofs[0];
+            const unsigned nDofs_sxx_local = unk_num_elem_dofs[1];
+            std::vector<unsigned> Sol_n_el_dofs_Mat_vol = {nDofs_u_local, nDofs_sxx_local};
+            assemble_jacobian<double,double>::print_element_jacobian(iel, unk_element_jac_res.jac(), Sol_n_el_dofs_Mat_vol, 10, 5);
+            assemble_jacobian<double,double>::print_element_residual(iel, Res_total, Sol_n_el_dofs_Mat_vol, 10, 5);
+        }
+
+    } // end element loop
+
+    RES->close();
+    if (assembleMatrix) KK->close();
+
+    // ***************** END ASSEMBLY *******************
+
+    return;
+}
+
+
+
 
   }; // end class biharmonic_coupled_equation
 
