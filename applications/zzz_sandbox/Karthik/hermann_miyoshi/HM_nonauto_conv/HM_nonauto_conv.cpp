@@ -448,31 +448,23 @@ int main(int argc, char** args) {
 
     // Setup for 'u'
     unknowns[0]._name = "u";
+    unknowns[1]._name = "sxx";
+    unknowns[2]._name = "sxy";
+    unknowns[3]._name = "syy";
+
     unknowns[0]._fe_family = LAGRANGE;
     unknowns[0]._fe_order = FIRST;
     unknowns[0]._time_order = 0;
     unknowns[0]._is_pde_unknown = true;
 
-    // Setup for 'sxx'
-    unknowns[1]._name = "sxx";
-    unknowns[1]._fe_family = LAGRANGE;
-    unknowns[1]._fe_order = FIRST;
-    unknowns[1]._time_order = 0;
-    unknowns[1]._is_pde_unknown = true;
 
-    // Setup for 'sxy'
-    unknowns[2]._name = "sxy";
-    unknowns[2]._fe_family = LAGRANGE;
-    unknowns[2]._fe_order = FIRST;
-    unknowns[2]._time_order = 0;
-    unknowns[2]._is_pde_unknown = true;
+    for (unsigned int unk=1; unk < unknowns.size(); unk++){
+    unknowns[unk]._fe_family = LAGRANGE;
+    unknowns[unk]._fe_order = FIRST;
+    unknowns[unk]._time_order = 0;
+    unknowns[unk]._is_pde_unknown = true;
+    }
 
-    // Setup for 'syy'
-    unknowns[3]._name = "syy";
-    unknowns[3]._fe_family = LAGRANGE;
-    unknowns[3]._fe_order = FIRST;
-    unknowns[3]._time_order = 0;
-    unknowns[3]._is_pde_unknown = true;
     // ======= Unknowns - END ========================
 
     // ======= Unknowns, Analytical functions - BEGIN ================
