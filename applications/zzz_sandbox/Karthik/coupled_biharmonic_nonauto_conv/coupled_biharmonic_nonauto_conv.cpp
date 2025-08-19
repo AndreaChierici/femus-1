@@ -159,10 +159,6 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
         Value = analytical_u_solution.value(x);
     } else if (!strcmp(SolName, "sxx")) {
         Value = analytical_sxx_solution.value(x);
-    }else if (!strcmp(SolName, "sxy")) {
-        Value = analytical_sxx_solution.value(x);
-    }else if (!strcmp(SolName, "syy")) {
-        Value = analytical_sxx_solution.value(x);
     }
     return dirichlet;
 }
@@ -373,7 +369,10 @@ int main(int argc, char** args) {
     const bool my_solution_generation_has_equation_solve = true;
 
 
+// // //    std::vector< Order > fe_orders     = { FIRST, SERENDIPITY, SECOND };
 
+
+// // //    for (unsigned k = 0; k < fe_orders.size(); ++k) {
 
     // ======= Unknowns - BEGIN ========================
     std::vector< Unknown > unknowns(2); // Two unknowns: u and sxx
@@ -451,6 +450,8 @@ int main(int argc, char** args) {
         Solution_set_initial_conditions_with_analytical_sol,
         SetBoundaryCondition_bc_all_dirichlet_homogeneous
     );
+
+// // //    }
 
     return 0;
 }
