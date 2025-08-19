@@ -42,7 +42,7 @@
 
 
 using namespace femus;
-/*
+
 namespace Domains {
 
 namespace  square_m05p05  {
@@ -164,13 +164,39 @@ private:
 };
 
 
-}
+template <class type = double>
+class Function_Zero_on_boundary_7_f : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
 
 
 }
-*/
 
 
+}
+
+
+/*
 
 
 namespace Domains {
@@ -349,7 +375,7 @@ public:
 
 } // namespace Domains
 
-
+*/
 
 
 
@@ -368,23 +394,25 @@ public:
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  if (!strcmp(SolName, "u")) {
-      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-      // strcmp compares two string in lexiographic sense.
-    Value = u -> value(x);
-  }
-  else if (!strcmp(SolName, "sxx")) {
-      Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = sxx -> value(x);
-  }
-    else if (!strcmp(SolName, "sxy")) {
-      Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = sxy -> value(x);
-  }
-    else if (!strcmp(SolName, "syy")) {
-      Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = syy -> value(x);
-  }
+//   if (!strcmp(SolName, "u")) {
+//       Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+//       // strcmp compares two string in lexiographic sense.
+//     Value = u -> value(x);
+//   }
+//   else if (!strcmp(SolName, "sxx")) {
+//       Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+//     Value = sxx -> value(x);
+//   }
+//     else if (!strcmp(SolName, "sxy")) {
+//       Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+//     Value = sxy -> value(x);
+//   }
+//     else if (!strcmp(SolName, "syy")) {
+//       Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+//     Value = syy -> value(x);
+//   }
+
+  Value = 0.;
   return dirichlet;
 }
 //====Set boundary condition-END==============================
@@ -421,6 +449,9 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> system_biharmonic_HM_D_function_zero_on_boundary_syy;
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
 
+    Domains::square_m05p05::Function_Zero_on_boundary_7_f<> system_biharmonic_HM_D_function_zero_on_boundary_1_f;
+
+
   system_biharmonic_HM_D._assemble_function_for_rhs = &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_HM_D._true_solution_function = &system_biharmonic_HM_D_function_zero_on_boundary_1;
 
@@ -428,15 +459,18 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 4;
-  std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+  const unsigned maxNumberOfMeshes = 1;
+// // //   std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+
+    std::vector<FEOrder> feOrder = { FIRST };
+
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_sxx(maxNumberOfMeshes), semiNorm_sxx(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_sxy(maxNumberOfMeshes), semiNorm_sxy(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_syy(maxNumberOfMeshes), semiNorm_syy(maxNumberOfMeshes);
 
-  for (unsigned i = 0; i < maxNumberOfMeshes; i++) {
+  for (unsigned i = maxNumberOfMeshes - 1; i < maxNumberOfMeshes; i++) {
     mlMsh.RefineMesh(i + 1, i + 1, nullptr);
     mlMsh.EraseCoarseLevels(i);
     mlMsh.PrintInfo();
@@ -454,16 +488,16 @@ int main(int argc, char** args) {
       MultiLevelSolution mlSol(&mlMsh);
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
+//       mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
+//       mlSol.set_analytical_function("sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
 
       mlSol.AddSolution("sxy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
+//       mlSol.set_analytical_function("sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
 
       mlSol.AddSolution("syy", LAGRANGE, feOrder[j]);
-      mlSol.set_analytical_function("syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
+//       mlSol.set_analytical_function("syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
 
       mlSol.Initialize("All");
 

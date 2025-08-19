@@ -13,14 +13,26 @@
 #include "Assemble_unknown_jacres.hpp" // <-- ADDED THIS LINE
 // // #include "ElementJacRes.hpp"
 
-// We assume these are part of the FEMUS framework or defined elsewhere
-// #include "ElementJacRes.hpp"
-// #include "elem_type_templ_base.hpp"
-// #include "CurrentElem.hpp"
-// #include "Phi.hpp"
-// #include "Unknown.hpp"
-// #include "UnknownLocal.hpp"
-// #include "Math.hpp"
+/**
+ * AssembleHermannMiyoshiProblem
+ *
+ * Assembles the 4x4 block Hermann--Miyoshi system:
+ *
+ *   |  0      B_xx^T   B_xy^T   B_yy^T |   | u     |   = | -f |
+ *   |  B_xx   A_xx_xx   0        0    |   | sxx   |     | 0  |
+ *   |  B_xy    0      2 A_xy_xy   0    | * | sxy   |  =  | 0  |
+ *   |  B_yy    0        0     A_yy_yy |   | syy   |     | 0  |
+ *
+ * where:
+ *  - B_xx(i,j) = ∫ (∂_x phi_j) (∂_x psi_i) dΩ   (we store B^T in u-row assembly)
+ *  - B_yy(i,j) = ∫ (∂_y phi_j) (∂_y psi_i) dΩ
+ *  - B_xy(i,j) = ∫ (∂_y phi_j ∂_x psi_i + ∂_x phi_j ∂_y psi_i ) dΩ
+ *  - A blocks are mass-like: ∫ phi_k^α phi_l^β dΩ  (factor 2 on A_xy_xy)
+ *
+ *  2) B_xy uses the symmetric mixed-gradient formula exactly as in your discrete form
+ *  3) The sxy-sxy block uses the factor 2 multiplier.
+ *
+ */
 
 using namespace femus;
 
@@ -1112,7 +1124,7 @@ static void AssembleHermannMiyoshiProblem(
         }
 
 
-         constexpr bool print_algebra_local = false;
+         constexpr bool print_algebra_local = true;
         if (print_algebra_local) {
             std::vector<unsigned> Sol_n_el_dofs_Mat_vol = { nDofs_u, nDofs_sxx, nDofs_sxy, nDofs_syy };
             assemble_jacobian<double,double>::print_element_jacobian(iel, unk_element_jac_res.jac(), Sol_n_el_dofs_Mat_vol, 10, 5);
