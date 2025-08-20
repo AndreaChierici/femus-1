@@ -155,13 +155,13 @@ class Function_Zero_on_boundary_7_f : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 1.;
+        return 0.;
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
         solGrad[0] = 0.;
-        solGrad[1] =0.;
+        solGrad[1] = 0.;
         return solGrad;
     }
 
@@ -209,7 +209,7 @@ static Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> analytical_sxx_
 static Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> analytical_sxy_solution;
 static Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> analytical_syy_solution;
 
-static Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_function_f;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
 
 
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * SolName) {
@@ -430,8 +430,10 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 7;
-    if (ml_mesh.GetDimension() == 3) max_number_of_meshes = 6;
+    unsigned max_number_of_meshes = 1;
+    if (ml_mesh.GetDimension() == 3){
+        max_number_of_meshes = 6;
+    }
 
     // Auxiliary mesh, all levels - for incremental refinement
     MultiLevelMesh ml_mesh_all_levels_Needed_for_incremental;
@@ -479,8 +481,7 @@ int main(int argc, char** args) {
     system_specifics app_specs;
     app_specs._system_name = "Biharmonic";
     app_specs._assemble_function = System_assemble_interface_Biharmonic<NonLinearImplicitSystem, double, double>;
-    app_specs._assemble_function_for_rhs = &
-    source_function_f;
+    app_specs._assemble_function_for_rhs = &source_function_f;
     app_specs._true_solution_function = &analytical_u_solution;
     app_specs._boundary_conditions_types_and_values = SetBoundaryCondition_bc_all_dirichlet_homogeneous;
     ml_prob.set_app_specs_pointer(&app_specs);
