@@ -209,7 +209,7 @@ static Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> analytical_sxx_
 static Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> analytical_sxy_solution;
 static Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> analytical_syy_solution;
 
-static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_function_f;
 
 
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * SolName) {
@@ -234,23 +234,24 @@ double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProbl
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  if (!strcmp(SolName, "u")) {
-      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-      // strcmp compares two string in lexiographic sense.
-    Value = u -> value(x);
-  }
-  else if (!strcmp(SolName, "sxx")) {
-      Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = sxx -> value(x);
-  }
-    else if (!strcmp(SolName, "sxy")) {
-      Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = sxy -> value(x);
-  }
-    else if (!strcmp(SolName, "syy")) {
-      Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = syy -> value(x);
-  }
+  // if (!strcmp(SolName, "u")) {
+  //     Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  //     // strcmp compares two string in lexiographic sense.
+  //   Value = u -> value(x);
+  // }
+  // else if (!strcmp(SolName, "sxx")) {
+  //     Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  //   Value = sxx -> value(x);
+  // }
+  //   else if (!strcmp(SolName, "sxy")) {
+  //     Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  //   Value = sxy -> value(x);
+  // }
+  //   else if (!strcmp(SolName, "syy")) {
+  //     Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  //   Value = syy -> value(x);
+  // }
+  double value = 0.;
   return dirichlet;
 }
 //====Set boundary condition-END==============================
@@ -272,12 +273,7 @@ void System_assemble_interface_Biharmonic(MultiLevelProblem& ml_prob) {
     std::vector < std::vector < /*const*/ elem_type_templ_base<real_num_mov, real_num_mov> * > > elem_all_for_domain;
     ml_prob.get_all_abstract_fe(elem_all_for_domain);
 
-    // This is the line that needs to be fixed.
-    // Instead of NAMESPACE_FOR_BIHARMONIC_COUPLED, you should use the correct namespace for your case.
-    // You have #define NAMESPACE_FOR_BIHARMONIC_HM_nonauto_conv karthik
-    // This looks like a mistake in the provided code, as the function name doesn't match the namespace.
-    // Assuming the function name is correct from the include, the namespace should be `karthik`.
-    /*karthik::biharmonic_HM_nonauto_conv::AssembleBilaplaceProblem< system_type, real_num, real_num_mov > (*/
+
     karthik::biharmonic_HM_nonauto_conv::AssembleHermannMiyoshiProblem< system_type, real_num, real_num_mov > (
         elem_all,
         elem_all_for_domain,
@@ -430,7 +426,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 1;
+    unsigned max_number_of_meshes = 5;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }
@@ -455,7 +451,7 @@ int main(int argc, char** args) {
     unknowns[3]._name = "syy";
 
     unknowns[0]._fe_family = LAGRANGE;
-    unknowns[0]._fe_order = FIRST;
+    unknowns[0]._fe_order = SECOND;
     unknowns[0]._time_order = 0;
     unknowns[0]._is_pde_unknown = true;
 
@@ -488,8 +484,8 @@ int main(int argc, char** args) {
     // ======= System Specifics for Coupled Problem - END ==================
 
     // Various choices for convergence study (L2/H1 norms, etc.)
-    std::vector < bool > convergence_rate_computation_method_Flag = {true, false};
-    std::vector < bool > volume_or_boundary_Flag = {true, true};
+    std::vector < bool > convergence_rate_computation_method_Flag = {true, true};
+    std::vector < bool > volume_or_boundary_Flag = {true, false};
     std::vector < bool > sobolev_norms_Flag = {true, true};
 
     // ======= Perform Convergence Study ========================
