@@ -14,7 +14,10 @@
 
 #include "slepceps.h"
 
-#include "../include/nonlocal_assembly_adaptive.hpp"
+bool baricenter = false;
+
+#include "./include/nonlocal_assembly_adaptive.hpp"
+
 
 //2D NONLOCAL EX : nonlocal diffusion for a body with different material properties
 
@@ -73,12 +76,14 @@ int main(int argc, char** argv) {
 
 
 
-  char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
+  // char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
   //char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
-//   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
+  //   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
   //char fileName[100] = "../input/martaTest4Tri.neu";
   //char fileName[100] = "../input/martaTest4Unstr.neu"; // works till 144 nprocs
 //   char fileName[100] = "../input/martaTest4-3D.neu"; // works till 288 nprocs 0.2
+  char fileName[100] = "./input/martaTest4UnstrWC.neu"; // works till 144 nprocs
+  //char fileName[100] = "../input/martaTest4-3D.neu"; // works till 288 nprocs 0.2
   //char fileName[100] = "../input/martaTest4-3Dfine.neu"; // works till 576 and more nprocs +1 0.1
 //   char fileName[100] = "../input/martaTest4-3D-tet.neu"; // works till 288 nprocs 0.2
 
@@ -100,8 +105,8 @@ int main(int argc, char** argv) {
   MultiLevelSolution mlSolFine(&mlMshFine);
 
   // add variables to mlSol
-  FEOrder femType = SERENDIPITY;
-//   FEOrder femType = FIRST;
+  //FEOrder femType = SERENDIPITY;
+  FEOrder femType = FIRST;
 
   std::vector < std::string > femTypeName = {"zero", "linear", "quadratic", "biquadratic"};
 
@@ -167,7 +172,7 @@ int main(int argc, char** argv) {
   // ******* Set Preconditioner *******
   system.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetSparsityPatternMinimumSize(60000u);    //TODO tune
+  system.SetSparsityPatternMinimumSize(48000u);    //TODO tune
 
   system.init();
 
@@ -275,11 +280,11 @@ int main(int argc, char** argv) {
   mlSol.GetWriter()->SetDebugOutput(true);
   mlSol.GetWriter()->Write(DEFAULT_OUTPUTDIR, femTypeName[femType].c_str(), print_vars, 0);
 
-  mlSolFine.SetWriter(VTK);
-  std::vector<std::string> print_vars2;
-  print_vars2.push_back("All");
-  mlSolFine.GetWriter()->SetDebugOutput(true);
-  mlSolFine.GetWriter()->Write(DEFAULT_OUTPUTDIR, femTypeName[femType].c_str(), print_vars2, 1);
+//   mlSolFine.SetWriter(VTK);
+//   std::vector<std::string> print_vars2;
+//   print_vars2.push_back("All");
+//   mlSolFine.GetWriter()->SetDebugOutput(true);
+//   mlSolFine.GetWriter()->Write(DEFAULT_OUTPUTDIR, femTypeName[femType].c_str(), print_vars2, 1);
 
   std::cout << std::endl << " total CPU time : " << std::setw(11) << std::setprecision(6) << std::fixed
             << static_cast<double>((clock() - total_time)) / CLOCKS_PER_SEC << " s" << std::endl;

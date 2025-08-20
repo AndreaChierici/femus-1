@@ -20,8 +20,8 @@ namespace femus {
 
 adept::Stack FemusInit::_adeptStack;
 
-uq FemusInit::_uqHermite(UQ_HERMITE); 
-uq FemusInit::_uqLegendre(UQ_LEGENDRE); 
+uq FemusInit::_uqHermite(UQ_HERMITE);
+uq FemusInit::_uqLegendre(UQ_LEGENDRE);
 
 // =======================================================
 /// This function initializes the libraries if it is parallel
@@ -68,4 +68,3 @@ FemusInit::~FemusInit() {
 
 
 } //end namespace femus
-
