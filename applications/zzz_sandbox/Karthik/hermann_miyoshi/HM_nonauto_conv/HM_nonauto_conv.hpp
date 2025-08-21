@@ -29,7 +29,7 @@
  *  - B_xy(i,j) = ∫ (∂_y phi_j ∂_x psi_i + ∂_x phi_j ∂_y psi_i ) dΩ
  *  - A blocks are mass-like: ∫ phi_k^α phi_l^β dΩ  (factor 2 on A_xy_xy)
  *
- *  2) B_xy uses the symmetric mixed-gradient formula exactly as in your discrete form
+ *  2) B_xy uses the symmetric mixed-gradient formula exactly as in the discrete form
  *  3) The sxy-sxy block uses the factor 2 multiplier.
  *
  */
@@ -440,14 +440,24 @@ static void AssembleHermannMiyoshiProblem(
             );
 
             // local references
-            auto & phi_u       = unknowns_phi_dof_qp[idx_u].phi();
-            auto & gradphi_u   = unknowns_phi_dof_qp[idx_u].phi_grad();
-            auto & phi_sxx     = unknowns_phi_dof_qp[idx_sxx].phi();
-            auto & gradphi_sxx = unknowns_phi_dof_qp[idx_sxx].phi_grad();
-            auto & phi_sxy     = unknowns_phi_dof_qp[idx_sxy].phi();
-            auto & gradphi_sxy = unknowns_phi_dof_qp[idx_sxy].phi_grad();
-            auto & phi_syy     = unknowns_phi_dof_qp[idx_syy].phi();
-            auto & gradphi_syy = unknowns_phi_dof_qp[idx_syy].phi_grad();
+// // //             auto & phi_u       = unknowns_phi_dof_qp[idx_u].phi();
+// // //             auto & gradphi_u   = unknowns_phi_dof_qp[idx_u].phi_grad();
+// // //             auto & phi_sxx     = unknowns_phi_dof_qp[idx_sxx].phi();
+// // //             auto & gradphi_sxx = unknowns_phi_dof_qp[idx_sxx].phi_grad();
+// // //             auto & phi_sxy     = unknowns_phi_dof_qp[idx_sxy].phi();
+// // //             auto & gradphi_sxy = unknowns_phi_dof_qp[idx_sxy].phi_grad();
+// // //             auto & phi_syy     = unknowns_phi_dof_qp[idx_syy].phi();
+// // //             auto & gradphi_syy = unknowns_phi_dof_qp[idx_syy].phi_grad();
+
+
+    std::vector<real_num>& phi_u = unknowns_phi_dof_qp[idx_u].phi();
+    std::vector<real_num>& gradphi_u = unknowns_phi_dof_qp[idx_u].phi_grad();
+    std::vector<real_num>& phi_sxx = unknowns_phi_dof_qp[idx_sxx].phi();
+    std::vector<real_num>& gradphi_sxx = unknowns_phi_dof_qp[idx_sxx].phi_grad();
+    std::vector<real_num>& phi_sxy = unknowns_phi_dof_qp[idx_sxy].phi();
+    std::vector<real_num>& gradphi_sxy = unknowns_phi_dof_qp[idx_sxy].phi_grad();
+    std::vector<real_num>& phi_syy = unknowns_phi_dof_qp[idx_syy].phi();
+    std::vector<real_num>& gradphi_syy = unknowns_phi_dof_qp[idx_syy].phi_grad();
 
             // interpolate values & gradients at qp
             real_num_mov u_val_g = 0.0;
@@ -525,7 +535,7 @@ static void AssembleHermannMiyoshiProblem(
                 const real_num phi_i =  phi_sxy[i];
                 const real_num phix_i =  gradphi_sxy[i * dim + 0];
                 const real_num phiy_i =  gradphi_sxy[i * dim + 1];
-                real_num_mov R =  sxy_val_g *  phi_i
+                real_num_mov R = 2.0 * sxy_val_g *  phi_i
                                  + grad_u_g[0] *  phiy_i
                                  + grad_u_g[1] *  phix_i;
                 unk_element_jac_res.res()[ offset_sxy + i ] +=  ( R * weight_qp );

@@ -381,6 +381,19 @@ const MultiLevelSolution Solution_generation_1< real_num >::run_on_single_level(
         variablesToBePrinted.push_back(unknowns[u_idx]._name);
         std::ostringstream output_filename;
         output_filename << unknowns[u_idx]._name << "_coupled_FE" << unknowns[u_idx]._fe_order << "_level" << lev;
+
+
+           // Map FE order to file-family enum used by FEMuS writer
+    // (adjust mapping constants if your build uses different enum names)
+    int file_family_for_output = FILES_CONTINUOUS_BIQUADRATIC; // default
+    if (unknowns[u_idx]._fe_order == FIRST) {
+        file_family_for_output = FILES_CONTINUOUS_LINEAR; // Q1
+    } else if (unknowns[u_idx]._fe_order == SECOND) {
+        file_family_for_output = FILES_CONTINUOUS_BIQUADRATIC; // Q2
+    } // extend if you support higher orders
+
+
+
         ml_sol_single_level.GetWriter()->Write(output_filename.str(), ml_prob.GetFilesHandler()->GetOutputPath(), fe_fams_for_files[ FILES_CONTINUOUS_BIQUADRATIC ], variablesToBePrinted, lev);
     }
 
@@ -458,7 +471,7 @@ int main(int argc, char** args) {
 
     for (unsigned int unk=1; unk < unknowns.size(); unk++){
     unknowns[unk]._fe_family = LAGRANGE;
-    unknowns[unk]._fe_order = FIRST;
+    unknowns[unk]._fe_order = SECOND;
     unknowns[unk]._time_order = 0;
     unknowns[unk]._is_pde_unknown = true;
     }
@@ -484,7 +497,7 @@ int main(int argc, char** args) {
     // ======= System Specifics for Coupled Problem - END ==================
 
     // Various choices for convergence study (L2/H1 norms, etc.)
-    std::vector < bool > convergence_rate_computation_method_Flag = {true, true};
+    std::vector < bool > convergence_rate_computation_method_Flag = {true, false};
     std::vector < bool > volume_or_boundary_Flag = {true, false};
     std::vector < bool > sobolev_norms_Flag = {true, true};
 
