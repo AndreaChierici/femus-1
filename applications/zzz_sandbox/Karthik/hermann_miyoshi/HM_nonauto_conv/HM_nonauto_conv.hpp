@@ -439,16 +439,6 @@ static void AssembleHermannMiyoshiProblem(
                 space_dim
             );
 
-            // local references
-// // //             auto & phi_u       = unknowns_phi_dof_qp[idx_u].phi();
-// // //             auto & gradphi_u   = unknowns_phi_dof_qp[idx_u].phi_grad();
-// // //             auto & phi_sxx     = unknowns_phi_dof_qp[idx_sxx].phi();
-// // //             auto & gradphi_sxx = unknowns_phi_dof_qp[idx_sxx].phi_grad();
-// // //             auto & phi_sxy     = unknowns_phi_dof_qp[idx_sxy].phi();
-// // //             auto & gradphi_sxy = unknowns_phi_dof_qp[idx_sxy].phi_grad();
-// // //             auto & phi_syy     = unknowns_phi_dof_qp[idx_syy].phi();
-// // //             auto & gradphi_syy = unknowns_phi_dof_qp[idx_syy].phi_grad();
-
 
     std::vector<real_num>& phi_u = unknowns_phi_dof_qp[idx_u].phi();
     std::vector<real_num>& gradphi_u = unknowns_phi_dof_qp[idx_u].phi_grad();
@@ -494,7 +484,7 @@ static void AssembleHermannMiyoshiProblem(
 
             // physical coords at qp and f(x)
             std::vector< real_num_mov > x_gss(dim, 0.0);
-            auto & coords = geom_element.get_coords_at_dofs();
+            std::vector< std::vector< real_num_mov > >   & coords = geom_element.get_coords_at_dofs();
             const unsigned nGeomDofs = coords[0].size();
             for (unsigned a = 0; a < nGeomDofs; ++a) {
                 const real_num_mov geom_phi =  geom_element_phi_dof_qp.phi()[a];
@@ -585,7 +575,7 @@ static void AssembleHermannMiyoshiProblem(
                 const real_num phiy_i =  gradphi_u[i * dim + 1];
 
                 real_num_mov R = divS_x *  phix_i + divS_y *  phiy_i +  f_val *  phi_i;
-                unk_element_jac_res.res()[ offset_u + i ] +=  ( R * weight_qp );
+                unk_element_jac_res.res()[ offset_u + i ] +=  ( R *    weight_qp );
 
                 if (assembleMatrix) {
                     // derivative wrt sxx_j: B_{xx}^T contribution (∂x phi_j * ∂x phi_i)
@@ -612,7 +602,7 @@ static void AssembleHermannMiyoshiProblem(
         // --- finalize local residual (FEMUS convention: negate) and assemble to global ---
         std::vector<double> Res_total( unk_element_jac_res.res().size() );
         for (size_t kk = 0; kk < unk_element_jac_res.res().size(); ++kk)
-            Res_total[kk] =  ( double ) (- unk_element_jac_res.res()[kk] );
+            Res_total[kk] =   (- unk_element_jac_res.res()[kk] );
 
         RES->add_vector_blocked(Res_total, unk_element_jac_res.dof_map());
         if (assembleMatrix) {

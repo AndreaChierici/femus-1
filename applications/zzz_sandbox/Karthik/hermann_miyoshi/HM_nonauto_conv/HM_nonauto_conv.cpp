@@ -204,25 +204,25 @@ private:
 
 }
 
-static Domains::square_m05p05::Function_Zero_on_boundary_7<> analytical_u_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> analytical_sxx_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> analytical_sxy_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> analytical_syy_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> analytical_u_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> analytical_sxx_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> analytical_sxy_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> analytical_syy_solution;
 
-static Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_function_f;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
 
 
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * SolName) {
-    double value = 0.0;
-    if (!strcmp(SolName, "u")) {
-        value = analytical_u_solution.value(x);
-    } else if (!strcmp(SolName, "sxx")) {
-        value = analytical_sxx_solution.value(x);
-    }else if (!strcmp(SolName, "sxy")) {
-        value = analytical_sxy_solution.value(x);
-    }else if (!strcmp(SolName, "syy")) {
-        value = analytical_syy_solution.value(x);
-    }
+    double value = 0.;
+    // if (!strcmp(SolName, "u")) {
+    //     value = analytical_u_solution.value(x);
+    // } else if (!strcmp(SolName, "sxx")) {
+    //     value = analytical_sxx_solution.value(x);
+    // }else if (!strcmp(SolName, "sxy")) {
+    //     value = analytical_sxy_solution.value(x);
+    // }else if (!strcmp(SolName, "syy")) {
+    //     value = analytical_syy_solution.value(x);
+    // }
     return value;
 }
 
@@ -439,7 +439,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 5;
+    unsigned max_number_of_meshes = 2;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }
@@ -497,9 +497,9 @@ int main(int argc, char** args) {
     // ======= System Specifics for Coupled Problem - END ==================
 
     // Various choices for convergence study (L2/H1 norms, etc.)
-    std::vector < bool > convergence_rate_computation_method_Flag = {true, false};
-    std::vector < bool > volume_or_boundary_Flag = {true, false};
-    std::vector < bool > sobolev_norms_Flag = {true, true};
+    std::vector < bool > convergence_rate_computation_method_Flag = {true, false}; // Incremental method, Exact solution method
+    std::vector < bool > volume_or_boundary_Flag = {true, false}; //volume, boundary
+    std::vector < bool > sobolev_norms_Flag = {true, true};  // only L2, only H1
 
     // ======= Perform Convergence Study ========================
     FE_convergence<>::convergence_study(
