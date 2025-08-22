@@ -212,7 +212,9 @@ static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> analytical_syy_so
 static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
 
 
-double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char * SolName) {
+double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob,
+                                                           const std::vector < double >& x,
+                                                           const char * SolName) {
     double value = 0.;
     // if (!strcmp(SolName, "u")) {
     //     value = analytical_u_solution.value(x);
@@ -231,7 +233,13 @@ double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProbl
 
 
 //====Set boundary condition-BEGIN==============================
-bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
+bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob,
+                                                       const std::vector < double >& x,
+                                                       const char SolName[],
+                                                       double & Value,
+                                                       const int facename,
+                                                       const double time) {
+
   bool dirichlet = true; //dirichlet
 
   // if (!strcmp(SolName, "u")) {
@@ -251,7 +259,10 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
   //     Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
   //   Value = syy -> value(x);
   // }
-  double value = 0.;
+
+  // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  Value = 0.;
+
   return dirichlet;
 }
 //====Set boundary condition-END==============================
@@ -349,7 +360,7 @@ const MultiLevelSolution Solution_generation_1< real_num >::run_on_single_level(
         }
 
         // --- Define the SINGLE Coupled System ---
-        NonLinearImplicitSystem& system = ml_prob.add_system< NonLinearImplicitSystem > (ml_prob.get_app_specs_pointer()->_system_name);
+        NonLinearImplicitSystem & system = ml_prob.add_system< NonLinearImplicitSystem > (ml_prob.get_app_specs_pointer()->_system_name);
 
         // Add ALL unknowns ('u', 'sxx', 'sxy', 'syy') to this SINGLE coupled system
         for (unsigned int u_idx = 0; u_idx < unknowns.size(); u_idx++) {
@@ -412,9 +423,9 @@ int main(int argc, char** args) {
     MultiLevelProblem ml_prob;
 
     // ======= Files - BEGIN =========================
-    Files files;
     const bool use_output_time_folder = false;
     const bool redirect_cout_to_file = false;
+    Files files;
     files.CheckIODirectories(use_output_time_folder);
     files.RedirectCout(redirect_cout_to_file);
     ml_prob.SetFilesHandler(&files);
@@ -422,6 +433,7 @@ int main(int argc, char** args) {
 
     // ======= Mesh, Coarse, file - BEGIN ========================
     MultiLevelMesh ml_mesh;
+
     const std::string relative_path_to_build_directory = "../../../../../";
     const std::string input_file_path = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";
     const std::string input_mesh_filename = "square_-0p5-0p5x-0p5-0p5_divisions_2x2.med";
@@ -453,6 +465,7 @@ int main(int argc, char** args) {
 
     // Solve Equation or only Approximation Theory
     const bool my_solution_generation_has_equation_solve = true;
+    // ======= Convergence study setup - END ========================
 
     // ======= Unknowns - BEGIN ========================
     std::vector< Unknown > unknowns(4); // Four unknowns: u, sxx, sxy, syy
@@ -496,12 +509,13 @@ int main(int argc, char** args) {
     ml_prob.set_app_specs_pointer(&app_specs);
     // ======= System Specifics for Coupled Problem - END ==================
 
-    // Various choices for convergence study (L2/H1 norms, etc.)
+    // Various choices for convergence study (L2/H1 norms, etc.) - BEGIN ==================
     std::vector < bool > convergence_rate_computation_method_Flag = {true, false}; // Incremental method, Exact solution method
     std::vector < bool > volume_or_boundary_Flag = {true, false}; //volume, boundary
     std::vector < bool > sobolev_norms_Flag = {true, true};  // only L2, only H1
+    // Various choices for convergence study (L2/H1 norms, etc.) - END ==================
 
-    // ======= Perform Convergence Study ========================
+    // ======= Perform Convergence Study - BEGIN ========================
     FE_convergence<>::convergence_study(
         ml_prob,
         ml_mesh,
@@ -517,6 +531,7 @@ int main(int argc, char** args) {
         Solution_set_initial_conditions_with_analytical_sol,
         SetBoundaryCondition_bc_all_dirichlet_homogeneous
     );
+    // ======= Perform Convergence Study - END ========================
 
     return 0;
 }
