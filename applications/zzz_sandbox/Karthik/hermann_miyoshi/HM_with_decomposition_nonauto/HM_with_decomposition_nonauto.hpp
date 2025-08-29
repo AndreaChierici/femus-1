@@ -630,30 +630,24 @@ static void AssembleHermannMiyoshiProblem(
                 for (unsigned d = 0; d < dim; ++d)
                     x_gss[d] += coords[d][a] * geom_phi;
             }
-            const real_num_mov f_val = source_functions[0]->value(x_gss);
+            const real_num_mov f_val = source_functions[0]->laplacian(x_gss);
 
             // ---- assemble block integrals at this quadrature point ----
             // 1) M_uu (u-u mass)
             for (unsigned i = 0; i < nDofs_u; ++i) {
                 const real_num phi_i = phi_u[i];
                 for (unsigned j = 0; j < nDofs_u; ++j) {
-                    const real_num val = (phi_u[j] * phi_i) * weight_qp;
+                    const real_num val = ( phi_u[j] * phi_i) * weight_qp;
                     unk_element_jac_res.jac()[ (offset_u + i) * total_local_dofs + (offset_u + j) ] += val;
                 }
             }
 
             // 2) Mass for v, s1, s2 (these were already present in your code) - keep them
-            for (unsigned i = 0; i < nDofs_v; ++i) {
-                const real_num phi_i = phi_v[i];
-                for (unsigned j = 0; j < nDofs_v; ++j) {
-                    const real_num val = (phi_v[j] * phi_i) * weight_qp;
-                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_v + j) ] += val;
-                }
-            }
+
             for (unsigned i = 0; i < nDofs_s1; ++i) {
                 const real_num phi_i = phi_s1[i];
                 for (unsigned j = 0; j < nDofs_s1; ++j) {
-                    const real_num val = (2.0 * phi_s1[j] * phi_i) * weight_qp; // factor 2 as in your weak form
+                    const real_num val = ( phi_s1[j] * phi_i) * weight_qp; // factor 2 as in your weak form
                     unk_element_jac_res.jac()[ (offset_s1 + i) * total_local_dofs + (offset_s1 + j) ] += val;
                 }
             }
@@ -674,9 +668,9 @@ static void AssembleHermannMiyoshiProblem(
                     for (unsigned d = 0; d < dim; ++d)
                         val += gradphi_v[i * dim + d] * gradphi_u[j * dim + d];
                     val *= weight_qp;
-                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_u + j) ] += val; // B
+                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_u + j) ] += - val; // B
                     // transpose B^T (row u, col v)
-                    unk_element_jac_res.jac()[ (offset_u + j) * total_local_dofs + (offset_v + i) ] += val; // B^T
+                    unk_element_jac_res.jac()[ (offset_u + j) * total_local_dofs + (offset_v + i) ] += - val; // B^T
                 }
             }
 
@@ -693,7 +687,7 @@ static void AssembleHermannMiyoshiProblem(
                     // fill row v, col s1 (scaled by nu1, per your matrix)
                     unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_s1 + j) ] += (nu1 * c1);
                     // transpose C1^T -> row s1, col v
-                    unk_element_jac_res.jac()[ (offset_s1 + j) * total_local_dofs + (offset_v + i) ] += (nu1 * c1);
+                    unk_element_jac_res.jac()[ (offset_s1 + j) * total_local_dofs + (offset_v + i) ] += ( c1);
                 }
                 for (unsigned j = 0; j < nDofs_s2; ++j) {
                     const double s2x = gradphi_s2[j * dim + 0];
@@ -702,7 +696,7 @@ static void AssembleHermannMiyoshiProblem(
                     // fill row v, col s2 (scaled by nu1)
                     unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_s2 + j) ] += (nu1 * c2);
                     // transpose C2^T -> row s2, col v
-                    unk_element_jac_res.jac()[ (offset_s2 + j) * total_local_dofs + (offset_v + i) ] += (nu1 * c2);
+                    unk_element_jac_res.jac()[ (offset_s2 + j) * total_local_dofs + (offset_v + i) ] += ( c2);
                 }
             }
 

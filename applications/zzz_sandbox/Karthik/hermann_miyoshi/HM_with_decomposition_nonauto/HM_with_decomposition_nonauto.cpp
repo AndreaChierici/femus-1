@@ -281,51 +281,79 @@ static Domains::square_m05p05::Function_Zero_on_boundary_7_W<> analytical_w_solu
 static Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1<> analytical_s1_solution;
 static Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2<> analytical_s2_solution;
 
-static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_function_f;
 
 
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob,
                                                            const std::vector < double >& x,
                                                            const char * SolName) {
-    double value = 1.;
-    // // // if (!strcmp(SolName, "u")) {
-    // // //     value = analytical_u_solution.value(x);
-    // // // } else if (!strcmp(SolName, "v")) {
-    // // //     value = analytical_sxx_solution.value(x);
-    // // // }else if (!strcmp(SolName, "s1")) {
-    // // //     value = analytical_sxy_solution.value(x);
-    // // // }else if (!strcmp(SolName, "s2")) {
-    // // //     value = analytical_syy_solution.value(x);
-    // // // }
+//     double value = 2.;
+    double value ;
+
+    if (!strcmp(SolName, "u")) {
+        value = analytical_w_solution.value(x);
+    } else if (!strcmp(SolName, "v")) {
+        value = analytical_u_solution.value(x);
+    }else if (!strcmp(SolName, "s1")) {
+        value = analytical_s1_solution.value(x);
+    }else if (!strcmp(SolName, "s2")) {
+        value = analytical_s2_solution.value(x);
+    }
     return value;
 }
 
 
+bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob,
+                                                       const std::vector < double >& x,
+                                                       const char SolName[],
+                                                       double & Value,
+                                                       const int facename,
+                                                       const double time) {
 
-
-//====Set boundary condition-BEGIN==============================
-bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
   if (!strcmp(SolName, "u")) {
-      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-      // strcmp compares two string in lexiographic sense.
-    Value = u -> value(x);
+          Value = analytical_w_solution.value(x);
   }
   else if (!strcmp(SolName, "v")) {
-      Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = v -> value(x);
+              Value = analytical_u_solution.value(x);
   }
     else if (!strcmp(SolName, "s1")) {
-      Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = s1 -> value(x);
+                Value = analytical_s1_solution.value(x);
   }
     else if (!strcmp(SolName, "s2")) {
-      Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = s2 -> value(x);
+                Value = analytical_s2_solution.value(x);
   }
+
+  // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // Value = 0.;
+
   return dirichlet;
 }
+
+//====Set boundary condition-BEGIN==============================
+// // // bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
+// // //   bool dirichlet = true; //dirichlet
+// // //
+// // //   if (!strcmp(SolName, "u")) {
+// // //       Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+// // //       // strcmp compares two string in lexiographic sense.
+// // //     Value = u -> value(x);
+// // //   }
+// // //   else if (!strcmp(SolName, "v")) {
+// // //       Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+// // //     Value = v -> value(x);
+// // //   }
+// // //     else if (!strcmp(SolName, "s1")) {
+// // //       Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+// // //     Value = s1 -> value(x);
+// // //   }
+// // //     else if (!strcmp(SolName, "s2")) {
+// // //       Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+// // //     Value = s2 -> value(x);
+// // //   }
+// // //   return dirichlet;
+// // // }
 //====Set boundary condition-END==============================
 
 
@@ -509,7 +537,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 4;
+    unsigned max_number_of_meshes = 8;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }
@@ -522,7 +550,7 @@ int main(int argc, char** args) {
     Solution_generation_1< double > my_solution_generation;
 
     // Solve Equation or only Approximation Theory
-    const bool my_solution_generation_has_equation_solve = true;
+    const bool my_solution_generation_has_equation_solve = false;
     // ======= Convergence study setup - END ========================
 
     // ======= Unknowns - BEGIN ========================

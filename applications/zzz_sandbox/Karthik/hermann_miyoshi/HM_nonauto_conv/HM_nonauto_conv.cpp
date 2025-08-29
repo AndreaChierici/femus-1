@@ -240,16 +240,18 @@ static Domains::square_m05p05::Function_Zero_on_boundary_9_SourceF<> source_func
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob,
                                                            const std::vector < double >& x,
                                                            const char * SolName) {
-    double value = 1.;
-    // // // if (!strcmp(SolName, "u")) {
-    // // //     value = analytical_u_solution.value(x);
-    // // // } else if (!strcmp(SolName, "sxx")) {
-    // // //     value = analytical_sxx_solution.value(x);
-    // // // }else if (!strcmp(SolName, "sxy")) {
-    // // //     value = analytical_sxy_solution.value(x);
-    // // // }else if (!strcmp(SolName, "syy")) {
-    // // //     value = analytical_syy_solution.value(x);
-    // // // }
+// //     double value = 1.;
+        double value ;
+
+    if (!strcmp(SolName, "u")) {
+        value = analytical_u_solution.value(x);
+    } else if (!strcmp(SolName, "sxx")) {
+        value = analytical_sxx_solution.value(x);
+    }else if (!strcmp(SolName, "sxy")) {
+        value = analytical_sxy_solution.value(x);
+    }else if (!strcmp(SolName, "syy")) {
+        value = analytical_syy_solution.value(x);
+    }
     return value;
 }
 
@@ -485,7 +487,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 4;
+    unsigned max_number_of_meshes = 5;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }
@@ -498,7 +500,7 @@ int main(int argc, char** args) {
     Solution_generation_1< double > my_solution_generation;
 
     // Solve Equation or only Approximation Theory
-    const bool my_solution_generation_has_equation_solve = true;
+    const bool my_solution_generation_has_equation_solve = false;
     // ======= Convergence study setup - END ========================
 
     // ======= Unknowns - BEGIN ========================
@@ -511,14 +513,14 @@ int main(int argc, char** args) {
     unknowns[3]._name = "syy";
 
     unknowns[0]._fe_family = LAGRANGE;
-    unknowns[0]._fe_order = FIRST;
+    unknowns[0]._fe_order = SECOND;
     unknowns[0]._time_order = 0;
     unknowns[0]._is_pde_unknown = true;
 
 
     for (unsigned int unk=1; unk < unknowns.size(); unk++){
     unknowns[unk]._fe_family = LAGRANGE;
-    unknowns[unk]._fe_order = FIRST;
+    unknowns[unk]._fe_order = SECOND;
     unknowns[unk]._time_order = 0;
     unknowns[unk]._is_pde_unknown = true;
     }

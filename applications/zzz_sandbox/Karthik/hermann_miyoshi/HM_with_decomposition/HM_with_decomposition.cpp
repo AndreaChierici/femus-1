@@ -342,7 +342,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 4;
+  const unsigned maxNumberOfMeshes = 3;
   std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
