@@ -394,25 +394,25 @@ public:
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-//   if (!strcmp(SolName, "u")) {
-//       Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-//       // strcmp compares two string in lexiographic sense.
-//     Value = u -> value(x);
-//   }
-//   else if (!strcmp(SolName, "sxx")) {
-//       Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-//     Value = sxx -> value(x);
-//   }
-//     else if (!strcmp(SolName, "sxy")) {
-//       Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-//     Value = sxy -> value(x);
-//   }
-//     else if (!strcmp(SolName, "syy")) {
-//       Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-//     Value = syy -> value(x);
-//   }
+  if (!strcmp(SolName, "u")) {
+      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      // strcmp compares two string in lexiographic sense.
+    Value = u -> value(x);
+  }
+  else if (!strcmp(SolName, "sxx")) {
+      Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = sxx -> value(x);
+  }
+    else if (!strcmp(SolName, "sxy")) {
+      Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = sxy -> value(x);
+  }
+    else if (!strcmp(SolName, "syy")) {
+      Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = syy -> value(x);
+  }
 
-  Value = 0.;
+  // Value = 0.;
   return dirichlet;
 }
 //==== Set boundary condition - END ==============================
@@ -480,7 +480,7 @@ int main(int argc, char** args) {
 
 
   // ======= Convergence study, mesh setup - BEGIN =========================
-  const unsigned maxNumberOfMeshes = 1;
+  const unsigned maxNumberOfMeshes = 5;
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);
   std::vector<std::vector<double>> l2Norm_sxx(maxNumberOfMeshes), semiNorm_sxx(maxNumberOfMeshes);
@@ -490,14 +490,14 @@ int main(int argc, char** args) {
 
 
   // ======= Convergence study, FE setup - BEGIN =========================
-// // //   std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
+  std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
-    std::vector<FEOrder> feOrder = { FIRST };
+    // // // std::vector<FEOrder> feOrder = { FIRST };
   // ======= Convergence study, FE setup - END =========================
 
 
   // ======= Convergence study, mesh loop and FE loop - BEGIN =========================
-  for (unsigned i = maxNumberOfMeshes - 1; i < maxNumberOfMeshes; i++) {
+  for (unsigned i = 0 /*maxNumberOfMeshes - 1*/; i < maxNumberOfMeshes; i++) {
     mlMsh.RefineMesh(i + 1, i + 1, nullptr);
     mlMsh.EraseCoarseLevels(i);
     mlMsh.PrintInfo();
@@ -515,16 +515,16 @@ int main(int argc, char** args) {
       MultiLevelSolution mlSol(&mlMsh);
 
       mlSol.AddSolution("u", LAGRANGE, feOrder[j]);
-//       mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
+      mlSol.set_analytical_function("u", &system_biharmonic_HM_D_function_zero_on_boundary_1);
 
       mlSol.AddSolution("sxx", LAGRANGE, feOrder[j]);
-//       mlSol.set_analytical_function("sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
+      mlSol.set_analytical_function("sxx", &system_biharmonic_HM_D_function_zero_on_boundary_sxx);
 
       mlSol.AddSolution("sxy", LAGRANGE, feOrder[j]);
-//       mlSol.set_analytical_function("sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
+      mlSol.set_analytical_function("sxy", &system_biharmonic_HM_D_function_zero_on_boundary_sxy);
 
       mlSol.AddSolution("syy", LAGRANGE, feOrder[j]);
-//       mlSol.set_analytical_function("syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
+      mlSol.set_analytical_function("syy", &system_biharmonic_HM_D_function_zero_on_boundary_syy);
 
       mlSol.Initialize("All");
 

@@ -134,7 +134,7 @@ class Function_Zero_on_boundary_7_W : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return 8.*pi*pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return 8.* pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
@@ -229,18 +229,41 @@ class Function_Zero_on_boundary_4_deviatoric_s2 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return  pi * pi * sin(pi * x[0]) * sin(pi * x[1]);
+        return 4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 4. * pi * pi * pi * pi * sin(pi * x[0]) * cos(pi * x[1]);
-        solGrad[1] = 4. * pi * pi * pi * pi * cos(pi * x[0]) * sin(pi * x[1]);
+        solGrad[0] = - 8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[1] = - 8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 16. * pi * pi * pi * pi * cos(pi * x[0]) * cos(pi * x[1]);
+        return - 32. * pi * pi * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+template <class type = double>
+class Function_Zero_on_boundary_7_f : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 0.;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 0.;
     }
 
 private:
@@ -309,6 +332,8 @@ int main(int argc, char** args) {
   Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
 
    Domains::square_m05p05::Function_Zero_on_boundary_7_W<> system_biharmonic_HM_D_function_zero_on_boundary_1_W;
+
+   Domains::square_m05p05::Function_Zero_on_boundary_7_f<> system_biharmonic_HM_D_function_zero_on_boundary_1_f;
 
   system_biharmonic_HM_D._assemble_function_for_rhs = &system_biharmonic_HM_D_function_zero_on_boundary_1_Laplacian;
   system_biharmonic_HM_D._true_solution_function = &system_biharmonic_HM_D_function_zero_on_boundary_1;

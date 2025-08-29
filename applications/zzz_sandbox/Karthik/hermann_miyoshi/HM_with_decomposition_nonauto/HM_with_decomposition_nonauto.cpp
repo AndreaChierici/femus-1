@@ -1,3 +1,50 @@
+/**
+ * This implementation solves the weak form of the biharmonic problem using Hermann Miyoshi Scheme
+ *                     \Delta^2 u = f(x) \text{ on } \Omega,
+ *            u = 0 \text{ on } \Gamma,
+ *      \Delta u = 0 \text{ on } \Gamma,
+ * on a domain $\Omega$ with boundary $\Gamma$,
+ * using a mixed formulation with a system of second order PDEs:
+ *      \hessian u = sigma
+ *      di(div(sigma)) = f(x)
+ * with additional mixed terms for optimal convergence.
+ *
+ * Please Note: v is the solution
+ *
+ * The discrete formulation uses the matrix system:
+ * @brief Assembles the system for the biharmonic problem using automatic differentiation
+ *
+ * This function assembles the weak form of the biharmonic problem using:
+ * - Mixed finite element formulation
+ * - Optimal convergence parameters \nu_1, \nu_2
+ * - Exact Jacobian computation via adept
+ * - Multilevel mesh support
+ *
+ * @param ml_prob The multilevel problem containing all problem data
+ *
+ * The system is assembled according to the matrix formulation:
+ * [ M   B^T    0     0  ] [W]   [   0   ]
+ * [ B    0    ν1C1  ν1C2] [U] = [-ν2F   ]
+ * [ 0   C1^T   M     0  ] [S1]  [   0   ]
+ * [ 0   C2^T   0     M  ] [S2]  [   0   ]
+ *
+ * Key features:
+ * - Mixed finite element formulation
+ * - Automatic differentiation for exact Jacobian
+ * - Optimal convergence parameters:
+ *   \nu_1 = \frac{4(1-\nu)}{1+\nu}, \nu_2 = \frac{2}{1+\nu}
+ * - Spectral radius-based parameter selection
+ * - Multilevel mesh support
+ * - Parallel computation capability
+ *
+ * Usage:
+ * 1. Initialize mesh and multilevel structures
+ * 2. Set boundary conditions
+ * 3. Call AssembleBilaplaceProblem_AD()
+ * 4. Solve the linear system
+ */
+
+
 
 #include "FemusInit.hpp"
 #include "Files.hpp"
@@ -14,7 +61,8 @@
 
 #include "Solution_functions_over_domains_or_mesh_files.hpp"
 
-// // // #include "adept.h"
+#include "adept.h"
+// // // extern Domains::square_m05p05::Function_Zero_on_boundary_4<double> analytical_function;
 
 
 #define LIBRARY_OR_USER   1 //0: library; 1: user
@@ -23,9 +71,10 @@
    #include "01_biharmonic_coupled.hpp"
    #define NAMESPACE_FOR_BIHARMONIC   femus
 #elif LIBRARY_OR_USER == 1
-   #include "HM_nonauto_conv.hpp"
-   #define NAMESPACE_FOR_BIHARMONIC_HM_nonauto_conv   karthik
+   #include "HM_with_decomposition_nonauto.hpp"
+   #define NAMESPACE_FOR_BIHARMONIC_HM   karthik
 #endif
+
 
 
 using namespace femus;
@@ -80,24 +129,47 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
-
 template <class type = double>
-class Function_Zero_on_boundary_7_sxx : public Math::Function<type> {
+class Function_Zero_on_boundary_7_W : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return -4. * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
+        return 8.* pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = -8. * pi * pi * pi * cos(2.* pi * x[0]) * sin(2. * pi * x[1]);
-        solGrad[1] = -8. * pi * pi * pi * sin(2.* pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[0] = 16. * pi * pi * pi * cos(2. * pi*x[0]) * sin(2. * pi*x[1]);
+        solGrad[1] = 16. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2.* pi * x[1]);
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 32. * pi * pi * pi * pi * sin(2.* pi * x[0]) * sin(2. * pi * x[1]);
+        return -64. * pi * pi * pi * pi * sin(2. * pi*x[0]) * sin(2. * pi * x[1]);
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_7_deviatoric_s1 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 0. ;
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return 0.;
     }
 
 private:
@@ -105,17 +177,17 @@ private:
 };
 
 template <class type = double>
-class Function_Zero_on_boundary_7_sxy : public Math::Function<type> {
+class Function_Zero_on_boundary_7_deviatoric_s2 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return  4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        return 4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
         solGrad[0] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
-        solGrad[1] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin( 2. * pi * x[1] );
+        solGrad[1] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin( 2. * pi*x[1] );
         return solGrad;
     }
 
@@ -127,23 +199,48 @@ private:
     static constexpr double pi = acos(-1.);
 };
 
+
 template <class type = double>
-class Function_Zero_on_boundary_7_syy : public Math::Function<type> {
+class Function_Zero_on_boundary_4_deviatoric_s1 : public Math::Function<type> {
 
 public:
     type value(const std::vector<type>& x) const {
-        return -4. * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return 0.;
     }
 
     std::vector<type> gradient(const std::vector<type>& x) const {
         std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = -8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
-        solGrad[1] = -8. * pi * pi * pi * sin(2. * pi * x[0]) * cos( 2. * pi*x[1] );
+        solGrad[0] = 0.;
+        solGrad[1] = 0.;
         return solGrad;
     }
 
     type laplacian(const std::vector<type>& x) const {
-        return 32. * pi * pi * pi * pi * sin(2.*pi*x[0]) * sin(2.*pi*x[1]);
+        return 0.;
+    }
+
+private:
+    static constexpr double pi = acos(-1.);
+};
+
+
+template <class type = double>
+class Function_Zero_on_boundary_4_deviatoric_s2 : public Math::Function<type> {
+
+public:
+    type value(const std::vector<type>& x) const {
+        return 4. * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
+    }
+
+    std::vector<type> gradient(const std::vector<type>& x) const {
+        std::vector<type> solGrad(x.size(), 0.);
+        solGrad[0] = - 8. * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
+        solGrad[1] = - 8. * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
+        return solGrad;
+    }
+
+    type laplacian(const std::vector<type>& x) const {
+        return - 32. * pi * pi * pi * pi * cos(2. * pi * x[0]) * cos(2. * pi * x[1]);
     }
 
 private:
@@ -174,67 +271,17 @@ private:
 };
 
 
-template <class type = double>
-class Function_Zero_on_boundary_7_u : public Math::Function<type> {
-
-public:
-    type value(const std::vector<type>& x) const {
-        return  x[0]* x[0]* x[0]* x[0] + x[1] * x[1]* x[1]* x[1] ;
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 4. * x[0]* x[0]* x[0];
-        solGrad[1] = 4. * x[1]* x[1]* x[1];
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        return 12. * ( x[0]* x[0] + x[1]* x[1] );
-    }
-
-private:
-    static constexpr double pi = acos(-1.);
-};
-
-
-template <class type = double>
-class Function_Zero_on_boundary_9_SourceF : public Math::Function<type> {
-public:
-    type value(const std::vector<type>& x) const {
-        // This is Delta^2 u_exact, the source term 'f'.
-        return 64. * pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
-    }
-
-    std::vector<type> gradient(const std::vector<type>& x) const {
-        std::vector<type> solGrad(x.size(), 0.);
-        solGrad[0] = 128. * pi * pi * pi * pi * pi * cos(2. * pi * x[0]) * sin(2. * pi * x[1]);
-        solGrad[1] = 128. * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * cos(2. * pi * x[1]);
-        return solGrad;
-    }
-
-    type laplacian(const std::vector<type>& x) const {
-        // Not typically needed for source function, but could be Delta^3 u.
-        return -256. * pi * pi * pi * pi * pi * pi * sin(2. * pi * x[0]) * sin(2. * pi * x[1]);
-    }
-
-private:
-    static constexpr double pi = acos(-1.);
-};
-
-
-
 }
 
 
 }
 
 static Domains::square_m05p05::Function_Zero_on_boundary_7<> analytical_u_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> analytical_sxx_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> analytical_sxy_solution;
-static Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> analytical_syy_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_W<> analytical_w_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1<> analytical_s1_solution;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2<> analytical_s2_solution;
 
-static Domains::square_m05p05::Function_Zero_on_boundary_9_SourceF<> source_function_f;
+static Domains::square_m05p05::Function_Zero_on_boundary_7_f<> source_function_f;
 
 
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob,
@@ -243,11 +290,11 @@ double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProbl
     double value = 1.;
     // // // if (!strcmp(SolName, "u")) {
     // // //     value = analytical_u_solution.value(x);
-    // // // } else if (!strcmp(SolName, "sxx")) {
+    // // // } else if (!strcmp(SolName, "v")) {
     // // //     value = analytical_sxx_solution.value(x);
-    // // // }else if (!strcmp(SolName, "sxy")) {
+    // // // }else if (!strcmp(SolName, "s1")) {
     // // //     value = analytical_sxy_solution.value(x);
-    // // // }else if (!strcmp(SolName, "syy")) {
+    // // // }else if (!strcmp(SolName, "s2")) {
     // // //     value = analytical_syy_solution.value(x);
     // // // }
     return value;
@@ -256,51 +303,30 @@ double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProbl
 
 
 
-
 //====Set boundary condition-BEGIN==============================
-bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob,
-                                                       const std::vector < double >& x,
-                                                       const char SolName[],
-                                                       double & Value,
-                                                       const int facename,
-                                                       const double time) {
-
+bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
   if (!strcmp(SolName, "u")) {
-      // // // Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
       // strcmp compares two string in lexiographic sense.
-    // // // Value = u -> value(x);
-          Value = analytical_u_solution.value(x);
-
-
+    Value = u -> value(x);
   }
-  else if (!strcmp(SolName, "sxx")) {
-      // // // Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    // // // Value = sxx -> value(x);
-              Value = analytical_sxx_solution.value(x);
-
+  else if (!strcmp(SolName, "v")) {
+      Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = v -> value(x);
   }
-    else if (!strcmp(SolName, "sxy")) {
-      // // // Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    // // // Value = sxy -> value(x);
-                Value = analytical_sxy_solution.value(x);
-
+    else if (!strcmp(SolName, "s1")) {
+      Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = s1 -> value(x);
   }
-    else if (!strcmp(SolName, "syy")) {
-      // // // Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    // // // Value = syy -> value(x);
-                Value = analytical_syy_solution.value(x);
-
+    else if (!strcmp(SolName, "s2")) {
+      Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = s2 -> value(x);
   }
-
-  // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  // Value = 0.;
-
   return dirichlet;
 }
 //====Set boundary condition-END==============================
-
 
 
 template < class system_type, class real_num, class real_num_mov >
@@ -319,7 +345,7 @@ void System_assemble_interface_Biharmonic(MultiLevelProblem& ml_prob) {
     ml_prob.get_all_abstract_fe(elem_all_for_domain);
 
 
-    NAMESPACE_FOR_BIHARMONIC_HM_nonauto_conv::biharmonic_HM_nonauto_conv::AssembleHermannMiyoshiProblem< system_type, real_num, real_num_mov > (
+    NAMESPACE_FOR_BIHARMONIC_HM::biharmonic_HM_with_decomposition_nonauto::AssembleHermannMiyoshiProblem< system_type, real_num, real_num_mov > (
         elem_all,
         elem_all_for_domain,
         ml_prob.GetQuadratureRuleAllGeomElems(),
@@ -331,9 +357,7 @@ void System_assemble_interface_Biharmonic(MultiLevelProblem& ml_prob) {
     );
 }
 
-/**
- * @brief Solution generation class for running the biharmonic problem on single mesh levels.
- */
+
 template < class real_num >
 class Solution_generation_1 : public Solution_generation_single_level {
 public:
@@ -348,6 +372,7 @@ public:
         const bool my_solution_generation_has_equation_solve
     ) const;
 };
+
 
 template < class real_num >
 const MultiLevelSolution Solution_generation_1< real_num >::run_on_single_level(
@@ -447,7 +472,6 @@ const MultiLevelSolution Solution_generation_1< real_num >::run_on_single_level(
     return ml_sol_single_level;
 }
 
-
 int main(int argc, char** args) {
 
     // ======= Init ==========================
@@ -506,9 +530,9 @@ int main(int argc, char** args) {
 
     // Setup for 'u'
     unknowns[0]._name = "u";
-    unknowns[1]._name = "sxx";
-    unknowns[2]._name = "sxy";
-    unknowns[3]._name = "syy";
+    unknowns[1]._name = "v";
+    unknowns[2]._name = "s1";
+    unknowns[3]._name = "s2";
 
     unknowns[0]._fe_family = LAGRANGE;
     unknowns[0]._fe_order = FIRST;
@@ -525,19 +549,19 @@ int main(int argc, char** args) {
 
     // ======= Unknowns - END ========================
 
+ Domains::square_m05p05::Function_Zero_on_boundary_7_W<> analytical_w_solution;
  Domains::square_m05p05::Function_Zero_on_boundary_7<> analytical_u_solution;
- Domains::square_m05p05::Function_Zero_on_boundary_7_sxx<> analytical_sxx_solution;
- Domains::square_m05p05::Function_Zero_on_boundary_7_sxy<> analytical_sxy_solution;
- Domains::square_m05p05::Function_Zero_on_boundary_7_syy<> analytical_syy_solution;
+ Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s1<> analytical_s1_solution;
+ Domains::square_m05p05::Function_Zero_on_boundary_7_deviatoric_s2<> analytical_s2_solution;
 
  Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_function_f;
 
     // ======= Unknowns, Analytical functions - BEGIN ================
     std::vector< Math::Function< double > * > unknowns_analytical_functions_Needed_for_absolute( unknowns.size() );
-    unknowns_analytical_functions_Needed_for_absolute[0] = &analytical_u_solution;
-    unknowns_analytical_functions_Needed_for_absolute[1] = &analytical_sxx_solution;
-    unknowns_analytical_functions_Needed_for_absolute[2] = &analytical_sxy_solution;
-    unknowns_analytical_functions_Needed_for_absolute[3] = &analytical_syy_solution;
+    unknowns_analytical_functions_Needed_for_absolute[0] = &analytical_w_solution;
+    unknowns_analytical_functions_Needed_for_absolute[1] = &analytical_u_solution;
+    unknowns_analytical_functions_Needed_for_absolute[2] = &analytical_s1_solution;
+    unknowns_analytical_functions_Needed_for_absolute[3] = &analytical_s2_solution;
     // ======= Unknowns, Analytical functions - END ================
 
     // ======= System Specifics for Coupled Problem - BEGIN ==================
@@ -576,5 +600,6 @@ int main(int argc, char** args) {
 
     return 0;
 }
+
 
 

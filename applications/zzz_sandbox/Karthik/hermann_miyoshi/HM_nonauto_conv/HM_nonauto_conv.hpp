@@ -491,7 +491,7 @@ static void AssembleHermannMiyoshiProblem(
                 for (unsigned d = 0; d < dim; ++d)
                     x_gss[d] +=  coords[d][a] * geom_phi;
             }
-            const real_num_mov f_val =  source_functions[0]->laplacian(x_gss);
+            const real_num_mov f_val =  source_functions[0]->value(x_gss);
 
             // compute div sigma at qp: divS = (∂x sxx + ∂y sxy,  ∂x sxy + ∂y syy)
             const real_num_mov divS_x = grad_sxx_g[0] + grad_sxy_g[1];
@@ -610,7 +610,7 @@ static void AssembleHermannMiyoshiProblem(
         }
 
 
-         constexpr bool print_algebra_local = true;
+         constexpr bool print_algebra_local = false;
         if (print_algebra_local) {
             std::vector<unsigned> Sol_n_el_dofs_Mat_vol = { nDofs_u, nDofs_sxx, nDofs_sxy, nDofs_syy };
             assemble_jacobian<double,double>::print_element_jacobian(iel, unk_element_jac_res.jac(), Sol_n_el_dofs_Mat_vol, 10, 5);

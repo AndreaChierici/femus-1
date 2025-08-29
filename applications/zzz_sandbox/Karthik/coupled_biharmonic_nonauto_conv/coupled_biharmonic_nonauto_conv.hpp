@@ -542,7 +542,7 @@ static void AssembleBilaplaceProblem(
         // Finalize local residual (FEMUS convention negative)
         std::vector<double> Res_total( unk_element_jac_res.res().size() );
         for (size_t kk = 0; kk < unk_element_jac_res.res().size(); ++kk) {
-            Res_total[kk] = - ( double ) ( unk_element_jac_res.res()[kk] );
+            Res_total[kk] = - ( unk_element_jac_res.res()[kk] );
         }
 
         RES->add_vector_blocked(Res_total, unk_element_jac_res.dof_map());
