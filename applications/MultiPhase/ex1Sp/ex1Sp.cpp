@@ -71,20 +71,28 @@ Cloud *cldint;
 // const double gravity = -0.98;
 
 // // Turek 2
-const double mu1 = 0.1;
-const double mu2 = 10.;
-const double rho1 = 1.;
-const double rho2 = 1000;
-const double sigma = 1.96;
-const double gravity = -0.98;
+// const double mu1 = 0.1;
+// const double mu2 = 10.;
+// const double rho1 = 1.;
+// const double rho2 = 1000;
+// const double sigma = 1.96;
+// const double gravity = -0.98;
 
-// //Parasitic Test
-// const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
-// const double mu2 = 0.1;
-// const double rho1 = 100.;
-// const double rho2 = 100.;
-// const double sigma = 3.; // ???
+// //Parasitic Test Dimensional
+// const double mu1 = 0.05; // TODO Sandro put mu_1 = mu_2 = 0.005
+// const double mu2 = 0.05;
+// const double rho1 = 300.;
+// const double rho2 = 300.;
+// const double sigma = 25.; // ???
 // const double gravity = 0.;
+
+//Parasitic Test
+const double mu1 = 0.1; // TODO Sandro put mu_1 = mu_2 = 0.005
+const double mu2 = 0.1;
+const double rho1 = 100.;
+const double rho2 = 100.;
+const double sigma = 3.; // ???
+const double gravity = 0.;
 
 std::vector <double> g;
 
@@ -93,7 +101,7 @@ std::vector <double> g;
 #include "../include/Stabilization.hpp"
 
 // #define RADIUS 0.25
-#define RADIUS 0.15
+#define RADIUS 0.2
 #define XG 0.5
 #define YG 0.5
 #define ZG 0.
@@ -153,18 +161,17 @@ int main(int argc, char** args) {
   // read coarse level mesh and generate finers level meshes
   double scalingFactor = 1.;
 //   mlMsh.ReadCoarseMesh("./input/cube_hex.neu", "seventh", scalingFactor);
-  // mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
-  mlMsh.ReadCoarseMesh("./input/nozzle.neu", "fifth", scalingFactor);
+  mlMsh.ReadCoarseMesh("./input/unstructured_PC.neu", "fifth", scalingFactor);
   // mlMsh.GenerateCoarseBoxMesh(40*4+1, 80*4+1, 0, 0., 1., 0., 2., 0., 0., QUAD9, "fifth"); // Turek 1&2
   // mlMsh.GenerateCoarseBoxMesh(16, 64, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
   // mlMsh.GenerateCoarseBoxMesh(100, 400, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
   // mlMsh.GenerateCoarseBoxMesh(128, 512, 0, -0.5, 0.5, -2, 2, 0., 0., QUAD9, "fifth"); //RT
-  // mlMsh.GenerateCoarseBoxMesh(64, 64, 0, 0., 1., 0., 1., 0., 0., QUAD9, "fifth"); // Parasitic Test
+  // mlMsh.GenerateCoarseBoxMesh(64, 64, 0, 0., 0.01, 0., 0.01, 0., 0., QUAD9, "fifth"); // Parasitic Test
   /* "seventh" is the order of accuracy that is used in the gauss integration scheme
      probably in the furure it is not going to be an argument of this function   */
   unsigned dim = mlMsh.GetDimension();
 
-  unsigned numberOfUniformLevels = 3;
+  unsigned numberOfUniformLevels = 1;
   unsigned numberOfSelectiveLevels = 0;
   mlMsh.RefineMesh(numberOfUniformLevels, numberOfUniformLevels + numberOfSelectiveLevels, NULL);
 
@@ -207,7 +214,7 @@ int main(int argc, char** args) {
 
 
   Solution* sol = mlSol.GetSolutionLevel(mlMsh.GetNumberOfLevels() - 1);
-  
+
   cld = new Cloud(sol);
   cldint = new Cloud(sol);
 
@@ -251,8 +258,7 @@ int main(int argc, char** args) {
   std::cout << "Testing the class Cloud \n";
 
 
-  // unsigned nIterations = 35000;
-  unsigned nIterations = 700;
+  unsigned nIterations = 35000;
   unsigned nMrk = 800;
 
 // //   Oscillation
@@ -289,8 +295,8 @@ int main(int argc, char** args) {
 //   cldint->AddInteriorQuadric({1.,0.,1.,-2.*XG ,-2*YG ,XG*XG+YG*YG-RADIUS*RADIUS});
 //   cldint->AddInteriorQuadric({1./50 ,0.,0.,0.,1., 1./256 - 0.005});
   cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
-  
-  
+
+
 // // // RT
 //   std::vector < std::vector<double>> x(nMrk, std::vector<double>(dim));
 //   std::vector < std::vector<double>> N(nMrk, std::vector<double>(dim));
@@ -315,26 +321,26 @@ int main(int argc, char** args) {
 //   x[0][1] = -0.5;
 //   cldint->AddInteriorCloudFromPoints(x);
 //   cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
-  
-  
-  
+
+
+
 
   cld->PrintCSV("markerBefore", 0);
   cld->PrintCSV("marker", 0);
   cld->PrintMaxX("AAmaxY", 0); //Oscillation
 //   cldint->PrintCSV("markerInt", 0);
-  
-  
+
+
 //  // cld->AddEllipse({XG, YG}, {RADIUS, RADIUS}, 8);
 // //   cld->AddQuadric({1.,0.,1.,-2.*XG ,-2*YG ,XG*XG+YG*YG-RADIUS*RADIUS}, 8);
 //   cld->AddQuadric({1./50 ,0.,0.,0.,1., 1./256 - 0.005}, 8);
 //   cld->ComputeQuadraticBestFit();
-// 
+//
 //   //cldint->AddInteriorEllipse({XG, YG}, {RADIUS, RADIUS});
 // //   cldint->AddInteriorQuadric({1.,0.,1.,-2.*XG ,-2*YG ,XG*XG+YG*YG-RADIUS*RADIUS});
 //   cldint->AddInteriorQuadric({1./50 ,0.,0.,0.,1., 1./256 - 0.005});
 //   cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
-// 
+//
 //   cld->PrintCSV("markerBefore", 0);
 //   cld->PrintCSV("marker", 0);
 //   cldint->PrintCSV("markerInt", 0);
@@ -359,7 +365,7 @@ int main(int argc, char** args) {
     cldint->RKAdvection(4, velocity, dt);
     cld->PrintCSV("markerBefore", it);
     cld->ComputeQuadraticBestFit();
-    cld->RebuildMarkers(8, 14, 10);
+    cld->RebuildMarkers(11, 9, 10);
     cldint->RebuildInteriorMarkers(*cld, "C", "Cn");
     cld->PrintCSV("marker", it);
     cld->PrintMaxX("AAmaxY", it); //Oscillation
@@ -376,14 +382,14 @@ int main(int argc, char** args) {
 double TimeStepMultiphase(const double time) {
   // double dt =  0.005; //RT
   // double dt =  0.001; //RT
-  double dt =  0.015; //Turek
-  // double sigma = 3;
-  // double rho = 100.;
-  // // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
-  // // double dt =  totalT/800; //Parasitic Test
-  //
-  // double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
-  // // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
+//   // double dt =  0.01; //Turek
+  double sigma = 3;
+  double rho = 100.;
+  // double totalT = sqrt(rho*0.4*0.4*0.4) / sqrt(sigma);
+  // double dt =  totalT/800; //Parasitic Test
+
+  double dt =   0.001 * sqrt(rho * 0.4 * 0.4 * 0.4 / sigma);
+  // double dt =  0.0001; //TODO if you use the 320x320 you have to change this
   return dt;
 }
 
@@ -417,10 +423,10 @@ void AssembleMultiphase(MultiLevelProblem& ml_prob) {
   RES->zero();
 
   const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
-  
+
   if(dim ==2) g = {0,gravity};
   else g = {0,0,gravity};
-    
+
   AssembleGhostPenalty(ml_prob);
   AssembleGhostPenaltyDGP(ml_prob, true);
   AssembleGhostPenaltyDGP(ml_prob, false);
@@ -429,7 +435,7 @@ void AssembleMultiphase(MultiLevelProblem& ml_prob) {
 
   double dt =  mlPdeSys->GetIntervalTime();
 
- 
+
 
   unsigned    iproc = msh->processor_id(); // get the process_id (for parallel computation)
 
@@ -714,14 +720,14 @@ void AssembleMultiphase(MultiLevelProblem& ml_prob) {
       for(unsigned i = 0; i < nDofsP; i++) {
         solP1_gss += phiP[i] * solP1[i];
         solP2_gss += phiP[i] * solP2[i];
-      }   
+      }
 
 //       double rho = rho1 * weightCFInt[ig] + rho1 * weightCFExt[ig];
 //       double mu = mu1 * weightCFInt[ig] + mu2 * weightCFExt[ig];
 
       double rho = rho1 * C + rho2 * (1. - C);
       double mu = mu1 * C + mu2 * (1. - C);
-      
+
       double rhoC = rho1 * C + rho2 * (1. - C);
 
       // *** phiV_i loop ***
@@ -836,9 +842,9 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
   //  assembleMatrix is a flag that tells if only the residual or also the matrix should be assembled
 
   // call the adept stack object
-  adept::Stack& s = FemusInit::_adeptStack;  
-  
-  
+  adept::Stack& s = FemusInit::_adeptStack;
+
+
 
   //  extract pointers to the several objects that we are going to use
   TransientNonlinearImplicitSystem* mlPdeSys   = &ml_prob.get_system<TransientNonlinearImplicitSystem> ("NS");   // pointer to the linear implicit system named "Poisson"
@@ -864,7 +870,7 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
   const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
   if(dim ==2) g = {0,gravity};
   else g = {0,0,gravity};
-  
+
   AssembleGhostPenalty(ml_prob);
   AssembleGhostPenaltyDGP(ml_prob, true);
   AssembleGhostPenaltyDGP(ml_prob, false);
@@ -1081,7 +1087,7 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
     double kk = 0.;
 
     s.new_recording();
-    
+
     // *** Gauss point loop ***
     for(unsigned ig = 0; ig < femV->GetGaussPointNumber(); ig++) {
       // *** get gauss point weight, test function and test function partial derivatives ***
@@ -1156,14 +1162,14 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
       for(unsigned i = 0; i < nDofsP; i++) {
         solP1_gss += phiP[i] * solP1[i];
         solP2_gss += phiP[i] * solP2[i];
-      }   
+      }
 
 //       double rho = rho1 * weightCFInt[ig] + rho1 * weightCFExt[ig];
 //       double mu = mu1 * weightCFInt[ig] + mu2 * weightCFExt[ig];
 
       double rho = rho1 * C + rho2 * (1. - C);
       double mu = mu1 * C + mu2 * (1. - C);
-      
+
       double rhoC = rho1 * C + rho2 * (1. - C);
 
       // *** phiV_i loop ***
@@ -1179,7 +1185,7 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
           NSV += - rhoC * phiV[i] * g[I]; // gravity term
           Res[I * nDofsV + i] +=  NSV * weight;
           if(cut == 1) {
-            Res[I * nDofsV + i] -= - sigma * phiV[i] /** b[I]*/ * NN[I] * weight * weightCF[ig] * kk * dsN; 
+            Res[I * nDofsV + i] -= - sigma * phiV[i] /** b[I]*/ * NN[I] * weight * weightCF[ig] * kk * dsN;
           }
         }
       } // end phiV_i loop
@@ -1190,9 +1196,9 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
           Res[dim * nDofsV + i] -= - gradSolV_gss[I][I] * phiP[i]  * weight * weightCFInt[ig]; //continuity
           Res[dim * nDofsV + nDofsP + i] -= - gradSolV_gss[I][I] * phiP[i]  * weight * weightCFExt[ig]; //continuity
         }
-        if(C == 0) 
+        if(C == 0)
         Res[dim * nDofsV + i] -= - solP1_gss * phiP[i]  * weight * (1 - C) * eps; //penalty
-        if(C == 1) 
+        if(C == 1)
         Res[dim * nDofsV + nDofsP + i] -= - solP2_gss * phiP[i]  * weight * C * eps; //penalty
 
       } // end phiP_i loop
@@ -1207,19 +1213,19 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
 //           unsigned VIrow = I * nDofsV + i;
 //           for(unsigned j = 0; j < nDofsV; j++) {
 //             unsigned VIcolumn = I * nDofsV + j;
-// 
+//
 //             Jac[ VIrow * nDofsVP + VIcolumn] += rho * phiV[i] * phiV[j] * weight / dt; // inertia
-// 
+//
 //             for(unsigned J = 0; J < dim ; J++) { //column velocity blocks or dimension
 //               unsigned VJcolumn = J * nDofsV + j;
 //               Jac[ VIrow * nDofsVP + VIcolumn ] += mu * phiV_x[i * dim + J] * phiV_x[j * dim + J] * weight; //diagonal diffusion
 //               Jac[ VIrow * nDofsVP + VJcolumn ] += mu * phiV_x[i * dim + J] * phiV_x[j * dim + I] * weight; //off-diagonal diffusion
-// 
+//
 //               Jac[ VIrow * nDofsVP + VIcolumn ] += rho * phiV[i] * solV_gss[J] * phiV_x[j * dim + J] * weight; //diagonal nonlinear
 //               Jac[ VIrow * nDofsVP + VJcolumn ] += rho * phiV[i] * phiV[j] * gradSolV_gss[I][J] * weight; //off-diagonal nonlinear
 //             }
 //           }
-// 
+//
 //           for(unsigned j = 0; j < nDofsP; j++) {
 //             unsigned P1column = dim * nDofsV + j;
 //             unsigned P2column = dim * nDofsV + nDofsP + j;
@@ -1236,9 +1242,9 @@ void AssembleMultiphaseAD(MultiLevelProblem& ml_prob) {
 //         for(unsigned j = 0; j < nDofsP; j++) {
 //           unsigned P1column = dim * nDofsV + j;
 //           unsigned P2column = dim * nDofsV + nDofsP + j;
-//           if(C == 0) 
+//           if(C == 0)
 //           Jac[P1row * nDofsVP + P1column] += phiP[i] * phiP[j] * weight * (1 - C) * eps; //continuity
-//           if(C == 1) 
+//           if(C == 1)
 //           Jac[P2row * nDofsVP + P2column] += phiP[i] * phiP[j] * weight * C * eps; //continuity
 //         }
 //       }
