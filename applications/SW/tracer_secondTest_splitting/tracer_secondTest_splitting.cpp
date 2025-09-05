@@ -453,7 +453,7 @@ void RK4 ( MultiLevelProblem& ml_prob, const bool & implicitEuler, const unsigne
 int main ( int argc, char** args )
 {
 
-    SlepcInitialize ( &argc, &args, PETSC_NULL, PETSC_NULL );
+    SlepcInitialize ( &argc, &args, PETSC_NULLPTR, PETSC_NULLPTR );
 
     // init Petsc-MPI communicator
     FemusInit mpinit ( argc, args, MPI_COMM_WORLD );
@@ -1002,7 +1002,7 @@ void ETD ( MultiLevelProblem& ml_prob, const unsigned & numberOfTimeSteps )
 //             PetscInt nconv1,nconv2;
 //             
 //             SVDCreate(PETSC_COMM_WORLD,&svd);
-//             SVDSetOperator(svd,A);
+//             SVDSetOperators(svd,A);
 //             SVDSetFromOptions(svd);
 //             SVDSetDimensions(svd,1,PETSC_DEFAULT,PETSC_DEFAULT);
 //             //First request a singular value from one end of the spectrum

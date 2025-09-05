@@ -279,7 +279,7 @@ namespace femus {
     KSPSetUp(subksp);
 
     KSP* subksps;
-    PCASMGetSubKSP(subpc, &_nlocal, PETSC_NULL, &subksps);
+    PCASMGetSubKSP(subpc, &_nlocal, PETSC_NULLPTR, &subksps);
     PetscReal epsilon = 1.e-16;
 
     if(!_standardASM) {
