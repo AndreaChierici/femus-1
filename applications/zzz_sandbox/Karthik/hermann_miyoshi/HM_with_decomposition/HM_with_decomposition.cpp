@@ -282,23 +282,24 @@ private:
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  if (!strcmp(SolName, "u")) {
-      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-      // strcmp compares two string in lexiographic sense.
-    Value = u -> value(x);
-  }
-  else if (!strcmp(SolName, "v")) {
-      Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = v -> value(x);
-  }
-    else if (!strcmp(SolName, "s1")) {
-      Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = s1 -> value(x);
-  }
-    else if (!strcmp(SolName, "s2")) {
-      Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-    Value = s2 -> value(x);
-  }
+  // // // if (!strcmp(SolName, "u")) {
+  // // //     Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  // // //     // strcmp compares two string in lexiographic sense.
+  // // //   Value = u -> value(x);
+  // // // }
+  // // // else if (!strcmp(SolName, "v")) {
+  // // //     Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  // // //   Value = v -> value(x);
+  // // // }
+  // // //   else if (!strcmp(SolName, "s1")) {
+  // // //     Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  // // //   Value = s1 -> value(x);
+  // // // }
+  // // //   else if (!strcmp(SolName, "s2")) {
+  // // //     Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+  // // //   Value = s2 -> value(x);
+  // // // }
+  Value = 0.;
   return dirichlet;
 }
 //====Set boundary condition-END==============================

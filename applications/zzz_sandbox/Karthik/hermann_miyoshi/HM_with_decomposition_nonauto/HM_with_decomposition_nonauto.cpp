@@ -287,7 +287,7 @@ static Domains::square_m05p05::Function_Zero_on_boundary_7_Laplacian<> source_fu
 double Solution_set_initial_conditions_with_analytical_sol(const MultiLevelProblem * ml_prob,
                                                            const std::vector < double >& x,
                                                            const char * SolName) {
-//     double value = 2.;
+    // // // double value = 0.;
     double value ;
 
     if (!strcmp(SolName, "u")) {
@@ -325,8 +325,8 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
                 Value = analytical_s2_solution.value(x);
   }
 
-  // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  // Value = 0.;
+  // // // double Value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // // // Value = 0.;
 
   return dirichlet;
 }
@@ -537,7 +537,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 8;
+    unsigned max_number_of_meshes = 4;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }

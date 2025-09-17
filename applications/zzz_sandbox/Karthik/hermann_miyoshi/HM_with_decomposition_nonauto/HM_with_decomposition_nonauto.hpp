@@ -467,12 +467,14 @@ static void natural_loop_2d3dV(const MultiLevelProblem *    ml_prob,
 
 //========= BOUNDARY_IMPLEMENTATION_V - END ==================
 
+/*
 
+//========= Assembly_IMPLEMENTATION - BEGIN ==================
 
 template < class system_type, class real_num, class real_num_mov >
 static void AssembleHermannMiyoshiProblem(
-    const std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> * > > & elem_all,
-    const std::vector < std::vector < /*const*/ elem_type_templ_base<real_num_mov, real_num_mov> * > > & elem_all_for_domain,
+    const std::vector < std::vector <  elem_type_templ_base<real_num, real_num_mov> * > > & elem_all,
+    const std::vector < std::vector <  elem_type_templ_base<real_num_mov, real_num_mov> * > > & elem_all_for_domain,
     const std::vector<Gauss> & quad_rules,
     system_type * mlPdeSys,
     MultiLevelMesh * ml_mesh_in,
@@ -760,7 +762,454 @@ static void AssembleHermannMiyoshiProblem(
     if (assembleMatrix) KK->close();
 } // end AssembleHermannMiyoshiProblem
 
+//========= Assembly_IMPLEMENTATION - END ==================
+*/
 
+
+template < class system_type, class real_num, class real_num_mov >
+static void AssembleHermannMiyoshiProblem(
+    const std::vector < std::vector < /*const*/ elem_type_templ_base<real_num, real_num_mov> * > > & elem_all,
+    const std::vector < std::vector < /*const*/ elem_type_templ_base<real_num_mov, real_num_mov> * > > & elem_all_for_domain,
+    const std::vector<Gauss> & quad_rules,
+    system_type * mlPdeSys,
+    MultiLevelMesh * ml_mesh_in,
+    MultiLevelSolution * ml_sol_in,
+    const std::vector< Unknown > & unknowns,
+    const std::vector< Math::Function< double > * > & source_functions)
+{
+    // --- basic handles ---
+    const unsigned level = mlPdeSys->GetLevelToAssemble();
+    const bool assembleMatrix = mlPdeSys->GetAssembleMatrix();
+
+    Mesh* msh = ml_mesh_in->GetLevel(level);
+    MultiLevelSolution* ml_sol = ml_sol_in;
+    Solution* sol = ml_sol->GetSolutionLevel(level);
+
+    LinearEquationSolver* pdeSys = mlPdeSys->_LinSolver[level];
+    SparseMatrix* KK = pdeSys->_KK;
+    NumericVector* RES = pdeSys->_RES;
+
+    const unsigned dim = msh->GetDimension();
+    const unsigned iproc = msh->processor_id();
+
+    RES->zero();
+    if (assembleMatrix) KK->zero();
+
+    // --- geometry and quadrature containers ---
+    constexpr unsigned int space_dim = 2;
+
+    std::vector < std::vector < real_num_mov > > JacI_qp(space_dim);
+    std::vector < std::vector < real_num_mov > > Jac_qp(dim);
+    for (unsigned d = 0; d < dim; d++) Jac_qp[d].resize(space_dim);
+    for (unsigned d = 0; d < space_dim; d++) JacI_qp[d].resize(dim);
+    real_num_mov detJac_qp = 0.0;
+    real_num_mov weight_qp = 0.0;
+
+    unsigned xType = CONTINUOUS_BIQUADRATIC;
+    CurrentElem < real_num_mov > geom_element(dim, msh);
+    Phi < real_num_mov > geom_element_phi_dof_qp(dim);
+
+    // --- unknowns (expect at least u,v,s1,s2) ---
+    const unsigned int n_unknowns = mlPdeSys->GetSolPdeIndex().size();
+    if (n_unknowns < 4) {
+        std::cerr << "AssembleHermannMiyoshiProblem: expected at least 4 unknowns but found " << n_unknowns << "\n";
+        return;
+    }
+
+    // map indices by name (u plays W)
+    int idx_u = -1, idx_v = -1, idx_s1 = -1, idx_s2 = -1;
+    for (unsigned k = 0; k < unknowns.size(); ++k) {
+        if (unknowns[k]._name == "u")   idx_u = (int)k; // W
+        if (unknowns[k]._name == "v")   idx_v = (int)k; // U
+        if (unknowns[k]._name == "s1")  idx_s1 = (int)k; // S1
+        if (unknowns[k]._name == "s2")  idx_s2 = (int)k; // S2
+    }
+    if (idx_u < 0 || idx_v < 0 || idx_s1 < 0 || idx_s2 < 0) {
+        std::cerr << "AssembleHermannMiyoshiProblem: unknown names must contain 'u','v','s1','s2'\n";
+        return;
+    }
+
+    // --- UnknownLocal + Phi ---
+    std::vector < UnknownLocal < real_num > > unknowns_local(n_unknowns);
+    std::vector < Phi < real_num > > unknowns_phi_dof_qp(n_unknowns, Phi< real_num >(dim));
+    for (int u = 0; u < (int)n_unknowns; u++) {
+        unknowns_local[u].initialize(dim, unknowns[u], ml_sol, mlPdeSys);
+    }
+
+    ElementJacRes < real_num > unk_element_jac_res(dim, unknowns_local);
+
+    // constitutive / params
+    const double nu = 0.4;
+    const double nu1 = (4.0 * (1.0 - nu)) / (1.0 + nu);
+    const double nu2 = 2.0 / (1.0 + nu);
+
+    // --- element loop ---
+    for (int iel = msh->GetElementOffset(iproc); iel < msh->GetElementOffset(iproc + 1); ++iel) {
+
+        geom_element.set_coords_at_dofs_and_geom_type(iel, xType);
+        geom_element.set_elem_center_3d(iel, xType);
+        const short unsigned ielGeom = geom_element.geom_type();
+
+        // set local dofs for all unknowns
+        for (unsigned uu = 0; uu < n_unknowns; ++uu) {
+            unknowns_local[uu].set_elem_dofs(iel, msh, sol);
+        }
+
+        // prepare local to global mapping and reset local arrays
+        unk_element_jac_res.set_loc_to_glob_map(iel, msh, pdeSys);
+        const unsigned total_local_dofs = unk_element_jac_res.dof_map().size();
+        unk_element_jac_res.res().assign(total_local_dofs, 0.0);
+        unk_element_jac_res.jac().assign(total_local_dofs * total_local_dofs, 0.0);
+
+        // per-unknown local DOF counts & offsets
+        std::vector<unsigned> unk_num_elem_dofs(n_unknowns);
+        std::vector<unsigned> unk_offset(n_unknowns);
+        unsigned cum = 0;
+        for (unsigned uu = 0; uu < n_unknowns; ++uu) {
+            unk_num_elem_dofs[uu] = unknowns_local[uu].num_elem_dofs();
+            unk_offset[uu] = cum;
+            cum += unk_num_elem_dofs[uu];
+        }
+
+        // named sizes & offsets (W -> u, U -> v)
+        const unsigned nDofs_u   = unk_num_elem_dofs[idx_u];   // W - "u"
+        const unsigned nDofs_v   = unk_num_elem_dofs[idx_v];   // U - "v"
+        const unsigned nDofs_s1  = unk_num_elem_dofs[idx_s1];
+        const unsigned nDofs_s2  = unk_num_elem_dofs[idx_s2];
+
+        const unsigned offset_u   = unk_offset[idx_u];   // W block
+        const unsigned offset_v   = unk_offset[idx_v];   // U block
+        const unsigned offset_s1  = unk_offset[idx_s1];
+        const unsigned offset_s2  = unk_offset[idx_s2];
+
+        // local RHS accumulator (only U-row gets -nu2 * F)
+        std::vector<double> rhs_local(total_local_dofs, 0.0);
+
+
+        // after: unk_element_jac_res.res().assign(total_local_dofs, 0.0);
+for (unsigned i = 0; i < nDofs_u;  ++i) unk_element_jac_res.res()[offset_u  + i] = 0.0;
+for (unsigned i = 0; i < nDofs_s1; ++i) unk_element_jac_res.res()[offset_s1 + i] = 0.0;
+for (unsigned i = 0; i < nDofs_s2; ++i) unk_element_jac_res.res()[offset_s2 + i] = 0.0;
+// do NOT touch them again inside the Gauss loop
+
+
+
+        // --- Gauss loop ---
+        const unsigned nGauss = quad_rules[ielGeom].GetGaussPointsNumber();
+        for (unsigned ig = 0; ig < nGauss; ++ig) {
+
+            // geometry and weight
+            elem_all_for_domain[ielGeom][xType]->JacJacInv(
+                geom_element.get_coords_at_dofs_3d(), ig, Jac_qp, JacI_qp, detJac_qp, space_dim);
+            weight_qp = detJac_qp * quad_rules[ielGeom].GetGaussWeightsPointer()[ig];
+
+            // shape functions for each unknown at this qp
+            for (unsigned uu = 0; uu < n_unknowns; ++uu) {
+                elem_all[ielGeom][unknowns_local[uu].fe_type()]->shape_funcs_current_elem(
+                    ig, JacI_qp,
+                    unknowns_phi_dof_qp[uu].phi(),
+                    unknowns_phi_dof_qp[uu].phi_grad(),
+                    unknowns_phi_dof_qp[uu].phi_hess(),
+                    space_dim
+                );
+            }
+            // geometry phi
+            elem_all_for_domain[ielGeom][xType]->shape_funcs_current_elem(
+                ig, JacI_qp,
+                geom_element_phi_dof_qp.phi(),
+                geom_element_phi_dof_qp.phi_grad(),
+                geom_element_phi_dof_qp.phi_hess(),
+                space_dim
+            );
+
+            // references to phi/grad arrays (match your style)
+            std::vector<real_num>& phi_u = unknowns_phi_dof_qp[idx_u].phi();       // W ("u")
+            std::vector<real_num>& gradphi_u = unknowns_phi_dof_qp[idx_u].phi_grad();
+            std::vector<real_num>& phi_v = unknowns_phi_dof_qp[idx_v].phi();       // U ("v")
+            std::vector<real_num>& gradphi_v = unknowns_phi_dof_qp[idx_v].phi_grad();
+            std::vector<real_num>& phi_s1 = unknowns_phi_dof_qp[idx_s1].phi();
+            std::vector<real_num>& gradphi_s1 = unknowns_phi_dof_qp[idx_s1].phi_grad();
+            std::vector<real_num>& phi_s2 = unknowns_phi_dof_qp[idx_s2].phi();
+            std::vector<real_num>& gradphi_s2 = unknowns_phi_dof_qp[idx_s2].phi_grad();
+
+            // interpolate *values* and *gradients* at qp for unknowns (same pattern you provided)
+            // u (W)
+            real_num_mov u_val_g = 0.0;
+            std::vector< real_num_mov > grad_u_g(dim, 0.0);
+            for (unsigned a = 0; a < nDofs_u; ++a) {
+                u_val_g += phi_u[a] * unknowns_local[idx_u].elem_dofs()[a];
+                for (unsigned d = 0; d < dim; ++d)
+                    grad_u_g[d] += gradphi_u[a * dim + d] * unknowns_local[idx_u].elem_dofs()[a];
+            }
+            // v (U)
+            real_num_mov v_val_g = 0.0;
+            std::vector< real_num_mov > grad_v_g(dim, 0.0);
+            for (unsigned a = 0; a < nDofs_v; ++a) {
+                v_val_g += phi_v[a] * unknowns_local[idx_v].elem_dofs()[a];
+                for (unsigned d = 0; d < dim; ++d)
+                    grad_v_g[d] += gradphi_v[a * dim + d] * unknowns_local[idx_v].elem_dofs()[a];
+            }
+            // s1
+            real_num_mov s1_val_g = 0.0;
+            std::vector< real_num_mov > grad_s1_g(dim, 0.0);
+            for (unsigned a = 0; a < nDofs_s1; ++a) {
+                s1_val_g += phi_s1[a] * unknowns_local[idx_s1].elem_dofs()[a];
+                for (unsigned d = 0; d < dim; ++d)
+                    grad_s1_g[d] += gradphi_s1[a * dim + d] * unknowns_local[idx_s1].elem_dofs()[a];
+            }
+            // s2
+            real_num_mov s2_val_g = 0.0;
+            std::vector< real_num_mov > grad_s2_g(dim, 0.0);
+            for (unsigned a = 0; a < nDofs_s2; ++a) {
+                s2_val_g += phi_s2[a] * unknowns_local[idx_s2].elem_dofs()[a];
+                for (unsigned d = 0; d < dim; ++d)
+                    grad_s2_g[d] += gradphi_s2[a * dim + d] * unknowns_local[idx_s2].elem_dofs()[a];
+            }
+
+            // physical coords at qp and f(x)
+            std::vector< real_num_mov > x_gss(dim, 0.0);
+            std::vector< std::vector< real_num_mov > > & coords = geom_element.get_coords_at_dofs();
+            const unsigned nGeomDofs = coords[0].size();
+            for (unsigned a = 0; a < nGeomDofs; ++a) {
+                const real_num_mov geom_phi = geom_element_phi_dof_qp.phi()[a];
+                for (unsigned d = 0; d < dim; ++d)
+                    x_gss[d] += coords[d][a] * geom_phi;
+            }
+            const real_num_mov f_val = source_functions[0]->laplacian(x_gss);
+
+
+            // accumulate RHS on the U ("v") block: -nu2 * ∫ f * phi_v
+for (unsigned i = 0; i < nDofs_v; ++i) {
+    rhs_local[offset_v + i] += (- nu2) * ( (double)phi_v[i] * (double)f_val ) * (double)weight_qp;
+}
+
+
+
+
+            // ----------------------------------------------------------------
+            // 1) Assemble M on W block: M_{ij} = ∫ φ_i φ_j
+            for (unsigned i = 0; i < nDofs_u; ++i) {
+                const real_num phi_i = phi_u[i];
+                for (unsigned j = 0; j < nDofs_u; ++j) {
+                    const real_num val = (phi_u[j] * phi_i) * weight_qp;
+                    unk_element_jac_res.jac()[ (offset_u + i) * total_local_dofs + (offset_u + j) ] += val;
+                }
+            }
+
+            // 2) Assemble mass on S1 and S2 (blocks (3,3) and (4,4): M)
+            for (unsigned i = 0; i < nDofs_s1; ++i) {
+                const real_num phi_i = phi_s1[i];
+                for (unsigned j = 0; j < nDofs_s1; ++j) {
+                    const real_num val = (phi_s1[j] * phi_i) * weight_qp;
+                    unk_element_jac_res.jac()[ (offset_s1 + i) * total_local_dofs + (offset_s1 + j) ] += val;
+                }
+            }
+            for (unsigned i = 0; i < nDofs_s2; ++i) {
+                const real_num phi_i = phi_s2[i];
+                for (unsigned j = 0; j < nDofs_s2; ++j) {
+                    const real_num val = (phi_s2[j] * phi_i) * weight_qp;
+                    unk_element_jac_res.jac()[ (offset_s2 + i) * total_local_dofs + (offset_s2 + j) ] += val;
+                }
+            }
+
+            // 3) B and B^T between U("v") and W("u"):
+            //    B_{i,j} = ∫ ∇φ_{U,i} · ∇φ_{W,j}
+            for (unsigned i = 0; i < nDofs_v; ++i) {
+                for (unsigned j = 0; j < nDofs_u; ++j) {
+                    real_num val = 0.0;
+                    for (unsigned d = 0; d < dim; ++d)
+                        val += gradphi_v[i * dim + d] * gradphi_u[j * dim + d];
+                    val *= weight_qp;
+                    // B is row U (v), col W (u)
+                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_u + j) ] += - val;
+                    // B^T is row W (u), col U (v)
+                    unk_element_jac_res.jac()[ (offset_u + j) * total_local_dofs + (offset_v + i) ] += - val;
+                }
+            }
+
+            // 4) nu1 * C1 and transpose
+            //    C1_{i,j} = 0.5 * ∫ (∂x φ_{U,i} ∂x φ_{S1,j} - ∂y φ_{U,i} ∂y φ_{S1,j})
+            for (unsigned i = 0; i < nDofs_v; ++i) {
+                const double ux = gradphi_v[i * dim + 0];
+                const double uy = gradphi_v[i * dim + 1];
+                for (unsigned j = 0; j < nDofs_s1; ++j) {
+                    const double s1x = gradphi_s1[j * dim + 0];
+                    const double s1y = gradphi_s1[j * dim + 1];
+                    const double c1 = 0.5 * (ux * s1x - uy * s1y) * weight_qp;
+                    // row U (v), col S1: nu1 * C1
+                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_s1 + j) ] += (nu1 * c1);
+                    // transpose C1^T: row S1, col U (v)
+                    unk_element_jac_res.jac()[ (offset_s1 + j) * total_local_dofs + (offset_v + i) ] += (      c1);
+                }
+            }
+
+            // 5) nu1 * C2 and transpose
+            //    C2_{i,j} = 0.5 * ∫ (∂y φ_{U,i} ∂x φ_{S2,j} + ∂x φ_{U,i} ∂y φ_{S2,j})
+            for (unsigned i = 0; i < nDofs_v; ++i) {
+                const double ux = gradphi_v[i * dim + 0];
+                const double uy = gradphi_v[i * dim + 1];
+                for (unsigned j = 0; j < nDofs_s2; ++j) {
+                    const double s2x = gradphi_s2[j * dim + 0];
+                    const double s2y = gradphi_s2[j * dim + 1];
+                    const double c2 = 0.5 * (uy * s2x + ux * s2y) * weight_qp;
+                    // row U (v), col S2: nu1 * C2
+                    unk_element_jac_res.jac()[ (offset_v + i) * total_local_dofs + (offset_s2 + j) ] += (nu1 * c2);
+                    // transpose C2^T: row S2, col U (v)
+                    unk_element_jac_res.jac()[ (offset_s2 + j) * total_local_dofs + (offset_v + i) ] += (      c2);
+                }
+            }
+
+            // -----------------------------------------
+            // Build local residual contributions (same pattern you used earlier)
+            // (A*x - rhs) will be computed after assembling jac; but we also want to accumulate
+            // the continuous residual contributions into unk_element_jac_res.res() as in your routine.
+            //
+            // We compute per-test-function contributions (R) at this qp and add R*weight_qp to unk_element_jac_res.res()
+            // Note: for consistency with your earlier code, residual formulae below match the weak forms / block entries.
+            // -----------------------------------------
+
+            // (A) S1 rows: residual R = (S1, phi) + 0.5*( grad_v_g.x * phix - grad_v_g.y * phiy )
+            for (unsigned i = 0; i < nDofs_s1; ++i) {
+                const real_num phi_i = phi_s1[i];
+                const real_num phix_i = gradphi_s1[i * dim + 0];
+                const real_num phiy_i = gradphi_s1[i * dim + 1];
+                real_num_mov R = s1_val_g * phi_i
+                                 + 0.5 * ( grad_v_g[0] * phix_i - grad_v_g[1] * phiy_i );
+                // // // unk_element_jac_res.res()[ offset_s1 + i ] += ( R * weight_qp );
+
+                if (assembleMatrix) {
+                    // mass term already added above; need Jacobian coupling to v (C1^T)
+                    for (unsigned j = 0; j < nDofs_v; ++j) {
+                        const real_num val = 0.5 * ( gradphi_v[j * dim + 0] * phix_i - gradphi_v[j * dim + 1] * phiy_i ) * weight_qp;
+                        // // // unk_element_jac_res.jac()[ (offset_s1 + i) * total_local_dofs + (offset_v + j) ] += val;
+                    }
+                }
+            }
+
+            // (B) S2 rows: residual R = (S2, phi) + 0.5*( grad_v_g.y * phix + grad_v_g.x * phiy )
+            for (unsigned i = 0; i < nDofs_s2; ++i) {
+                const real_num phi_i = phi_s2[i];
+                const real_num phix_i = gradphi_s2[i * dim + 0];
+                const real_num phiy_i = gradphi_s2[i * dim + 1];
+                real_num_mov R = s2_val_g * phi_i
+                                 + 0.5 * ( grad_v_g[1] * phix_i + grad_v_g[0] * phiy_i );
+                // // // unk_element_jac_res.res()[ offset_s2 + i ] += ( R * weight_qp );
+
+                if (assembleMatrix) {
+                    // Jacobian coupling to v (C2^T)
+                    for (unsigned j = 0; j < nDofs_v; ++j) {
+                        const real_num val = 0.5 * ( gradphi_v[j * dim + 1] * phix_i + gradphi_v[j * dim + 0] * phiy_i ) * weight_qp;
+                        // // // unk_element_jac_res.jac()[ (offset_s2 + i) * total_local_dofs + (offset_v + j) ] += val;
+                    }
+                }
+            }
+
+            // (C) U rows (v): residual R = B*W (grad-grad) + nu1*C1*S1 + nu1*C2*S2 + nu2 * f * phi
+            for (unsigned i = 0; i < nDofs_v; ++i) {
+                const real_num phi_i = phi_v[i];
+                const real_num phix_i = gradphi_v[i * dim + 0];
+                const real_num phiy_i = gradphi_v[i * dim + 1];
+
+                // B*W contribution at qp (we assemble B*W via basis functions: sum_j gradphi_v·gradphi_u * u_dof_j)
+                // but for residual we can compute using interpolated u gradients (divergence form) OR use directly basis-level product.
+                // To stay consistent and simple we compute B*W contribution via basis-level: sum_j (gradphi_v_i · gradphi_u_j) * u_dof_j
+                real_num_mov BdotW = 0.0;
+                for (unsigned j = 0; j < nDofs_u; ++j) {
+                    real_num tmp = 0.0;
+                    for (unsigned d = 0; d < dim; ++d)
+                        tmp += gradphi_v[i * dim + d] * gradphi_u[j * dim + d];
+                    BdotW += tmp * unknowns_local[idx_u].elem_dofs()[j];
+                }
+
+                // C1*S1 and C2*S2 contributions (use basis-level integrated form)
+                real_num_mov C1dotS1 = 0.0;
+                for (unsigned j = 0; j < nDofs_s1; ++j) {
+                    const real_num tmp = 0.5 * ( gradphi_v[i * dim + 0] * gradphi_s1[j * dim + 0]
+                                               - gradphi_v[i * dim + 1] * gradphi_s1[j * dim + 1] );
+                    C1dotS1 += tmp * unknowns_local[idx_s1].elem_dofs()[j];
+                }
+                real_num_mov C2dotS2 = 0.0;
+                for (unsigned j = 0; j < nDofs_s2; ++j) {
+                    const real_num tmp = 0.5 * ( gradphi_v[i * dim + 1] * gradphi_s2[j * dim + 0]
+                                               + gradphi_v[i * dim + 0] * gradphi_s2[j * dim + 1] );
+                    C2dotS2 += tmp * unknowns_local[idx_s2].elem_dofs()[j];
+                }
+
+                real_num_mov R = BdotW + nu1 * C1dotS1 + nu1 * C2dotS2 + nu2 * f_val * phi_i;
+                // // // unk_element_jac_res.res()[ offset_v + i ] += ( R * weight_qp );
+
+            }
+
+            // (D) W rows (u): per matrix the W-row only has M and B^T coupling (M assembled above; B^T assembled above)
+            // But if you want residual contributions consistent with original weak form you can add M*u contribution to residual here:
+            // // // for (unsigned i = 0; i < nDofs_u; ++i) {
+            // // //     const real_num phi_i = phi_u[i];
+            // // //     // mass times u value at qp (u_val_g * phi_i) already is represented in jac * local_dofs later.
+            // // //     real_num_mov R = u_val_g * phi_i;
+            // // //     unk_element_jac_res.res()[ offset_u + i ] += ( R * weight_qp );
+            // // // }
+
+            // end of gauss point
+        } // end gauss loop
+
+        /*
+
+        // Optionally compute A*x - rhs to ensure consistency (but we already filled unk_element_jac_res.res() with the continuous residual),
+        // keep the user's pattern: FEMuS expects unk_element_jac_res.res() to be the local residual (we already assembled it).
+        // Now assemble into global objects (negate residual per FEMuS convention).
+        std::vector<double> Res_total( unk_element_jac_res.res().size() );
+        for (size_t kk = 0; kk < unk_element_jac_res.res().size(); ++kk)
+            Res_total[kk] = (- unk_element_jac_res.res()[kk] );
+
+*/
+
+        // --- finalize local residual (FEMUS convention: negate) ---
+        // Build local_dofs vector (same ordering as unk_element_jac_res.dof_map())
+        std::vector<double> local_dofs(total_local_dofs, 0.0);
+{
+    unsigned pos = 0;
+    for (unsigned uu = 0; uu < n_unknowns; ++uu) {
+        const unsigned nd = unk_num_elem_dofs[uu];
+        for (unsigned a = 0; a < nd; ++a){
+            local_dofs[pos++] = unknowns_local[uu].elem_dofs()[a];
+        }
+    }
+}
+
+// Compute R = A*u - rhs
+std::vector<double> Res_local(total_local_dofs, 0.0);
+for (unsigned row = 0; row < total_local_dofs; ++row) {
+    double s = 0.0;
+    for (unsigned col = 0; col < total_local_dofs; ++col)
+        s += unk_element_jac_res.jac()[row * total_local_dofs + col] * local_dofs[col];
+    Res_local[row] = s - rhs_local[row];
+}
+
+// FEMuS convention: negate before assembly
+for (unsigned i = 0; i < total_local_dofs; ++i)
+    Res_local[i] = -Res_local[i];
+
+RES->add_vector_blocked(Res_local, unk_element_jac_res.dof_map());
+if (assembleMatrix) {
+    KK->add_matrix_blocked(unk_element_jac_res.jac(),
+                           unk_element_jac_res.dof_map(),
+                           unk_element_jac_res.dof_map());
+}
+
+        constexpr bool print_algebra_local = false;
+        if (print_algebra_local) {
+            std::vector<unsigned> Sol_n_el_dofs_Mat_vol = {
+                unk_num_elem_dofs[0], unk_num_elem_dofs[1], unk_num_elem_dofs[2], unk_num_elem_dofs[3]
+            };
+            assemble_jacobian<double,double>::print_element_jacobian(iel, unk_element_jac_res.jac(), Sol_n_el_dofs_Mat_vol, 10, 5);
+            assemble_jacobian<double,double>::print_element_residual(iel, Res_local/*Res_total*/, Sol_n_el_dofs_Mat_vol, 10, 5);
+        }
+
+    } // end element loop
+
+    RES->close();
+    if (assembleMatrix) KK->close();
+} // end AssembleHermannMiyoshiProblem
 
 
 
