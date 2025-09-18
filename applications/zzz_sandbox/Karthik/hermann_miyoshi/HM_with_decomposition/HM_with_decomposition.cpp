@@ -282,24 +282,24 @@ private:
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
   bool dirichlet = true; //dirichlet
 
-  // // // if (!strcmp(SolName, "u")) {
-  // // //     Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-  // // //     // strcmp compares two string in lexiographic sense.
-  // // //   Value = u -> value(x);
-  // // // }
-  // // // else if (!strcmp(SolName, "v")) {
-  // // //     Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-  // // //   Value = v -> value(x);
-  // // // }
-  // // //   else if (!strcmp(SolName, "s1")) {
-  // // //     Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-  // // //   Value = s1 -> value(x);
-  // // // }
-  // // //   else if (!strcmp(SolName, "s2")) {
-  // // //     Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
-  // // //   Value = s2 -> value(x);
-  // // // }
-  Value = 0.;
+  if (!strcmp(SolName, "u")) {
+      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      // strcmp compares two string in lexiographic sense.
+    Value = u -> value(x);
+  }
+  else if (!strcmp(SolName, "v")) {
+      Math::Function <double> * v = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = v -> value(x);
+  }
+    else if (!strcmp(SolName, "s1")) {
+      Math::Function <double> * s1 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = s1 -> value(x);
+  }
+    else if (!strcmp(SolName, "s2")) {
+      Math::Function <double> * s2 = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = s2 -> value(x);
+  }
+  // Value = 0.;
   return dirichlet;
 }
 //====Set boundary condition-END==============================
@@ -319,6 +319,9 @@ int main(int argc, char** args) {
   system_specifics system_biharmonic_HM_D;
 
   system_biharmonic_HM_D._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_2x2.med");
+    // // system_biharmonic_HM_D._mesh_files.push_back("square_-0p5-0p5x-0p5-0p5_divisions_1x1_triangles.med");
+
+
   const std::string relative_path_to_build_directory = "../../../../../";
   const std::string mesh_file = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";
   system_biharmonic_HM_D._mesh_files_path_relative_to_executable.push_back(mesh_file);
@@ -343,7 +346,7 @@ int main(int argc, char** args) {
   const std::string mesh_file_total = system_biharmonic_HM_D._mesh_files_path_relative_to_executable[0] + "/" + system_biharmonic_HM_D._mesh_files[0];
   mlMsh.ReadCoarseMesh(mesh_file_total.c_str(), "seventh", 1.0);
 
-  const unsigned maxNumberOfMeshes = 3;
+  const unsigned maxNumberOfMeshes = 6;
   std::vector<FEOrder> feOrder = { FIRST, SERENDIPITY, SECOND };
 
   std::vector<std::vector<double>> l2Norm_u(maxNumberOfMeshes), semiNorm_u(maxNumberOfMeshes);

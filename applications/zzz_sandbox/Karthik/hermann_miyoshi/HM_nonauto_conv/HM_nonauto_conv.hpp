@@ -1,5 +1,6 @@
 #ifndef __femus_biharmonic_HM_nonauto_conv_D_hpp__
 #define __femus_biharmonic_HM_nonauto_conv_D_hpp__
+#include <cassert>  // FIX: for runtime checks
 
 #include "FemusInit.hpp" //for the adept stack
 #include "MultiLevelProblem.hpp"
@@ -316,6 +317,9 @@ static void AssembleHermannMiyoshiProblem(
     Solution* sol = ml_sol->GetSolutionLevel(level);
 
     LinearEquationSolver* pdeSys = mlPdeSys->_LinSolver[level];
+
+
+
     SparseMatrix* KK = pdeSys->_KK;
     NumericVector* RES = pdeSys->_RES;
 

@@ -382,13 +382,50 @@ public:
 
 
 
+bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob,
+                                                       const std::vector < double >& x,
+                                                       const char SolName[],
+                                                       double & Value,
+                                                       const int facename,
+                                                       const double time) {
+
+  bool dirichlet = false; //dirichlet
+
+  if (!strcmp(SolName, "u")) {
+      Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+      // strcmp compares two string in lexiographic sense.
+      Value = u -> value(x);
+          dirichlet = true;
+
+  }
+  else if (!strcmp(SolName, "sxx")) {
+       Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+       Value = sxx -> value(x);
+              dirichlet = true;
+  }
+    else if (!strcmp(SolName, "sxy")) {
+      Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = sxy -> value(x);
+                dirichlet = false;
+  }
+    else if (!strcmp(SolName, "syy")) {
+      Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
+    Value = syy -> value(x);
+                // // // Value = analytical_syy_solution.value(x);
+                dirichlet =true ;
+  }
+
+  // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  // Value = 0.;
+
+  return dirichlet;
+}
 
 
 
 
 
-
-
+/*
 
 //==== Set boundary condition - BEGIN==============================
 bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem * ml_prob, const std::vector < double >& x, const char SolName[], double& Value, const int facename, const double time) {
@@ -416,7 +453,7 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
   return dirichlet;
 }
 //==== Set boundary condition - END ==============================
-
+*/
 
 
 

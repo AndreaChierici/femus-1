@@ -7,6 +7,7 @@
 #include "LinearEquationSolver.hpp"
 #include "VTKWriter.hpp"
 #include "NumericVector.hpp"
+#include <cassert>                // FIX: needed for assert()
 
 //#include "biharmonic_coupled.hpp"
 
@@ -267,33 +268,33 @@ bool SetBoundaryCondition_bc_all_dirichlet_homogeneous(const MultiLevelProblem *
                                                        const int facename,
                                                        const double time) {
 
-  bool dirichlet = true; //dirichlet
+  bool dirichlet = false; //dirichlet
 
   if (!strcmp(SolName, "u")) {
       // // // Math::Function <double> * u = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
       // strcmp compares two string in lexiographic sense.
     // // // Value = u -> value(x);
           Value = analytical_u_solution.value(x);
-
+          dirichlet = true;
 
   }
   else if (!strcmp(SolName, "sxx")) {
       // // // Math::Function <double> * sxx = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     // // // Value = sxx -> value(x);
               Value = analytical_sxx_solution.value(x);
-
+              dirichlet = false;
   }
     else if (!strcmp(SolName, "sxy")) {
       // // // Math::Function <double> * sxy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     // // // Value = sxy -> value(x);
                 Value = analytical_sxy_solution.value(x);
-
+                dirichlet = false;
   }
     else if (!strcmp(SolName, "syy")) {
       // // // Math::Function <double> * syy = ml_prob -> get_ml_solution() -> get_analytical_function(SolName);
     // // // Value = syy -> value(x);
                 Value = analytical_syy_solution.value(x);
-
+                dirichlet = false;
   }
 
   // // // double value = 0.;  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -321,7 +322,7 @@ void System_assemble_interface_Biharmonic(MultiLevelProblem& ml_prob) {
     ml_prob.get_all_abstract_fe(elem_all_for_domain);
 
 
-    NAMESPACE_FOR_BIHARMONIC_HM_nonauto_conv::biharmonic_HM_nonauto_conv::AssembleHermannMiyoshiProblem< system_type, real_num, real_num_mov > (
+    /*NAMESPACE_FOR_BIHARMONIC_HM_nonauto_conv*/karthik::biharmonic_HM_nonauto_conv::AssembleHermannMiyoshiProblem< system_type, real_num, real_num_mov > (
         elem_all,
         elem_all_for_domain,
         ml_prob.GetQuadratureRuleAllGeomElems(),
@@ -472,6 +473,7 @@ int main(int argc, char** args) {
 
     const std::string relative_path_to_build_directory = "../../../../../";
     const std::string input_file_path = relative_path_to_build_directory + Files::mesh_folder_path() + "00_salome/2d/square/minus0p5-plus0p5_minus0p5-plus0p5/";
+    /*square_-0p5-0p5x-0p5-0p5_divisions_2x2.medsquare_-0p5-0p5x-0p5-0p5_divisions_1x1_triangles.med*/
     const std::string input_mesh_filename = "square_-0p5-0p5x-0p5-0p5_divisions_2x2.med";
     const std::string input_file_total = input_file_path + input_mesh_filename;
 
@@ -487,7 +489,7 @@ int main(int argc, char** args) {
     // ======= Convergence study setup - BEGIN ========================
 
     // Mesh, Number of refinements
-    unsigned max_number_of_meshes = 5;
+    unsigned max_number_of_meshes = 7;
     if (ml_mesh.GetDimension() == 3){
         max_number_of_meshes = 6;
     }
@@ -500,11 +502,19 @@ int main(int argc, char** args) {
     Solution_generation_1< double > my_solution_generation;
 
     // Solve Equation or only Approximation Theory
-    const bool my_solution_generation_has_equation_solve = false;
+    const bool my_solution_generation_has_equation_solve = true;
     // ======= Convergence study setup - END ========================
 
     // ======= Unknowns - BEGIN ========================
     std::vector< Unknown > unknowns(4); // Four unknowns: u, sxx, sxy, syy
+
+
+    // unknowns.push_back(Unknown("u", LAGRANGE));
+    // unknowns.push_back(Unknown("sxx", LAGRANGE));
+    // unknowns.push_back(Unknown("sxy", LAGRANGE));
+    // unknowns.push_back(Unknown("syy", LAGRANGE));
+
+
 
     // Setup for 'u'
     unknowns[0]._name = "u";
