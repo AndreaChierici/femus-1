@@ -1,4 +1,4 @@
-#pragma omp requires unified_shared_memory
+// #pragma omp requires unified_shared_memory
 #include <vector>
 int main() {
   std::vector<double> a(100,1.0);
