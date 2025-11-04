@@ -901,8 +901,6 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
 
         if (!cutFem) {
-          nonlocal->ClearTasks();
-
           nonlocal->Assembly1(0, lmin1, lmax1, 0, refineElement[ielGeom][soluType]->GetOctTreeElement1(),
                               *refineElement[ielGeom][soluType], region2, jelIndex,
                               solu1, kappa1, delta1, printMesh);

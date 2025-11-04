@@ -72,6 +72,9 @@ class NonLocal {
 
     double GetSmoothTestFunction(const double &dg1, const double &eps);
 
+    void ProcessTasks_CPU(const RefineElement& element1, Region& region2, const std::vector<double>& solu1, const double& delta, const bool& printMesh);
+
+
     std::vector < double > & GetRes2(const unsigned &jel) {
       return _res2[jel];
     };
@@ -316,12 +319,12 @@ void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const
         for (unsigned k = 0; k < dim; ++k) t.xg1[k] = xg1[k];
         t.twoWeigh1Kernel = 2. * weight1 * _kernel;
         t.nDof1           = nDof1;
-        t.phi1            = phi1F[ig];       // copy here for now
+        t.phi1            = phi1F[ig];
 
         t.jelBegin = _jelIndexAll.size();
-        t.jelCount = jelIndexF.size();
+        t.jelCount = _jelIndexI.size();
         _jelIndexAll.insert(_jelIndexAll.end(),
-                            jelIndexF.begin(), jelIndexF.end());
+                            _jelIndexI.begin(), _jelIndexI.end());
 
         _tasks.push_back(std::move(t));
 
@@ -1100,8 +1103,9 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
 unsigned threads_per_team = 64;                // or 128
 unsigned numTeams = (N == 0) ? 1 : std::min(N, 256u);  // cap at some max if you like
 
-#pragma omp target teams distribute parallel for num_teams(numTeams) thread_limit(threads_per_team)
+// #pragma omp target teams distribute parallel for num_teams(numTeams) thread_limit(threads_per_team)
  // #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
+#pragma omp parallel for
   for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
     const double *phi2pt;
     unsigned jel = jelIndex[jj];
