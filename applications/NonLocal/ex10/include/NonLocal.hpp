@@ -1358,9 +1358,9 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
                 xg2_jg[k] = D.xg2All[baseXg2 + jg * dim + k];
             }
 
-            // smooth cut / indicator U(jj,jg)
-            // double U_jjjg = element1.GetSmoothStepFunction(
-                    thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
+            // NEW: no std::vector temporaries, use raw helper
+            double U_jjjg = element1.GetSmoothStepFunction(thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
+
 
             if (U_jjjg <= 0.0) continue;
 
