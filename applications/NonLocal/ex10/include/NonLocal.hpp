@@ -74,6 +74,8 @@ class NonLocal {
 
     void ProcessTasks_CPU(const RefineElement& element1, Region& region2, const std::vector<double>& solu1, const double& delta, const bool& printMesh);
 
+    void ProcessTasks_GPU(const RefineElement& element1, Region& region2, const std::vector<double>& solu1, const double& delta, const bool& printMesh);
+
 
     std::vector < double > & GetRes2(const unsigned &jel) {
       return _res2[jel];
@@ -186,6 +188,15 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
     Assembly2(element1, region2, jel, task.nDof1, std::vector<double>(task.xg1, task.xg1 + element1.GetDimension()),
       task.twoWeigh1Kernel, task.phi1, solu1, delta, printMesh);
   }
+}
+
+void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
+                                Region& region2,
+                                const std::vector<double>& solu1,
+                                const double& delta,
+                                const bool& printMesh)
+{
+    ProcessTasks_CPU(element1, region2, solu1, delta, printMesh);
 }
 
 void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
@@ -1099,13 +1110,13 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     phi2[jg] = fem->GetPhi(jg);
   }
 
- unsigned N = jelIndex.size();
-unsigned threads_per_team = 64;                // or 128
-unsigned numTeams = (N == 0) ? 1 : std::min(N, 256u);  // cap at some max if you like
+//  unsigned N = jelIndex.size();
+// unsigned threads_per_team = 64;                // or 128
+// unsigned numTeams = (N == 0) ? 1 : std::min(N, 256u);  // cap at some max if you like
 
 // #pragma omp target teams distribute parallel for num_teams(numTeams) thread_limit(threads_per_team)
  // #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
-#pragma omp parallel for
+// #pragma omp parallel for
   for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
     const double *phi2pt;
     unsigned jel = jelIndex[jj];

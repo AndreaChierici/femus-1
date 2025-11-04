@@ -906,7 +906,7 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
                               solu1, kappa1, delta1, printMesh);
 
 
-          nonlocal->ProcessTasks_CPU(*refineElement[ielGeom][soluType],
+          nonlocal->ProcessTasks_GPU(*refineElement[ielGeom][soluType],
                              region2, solu1, delta1, printMesh);
         }
         else {
