@@ -1035,7 +1035,12 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
     phi2[jg] = fem->GetPhi(jg);
   }
 
- #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
+ unsigned N = jelIndex.size();
+unsigned threads_per_team = 64;                // or 128
+unsigned numTeams = (N == 0) ? 1 : std::min(N, 256u);  // cap at some max if you like
+
+#pragma omp target teams distribute parallel for num_teams(numTeams) thread_limit(threads_per_team)
+ // #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
   for(unsigned jj = 0; jj < jelIndex.size(); jj++) {
     const double *phi2pt;
     unsigned jel = jelIndex[jj];
