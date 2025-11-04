@@ -3,7 +3,7 @@
 
 #include "GetNormal.hpp"
 
-#pragma omp requires unified_shared_memory
+// #pragma omp requires unified_shared_memory
 
 std::ofstream fout;
 
@@ -126,6 +126,18 @@ class NonLocal {
 
     void PrintElement(const std::vector < std::vector < double> > &xv, const RefineElement &refineElement);
 
+    struct NonlocalTask {
+      double xg1[3];
+      double twoWeigh1Kernel;
+      unsigned nDof1;
+      std::vector<double> phi1;
+      unsigned jelBegin;
+      unsigned jelCount;
+    };
+
+    std::vector<NonlocalTask> _tasks;
+    std::vector<unsigned>     _jelIndexAll;
+
   protected:
     double _kernel;
 
@@ -149,6 +161,28 @@ void NonLocal::ZeroLocalQuantities(const unsigned &nDof1, const Region &region2,
     _jelIndexR[level].reserve(region2.size());
   }
 
+  _tasks.clear();
+  _jelIndexAll.clear();
+
+}
+
+void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
+                                Region& region2,
+                                const std::vector<double>& solu1,
+                                const double& delta,
+                                const bool& printMesh) {
+  for (unsigned t = 0; t < _tasks.size(); ++t) {
+    const auto& task = _tasks[t];
+
+    // reconstruct arguments and call existing Assembly2
+    std::vector<unsigned> jel(task.jelCount);
+    for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+      jel[jj] = _jelIndexAll[task.jelBegin + jj];
+    }
+
+    Assembly2(element1, region2, jel, task.nDof1, std::vector<double>(task.xg1, task.xg1 + element1.GetDimension()),
+      task.twoWeigh1Kernel, task.phi1, solu1, delta, printMesh);
+  }
 }
 
 void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
@@ -189,8 +223,20 @@ void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const
         }
       }
 
-      Assembly2(element1, region2, jelIndexF, nDof1, xg1, 2. * weight1 * _kernel,
-                phi1F[ig], solu1, delta, printMesh);
+      // //OLD
+      // Assembly2(element1, region2, jelIndexF, nDof1, xg1, 2. * weight1 * _kernel, phi1F[ig], solu1, delta, printMesh);
+      NonlocalTask t;
+      for (unsigned k = 0; k < dim; ++k) t.xg1[k] = xg1[k];
+      t.twoWeigh1Kernel = 2. * weight1 * _kernel;
+      t.nDof1           = nDof1;
+      t.phi1            = phi1F[ig];       // copy here for now
+
+      t.jelBegin = _jelIndexAll.size();
+      t.jelCount = jelIndexF.size();
+      _jelIndexAll.insert(_jelIndexAll.end(),
+                          jelIndexF.begin(), jelIndexF.end());
+
+      _tasks.push_back(std::move(t));
     }
   }
   else {
@@ -262,8 +308,23 @@ void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const
             xg1[k] += xv1[k][i] * phi1[i];
           }
         }
-        Assembly2(element1, region2, _jelIndexI, nDof1, xg1, 2. * weight1 * _kernel,
-                  phi1F[ig], solu1, delta, printMesh);
+        // OLD
+        // Assembly2(element1, region2, _jelIndexI, nDof1, xg1, 2. * weight1 * _kernel, phi1F[ig], solu1, delta, printMesh);
+
+        // NEW (sketch):
+        NonlocalTask t;
+        for (unsigned k = 0; k < dim; ++k) t.xg1[k] = xg1[k];
+        t.twoWeigh1Kernel = 2. * weight1 * _kernel;
+        t.nDof1           = nDof1;
+        t.phi1            = phi1F[ig];       // copy here for now
+
+        t.jelBegin = _jelIndexAll.size();
+        t.jelCount = jelIndexF.size();
+        _jelIndexAll.insert(_jelIndexAll.end(),
+                            jelIndexF.begin(), jelIndexF.end());
+
+        _tasks.push_back(std::move(t));
+
       }
     }
     if(_jelIndexR[level].size() > 0) {
