@@ -6,6 +6,38 @@
 
 using namespace femus;
 
+struct RegionDeviceData {
+    unsigned nElem;  // number of elements in the region
+
+    // Per-element metadata
+    std::vector<unsigned> nDof2;   // # dof of element jel
+    std::vector<unsigned> nGauss2; // # Gauss points of element jel
+    std::vector<unsigned> dim;     // spatial dimension of element jel
+
+    // Offsets into flattened arrays (prefix sums)
+    std::vector<unsigned> x2MinMaxOffset; // length nElem+1
+    std::vector<unsigned> xg2Offset;      // length nElem+1
+    std::vector<unsigned> w2Offset;       // length nElem+1
+    std::vector<unsigned> solu2Offset;    // length nElem+1
+    std::vector<unsigned> I2Offset;       // length nElem+1
+
+    // Flattened data:
+    // x2MinMaxAll: for element jel, at index base = x2MinMaxOffset[jel],
+    // store [min0, max0, min1, max1, ..., min(dim-1), max(dim-1)]
+    std::vector<double> x2MinMaxAll;
+
+    // xg2All: for element jel, at base = xg2Offset[jel],
+    // layout is xg2[jg][k] => xg2All[base + jg*dim[jel] + k]
+    std::vector<double> xg2All;
+
+    // w2All, solu2All, I2All: per-element, per-Gauss
+    // base = corresponding Offset[jel]; then index base + jg
+    std::vector<double> w2All;
+    std::vector<double> solu2All;
+    std::vector<double> I2All;
+};
+
+
 class Region {
   private:
     unsigned _size;
@@ -171,6 +203,112 @@ class Region {
     const unsigned GetDofNumber(const unsigned &jel) const {
       return _l2Gmap[jel].size();
     }
+
+    void BuildDeviceData(RegionDeviceData& D) const {
+      const unsigned nElem = this->size();  // you already use region2.size() in NonLocal
+      D.nElem = nElem;
+
+      // Resize per-element arrays
+      D.nDof2.resize(nElem);
+      D.nGauss2.resize(nElem);
+      D.dim.resize(nElem);
+
+      D.x2MinMaxOffset.resize(nElem + 1);
+      D.xg2Offset.resize(nElem + 1);
+      D.w2Offset.resize(nElem + 1);
+      D.solu2Offset.resize(nElem + 1);
+      D.I2Offset.resize(nElem + 1);
+
+      D.x2MinMaxOffset[0] = 0;
+      D.xg2Offset[0]      = 0;
+      D.w2Offset[0]       = 0;
+      D.solu2Offset[0]    = 0;
+      D.I2Offset[0]       = 0;
+
+      // ---------- First pass: compute sizes & prefix sums ----------
+      for (unsigned jel = 0; jel < nElem; ++jel) {
+        const unsigned dim_j   = this->GetDimension(jel);
+        const unsigned nDof2_j = this->GetDofNumber(jel);
+        const elem_type* fem2  = this->GetFem(jel);
+        const unsigned nGauss2_j = fem2->GetGaussPointNumber();
+
+        D.dim[jel]   = dim_j;
+        D.nDof2[jel] = nDof2_j;
+        D.nGauss2[jel] = nGauss2_j;
+
+        // x2MinMax has dim_j vectors, each of size 2 => 2 * dim_j doubles
+        D.x2MinMaxOffset[jel + 1] = D.x2MinMaxOffset[jel] + 2u * dim_j;
+
+        // Gauss data: nGauss2_j values per element for w2, solu2, I2;
+        // nGauss2_j * dim_j for xg2
+        D.xg2Offset[jel + 1]   = D.xg2Offset[jel]   + nGauss2_j * dim_j;
+        D.w2Offset[jel + 1]    = D.w2Offset[jel]    + nGauss2_j;
+        D.solu2Offset[jel + 1] = D.solu2Offset[jel] + nGauss2_j;
+        D.I2Offset[jel + 1]    = D.I2Offset[jel]    + nGauss2_j;
+      }
+
+      // ---------- Allocate flattened storage ----------
+      D.x2MinMaxAll.resize(D.x2MinMaxOffset[nElem]);
+      D.xg2All.resize(     D.xg2Offset[nElem]);
+      D.w2All.resize(      D.w2Offset[nElem]);
+      D.solu2All.resize(   D.solu2Offset[nElem]);
+      D.I2All.resize(      D.I2Offset[nElem]);
+
+      // ---------- Second pass: copy data ----------
+      for (unsigned jel = 0; jel < nElem; ++jel) {
+        const unsigned dim_j     = D.dim[jel];
+        const unsigned nGauss2_j = D.nGauss2[jel];
+
+        // Min/max bounds
+        {
+            const auto& x2MinMax = this->GetMinMax(jel);
+            const unsigned base = D.x2MinMaxOffset[jel];
+            // layout: [min0,max0,min1,max1,...]
+            for (unsigned k = 0; k < dim_j; ++k) {
+                D.x2MinMaxAll[base + 2 * k + 0] = x2MinMax[k][0];
+                D.x2MinMaxAll[base + 2 * k + 1] = x2MinMax[k][1];
+            }
+        }
+
+        // Gauss coordinates
+        {
+            const auto& xg2 = this->GetGaussCoordinates(jel);
+            const unsigned base = D.xg2Offset[jel];
+            for (unsigned jg = 0; jg < nGauss2_j; ++jg) {
+                for (unsigned k = 0; k < dim_j; ++k) {
+                    D.xg2All[base + jg * dim_j + k] = xg2[jg][k];
+                }
+            }
+        }
+
+        // Gauss weights
+        {
+            const auto& w2 = this->GetGaussWeight(jel);
+            const unsigned base = D.w2Offset[jel];
+            for (unsigned jg = 0; jg < nGauss2_j; ++jg) {
+                D.w2All[base + jg] = w2[jg];
+            }
+        }
+
+        // Gauss solution
+        {
+            const auto& solu2g = this->GetGaussSolution(jel);
+            const unsigned base = D.solu2Offset[jel];
+            for (unsigned jg = 0; jg < nGauss2_j; ++jg) {
+                D.solu2All[base + jg] = solu2g[jg];
+            }
+        }
+
+        // I2 weights
+        {
+            const auto& I2 = this->GetI2(jel);
+            const unsigned base = D.I2Offset[jel];
+            for (unsigned jg = 0; jg < nGauss2_j; ++jg) {
+                D.I2All[base + jg] = I2[jg];
+            }
+        }
+      }
+  }
 
 };
 

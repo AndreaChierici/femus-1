@@ -70,6 +70,21 @@ class NonLocal {
                          const double &solu2gW1W2,
                          const double &W2);
 
+    double Assembly2_flat_CPU(const RefineElement& element1,
+                          const RegionDeviceData& D,
+                          const unsigned* jelIndex,
+                          unsigned jelCount,
+                          unsigned nDof1,
+                          const double* xg1,
+                          double twoWeigh1Kernel,
+                          const double* phi1,
+                          const double* solu1,
+                          double delta,
+                          bool printMesh,
+                          const double* phi2Flat,
+                          unsigned nGauss2_ref,
+                          unsigned nDof2_ref);
+
     double GetSmoothTestFunction(const double &dg1, const double &eps);
 
     void ProcessTasks_CPU(const RefineElement& element1, Region& region2, const std::vector<double>& solu1, const double& delta, const bool& printMesh);
@@ -180,6 +195,7 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
                                 const std::vector<double>& solu1,
                                 const double& delta,
                                 const bool& printMesh) {
+
   for (unsigned t = 0; t < _tasks.size(); ++t) {
     const auto& task = _tasks[t];
 
@@ -213,7 +229,49 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 const double& delta,
                                 const bool& printMesh)
 {
-    ProcessTasks_CPU(element1, region2, solu1, delta, printMesh);
+  // 1) Build flattened Region data
+  RegionDeviceData D;
+  region2.BuildDeviceData(D);
+
+   // 2) Build flat phi2 from a reference element (assume same type/order)
+  const elem_type* fem2_ref = region2.GetFem(0);
+  const unsigned nGauss2_ref = fem2_ref->GetGaussPointNumber(); //TODO: adapt it to mixed elements/quadratures
+  const unsigned nDof2_ref   = region2.GetDofNumber(0); //TODO: adapt it to mixed elements/quadratures
+
+  std::vector<double> phi2Flat(nGauss2_ref * nDof2_ref); //TODO: adapt it to mixed elements/quadratures
+  for (unsigned jg = 0; jg < nGauss2_ref; ++jg) {
+    const double* phi2_jg = fem2_ref->GetPhi(jg);
+    for (unsigned i = 0; i < nDof2_ref; ++i) {
+        phi2Flat[jg * nDof2_ref + i] = phi2_jg[i];
+    }
+  }
+
+  // 3) For now: loop over tasks on CPU, but using flat data
+  for (unsigned t = 0; t < _tasks.size(); ++t) {
+    const auto& task = _tasks[t];
+
+    // rebuild jelIndex slice
+    std::vector<unsigned> jel(task.jelCount);
+    for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+        jel[jj] = _jelIndexAll[task.jelBegin + jj];
+    }
+
+    // rebuild phi1 from _phi1All
+    std::vector<double> phi1(task.nDof1);
+    for (unsigned i = 0; i < task.nDof1; ++i) {
+        phi1[i] = _phi1All[task.phi1Offset + i];
+    }
+
+    // rebuild xg1 as raw array
+    std::vector<double> xg1(element1.GetDimension());
+    for (unsigned k = 0; k < element1.GetDimension(); ++k) {
+        xg1[k] = task.xg1[k];
+    }
+
+    // Call new flat CPU kernel
+    Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel,
+                       phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
+  }
 }
 
 void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
@@ -1194,6 +1252,135 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
 
   return area;
 }
+
+double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
+                                    const RegionDeviceData& D,
+                                    const unsigned* jelIndex,
+                                    unsigned jelCount,
+                                    unsigned nDof1,
+                                    const double* xg1,
+                                    double twoWeigh1Kernel,
+                                    const double* phi1,
+                                    const double* solu1,
+                                    double delta,
+                                    bool printMesh,
+                                    const double* phi2Flat,
+                                    unsigned nGauss2_ref,
+                                    unsigned nDof2_ref)
+{
+    double area = 0.0;
+
+    // ----- 1) solu1g = sum_i solu1[i]*phi1[i] -----
+    double solu1g = 0.0;
+    for (unsigned i = 0; i < nDof1; ++i) {
+        solu1g += solu1[i] * phi1[i];
+    }
+
+    // ----- 2) mCphi2iSum[jj] : size nDof2(jel) for each jelIndex[jj] -----
+    std::vector<std::vector<double>> mCphi2iSum(jelCount);
+    for (unsigned jj = 0; jj < jelCount; ++jj) {
+        unsigned jel = jelIndex[jj];
+        unsigned nDof2 = D.nDof2[jel];
+        mCphi2iSum[jj].assign(nDof2, 0.0);
+    }
+
+    const double eps = element1.GetEps();
+    NonLocalBall* thisBall = dynamic_cast<NonLocalBall*>(this);
+
+    // ----- 3) Main loop over interacting elements jj -----
+    for (unsigned jj = 0; jj < jelCount; ++jj) {
+        unsigned jel = jelIndex[jj];
+
+        const unsigned dim      = D.dim[jel];
+        const unsigned nGauss2  = D.nGauss2[jel];
+        const unsigned nDof2    = D.nDof2[jel];
+
+        // 3a) bounding box: [min0,max0,min1,max1,...]
+        const unsigned baseMinMax = D.x2MinMaxOffset[jel];
+
+        bool coarseIntersectionTest = true;
+        for (unsigned k = 0; k < dim; ++k) {
+            double xmin = D.x2MinMaxAll[baseMinMax + 2 * k    ];
+            double xmax = D.x2MinMaxAll[baseMinMax + 2 * k + 1];
+
+            if ((xg1[k] - xmax) > delta + eps || (xmin - xg1[k]) > delta + eps) {
+                coarseIntersectionTest = false;
+                break;
+            }
+        }
+
+        if (!coarseIntersectionTest) {
+            continue;
+        }
+
+        // 3b) fetch base offsets for Gauss data
+        const unsigned baseXg2   = D.xg2Offset[jel];
+        const unsigned baseW2    = D.w2Offset[jel];
+        const unsigned baseSolu2 = D.solu2Offset[jel];
+        // (I2 is not used in this Assembly2)
+
+        // pointer into global jac22, as in original code
+        double* jac22_data = _jac22[jel].data();
+
+        // 3c) loop over Gauss points jg
+        for (unsigned jg = 0; jg < nGauss2; ++jg) {
+
+            // coordinates xg2[jg][k] from flat array
+            double xg2_jg[3] = {0.0, 0.0, 0.0};  // up to 3D
+            for (unsigned k = 0; k < dim; ++k) {
+                xg2_jg[k] = D.xg2All[baseXg2 + jg * dim + k];
+            }
+
+            // smooth cut / indicator U(jj,jg)
+            double U_jjjg = element1.GetSmoothStepFunction(
+                                thisBall->GetInterfaceDistance(
+                                    std::vector<double>(xg1, xg1 + dim),  // small temp
+                                    std::vector<double>(xg2_jg, xg2_jg + dim),
+                                    delta));
+
+            if (U_jjjg <= 0.0) continue;
+
+            const double w2    = D.w2All[baseW2    + jg];
+            const double solu2 = D.solu2All[baseSolu2 + jg];
+
+            // C = U * w2 * 2*weight1*kernel
+            double C = U_jjjg * w2 * twoWeigh1Kernel;
+
+            // phi2 at this Gauss point (from flat array)
+            // assuming nDof2 == nDof2_ref and nGauss2 == nGauss2_ref
+            const double* phi2_jg = &phi2Flat[jg * nDof2_ref];
+
+            // pointer into jac22 (accumulated over i,j as in original code)
+            double* jac22pt = jac22_data;
+
+            // loop over shape functions i
+            for (unsigned i = 0; i < nDof2; ++i) {
+                double cPhi2i = C * phi2_jg[i];
+                mCphi2iSum[jj][i] -= cPhi2i;
+
+                // inner loop over j for jac22
+                const double* phi2pt = phi2_jg;
+                for (unsigned j = 0; j < nDof2; ++j, ++phi2pt, ++jac22pt) {
+                    *jac22pt -= cPhi2i * (*phi2pt);
+                }
+
+                _res2[jel][i] += cPhi2i * solu2;
+            }
+        } // end jg loop
+
+        // 3d) finalize jac21 and res2 as in original code
+        unsigned ijIndex = 0;
+        for (unsigned i = 0; i < nDof2; ++i) {
+            for (unsigned j = 0; j < nDof1; ++j, ++ijIndex) {
+                _jac21[jel][ijIndex] -= mCphi2iSum[jj][i] * phi1[j];
+            }
+            _res2[jel][i] += mCphi2iSum[jj][i] * solu1g;
+        }
+    }
+
+    return area;
+}
+
 
 
 #endif
