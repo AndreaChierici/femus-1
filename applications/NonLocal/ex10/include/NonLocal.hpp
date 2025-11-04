@@ -998,6 +998,20 @@ class NonLocalBall: public NonLocal {
       distance = radius - sqrt(distance);
       return distance;
     };
+
+    // No std::vector
+    double GetInterfaceDistance_raw(const double* xc,
+                                    const double* xp,
+                                    unsigned dim,
+                                    const double &radius) const {
+      double distance = 0.;
+      for (unsigned k = 0; k < dim; ++k) {
+        double diff = xp[k] - xc[k];
+        distance += diff * diff;
+      }
+      distance = radius - std::sqrt(distance);
+      return distance;
+    }
     #pragma omp end declare target
 
 
@@ -1033,6 +1047,19 @@ class NonLocalBall3D: public NonLocal {
       distance = radius - sqrt(distance);
       return distance;
     };
+
+    double GetInterfaceDistance_raw(const double* xc,
+                                    const double* xp,
+                                    unsigned dim,
+                                    const double &radius) const {
+      double distance = 0.;
+      for (unsigned k = 0; k < dim; ++k) {
+        double diff = xp[k] - xc[k];
+        distance += diff * diff;
+      }
+      distance = radius - std::sqrt(distance);
+      return distance;
+    }
 #pragma omp end declare target
 
     void SetKernel(const double  &kappa, const double &delta, const double &eps) {
@@ -1332,11 +1359,8 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
             }
 
             // smooth cut / indicator U(jj,jg)
-            double U_jjjg = element1.GetSmoothStepFunction(
-                                thisBall->GetInterfaceDistance(
-                                    std::vector<double>(xg1, xg1 + dim),  // small temp
-                                    std::vector<double>(xg2_jg, xg2_jg + dim),
-                                    delta));
+            // double U_jjjg = element1.GetSmoothStepFunction(
+                    thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
 
             if (U_jjjg <= 0.0) continue;
 
