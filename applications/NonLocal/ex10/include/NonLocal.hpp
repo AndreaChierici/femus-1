@@ -100,7 +100,6 @@ class NonLocal {
                               const double* xg1, double twoWeigh1Kernel, const double* phi1, const double* solu1,
                               double delta, bool printMesh, const double* phi2Flat, unsigned nGauss2_ref, unsigned nDof2_ref,
                               const SmoothStepData& stepData);
-{
 
     double GetSmoothTestFunction(const double &dg1, const double &eps);
 
@@ -294,13 +293,9 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       xg1[k] = task.xg1[k];
     }
 
-    Assembly2_flat_GPU(D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel,
-                       phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref,
-                       nDof2_ref, stepData);
+    Assembly2_flat_GPU(D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref, stepData);
 
-    // Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(),
-                       // task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh,
-                       // phi2Flat.data(), nGauss2_ref, nDof2_ref);
+    // Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
 
 
   }
