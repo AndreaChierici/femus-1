@@ -9,6 +9,16 @@ std::ofstream fout;
 
 class NonLocalBall;
 
+struct NonlocalMatrixView {
+    std::vector<unsigned> offsetJac21;
+    std::vector<unsigned> offsetJac22;
+    std::vector<unsigned> offsetRes2;
+
+    std::vector<double>   jac21Flat;
+    std::vector<double>   jac22Flat;
+    std::vector<double>   res2Flat;
+};
+
 class NonLocal {
   public:
     NonLocal() {
@@ -91,6 +101,10 @@ class NonLocal {
 
     void ProcessTasks_GPU(const RefineElement& element1, Region& region2, const std::vector<double>& solu1, const double& delta, const bool& printMesh);
 
+    void BuildMatrixView(const Region& region2, unsigned nDof1);
+
+    void ScatterBackFromFlat(const Region& region2, unsigned nDof1);
+
 
     std::vector < double > & GetRes2(const unsigned &jel) {
       return _res2[jel];
@@ -161,6 +175,8 @@ class NonLocal {
     std::vector<unsigned>     _jelIndexAll;
     std::vector<double>       _phi1All;
 
+    NonlocalMatrixView        _matView;
+
   protected:
     double _kernel;
 
@@ -229,11 +245,16 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 const double& delta,
                                 const bool& printMesh)
 {
-  // 1) Build flattened Region data
+  const unsigned nDof1 = element1.GetNumberOfNodes();
+
+  // Prepare flat matrix layout (for all jel in region2)
+  BuildMatrixView(region2, nDof1);
+
+  // Build flattened Region data
   RegionDeviceData D;
   region2.BuildDeviceData(D);
 
-   // 2) Build flat phi2 from a reference element (assume same type/order)
+   // Build flat phi2 from a reference element (assume same type/order)
   const elem_type* fem2_ref = region2.GetFem(0);
   const unsigned nGauss2_ref = fem2_ref->GetGaussPointNumber(); //TODO: adapt it to mixed elements/quadratures
   const unsigned nDof2_ref   = region2.GetDofNumber(0); //TODO: adapt it to mixed elements/quadratures
@@ -272,6 +293,77 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
     Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel,
                        phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
   }
+  // After all tasks have contributed into flat arrays,
+  // scatter back into _jac21/_jac22/_res2 so the rest of the code works unchanged.
+  ScatterBackFromFlat(region2, element1.GetNumberOfNodes());
+}
+
+void NonLocal::BuildMatrixView(const Region& region2, unsigned nDof1) {
+  const unsigned nElem = region2.size();
+
+  // Resize offset arrays (prefix sums)
+  _matView.offsetJac21.resize(nElem + 1);
+  _matView.offsetJac22.resize(nElem + 1);
+  _matView.offsetRes2 .resize(nElem + 1);
+
+  _matView.offsetJac21[0] = 0;
+  _matView.offsetJac22[0] = 0;
+  _matView.offsetRes2 [0] = 0;
+
+  for (unsigned jel = 0; jel < nElem; ++jel) {
+    const unsigned nDof2 = region2.GetDofNumber(jel);
+
+    _matView.offsetJac21[jel + 1] =
+        _matView.offsetJac21[jel] + nDof2 * nDof1;   // nDof2 x nDof1 block
+
+    _matView.offsetJac22[jel + 1] =
+        _matView.offsetJac22[jel] + nDof2 * nDof2;   // nDof2 x nDof2 block
+
+    _matView.offsetRes2 [jel + 1] =
+        _matView.offsetRes2 [jel] + nDof2;           // length nDof2
+  }
+
+  const unsigned totalJac21 = _matView.offsetJac21[nElem];
+  const unsigned totalJac22 = _matView.offsetJac22[nElem];
+  const unsigned totalRes2  = _matView.offsetRes2 [nElem];
+
+  // Allocate and zero flat storage
+  _matView.jac21Flat.assign(totalJac21, 0.0);
+  _matView.jac22Flat.assign(totalJac22, 0.0);
+  _matView.res2Flat .assign(totalRes2,  0.0);
+}
+
+
+void NonLocal::ScatterBackFromFlat(const Region& region2, unsigned nDof1){
+    const unsigned nElem = region2.size();
+
+    for (unsigned jel = 0; jel < nElem; ++jel) {
+        unsigned nDof2 = region2.GetDofNumber(jel);
+
+        const unsigned offRes  = _matView.offsetRes2 [jel];
+        const unsigned offJ21  = _matView.offsetJac21[jel];
+        const unsigned offJ22  = _matView.offsetJac22[jel];
+
+        // optional safety checks
+        assert(_res2 [jel].size()  == nDof2);
+        assert(_jac21[jel].size()  == nDof2 * nDof1);
+        assert(_jac22[jel].size()  == nDof2 * nDof2);
+
+        // res2: length nDof2
+        std::copy(_matView.res2Flat.begin() + offRes,
+                  _matView.res2Flat.begin() + offRes + nDof2,
+                  _res2[jel].begin());
+
+        // jac21: length nDof2 * nDof1
+        std::copy(_matView.jac21Flat.begin() + offJ21,
+                  _matView.jac21Flat.begin() + offJ21 + nDof2 * nDof1,
+                  _jac21[jel].begin());
+
+        // jac22: length nDof2 * nDof2
+        std::copy(_matView.jac22Flat.begin() + offJ22,
+                  _matView.jac22Flat.begin() + offJ22 + nDof2 * nDof2,
+                  _jac22[jel].begin());
+    }
 }
 
 void NonLocal::Assembly1(const unsigned &level, const unsigned &levelMin1, const unsigned &levelMax1, const unsigned &iFather,
@@ -1412,15 +1504,16 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
     // ----- Main loop over interacting elements jj, -----
     // ----- delegated to helper "nonLocalInnerElementKernel" -----
     for (unsigned jj = 0; jj < jelCount; ++jj) {
-        const unsigned jel   = jelIndex[jj];
-        double* mCphi2i      = mCphi2iSum[jj].data();
-        double* jac21_jel    = _jac21[jel].data();
-        double* jac22_jel    = _jac22[jel].data();
-        double* res2_jel     = _res2[jel].data();
+    const unsigned jel   = jelIndex[jj];
+    double* mCphi2i      = mCphi2iSum[jj].data();
+    double* jac21_jel    = _matView.jac21Flat.data() + _matView.offsetJac21[jel];
+    double* jac22_jel    = _matView.jac22Flat.data() + _matView.offsetJac22[jel];
+    double* res2_jel     = _matView.res2Flat .data() + _matView.offsetRes2 [jel];
 
-        nonLocalInnerElementKernel(element1, D, jel, xg1, nDof1, phi1, twoWeigh1Kernel, solu1g, delta, eps,
-                                      phi2Flat, nDof2_ref, mCphi2i, jac21_jel, jac22_jel, res2_jel, thisBall);
-    }
+    nonLocalInnerElementKernel(element1, D, jel, xg1, nDof1, phi1, twoWeigh1Kernel, solu1g, delta, eps, phi2Flat,
+                               nDof2_ref, mCphi2i, jac21_jel, jac22_jel, res2_jel, thisBall);
+}
+
 
     return area;
 }
