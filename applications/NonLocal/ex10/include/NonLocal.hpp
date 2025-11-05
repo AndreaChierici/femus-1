@@ -26,7 +26,7 @@ class NonLocal {
 
     };
     #pragma omp begin declare target
-    virtual double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size) {};
+    virtual double GetInterfaceDistance(const std::vector < double>  &xc, const std::vector < double>  &xp, const double &size) const = 0;
     #pragma omp end declare target
 
     virtual void SetKernel(const double  &kappa, const double &delta, const double &eps) = 0;
@@ -1280,6 +1280,102 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   return area;
 }
 
+// Small POD-style helper: does all per-(task, jel) work.
+// No std::vector, works on raw pointers only.
+inline void nonLocalInnerElementKernel(
+    const RefineElement&      element1,
+    const RegionDeviceData&   D,
+    unsigned                  jel,
+    const double*             xg1,            // length dim
+    unsigned                  nDof1,
+    const double*             phi1,           // length nDof1
+    double                    twoWeigh1Kernel,
+    double                    solu1g,
+    double                    delta,
+    double                    eps,
+    const double*             phi2Flat,       // [nGauss2_ref * nDof2_ref]
+    unsigned                  nDof2_ref,
+    double*                   mCphi2i,        // length nDof2(jel)
+    double*                   jac21_jel,      // &_jac21[jel][0]
+    double*                   jac22_jel,      // &_jac22[jel][0]
+    double*                   res2_jel,       // &_res2[jel][0]
+    const NonLocalBall*       thisBall)
+{
+    const unsigned dim     = D.dim[jel];
+    const unsigned nGauss2 = D.nGauss2[jel];
+    const unsigned nDof2   = D.nDof2[jel];
+
+    const unsigned baseMinMax = D.x2MinMaxOffset[jel];
+
+    bool coarseIntersectionTest = true;
+    for (unsigned k = 0; k < dim; ++k) {
+      double xmin = D.x2MinMaxAll[baseMinMax + 2 * k    ];
+      double xmax = D.x2MinMaxAll[baseMinMax + 2 * k + 1];
+
+      if ((xg1[k] - xmax) > delta + eps || (xmin - xg1[k]) > delta + eps) {
+        coarseIntersectionTest = false;
+        break;
+      }
+    }
+
+    if (!coarseIntersectionTest) {
+      return;
+    }
+
+    // Offsets for Gauss data
+    const unsigned baseXg2   = D.xg2Offset[jel];
+    const unsigned baseW2    = D.w2Offset[jel];
+    const unsigned baseSolu2 = D.solu2Offset[jel];
+
+    // Loop over Gauss points jg
+    for (unsigned jg = 0; jg < nGauss2; ++jg) {
+      double xg2_jg[3] = {0.0, 0.0, 0.0};  // up to 3D
+      for (unsigned k = 0; k < dim; ++k) {
+        xg2_jg[k] = D.xg2All[baseXg2 + jg * dim + k];
+      }
+
+      // Smooth cut function U(jj,jg)
+      const double U_jjjg = element1.GetSmoothStepFunction(thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
+
+      if (U_jjjg <= 0.0) continue;
+
+      const double w2    = D.w2All[baseW2    + jg];
+      const double solu2 = D.solu2All[baseSolu2 + jg];
+
+      const double C = U_jjjg * w2 * twoWeigh1Kernel;
+
+      // phi2 at this Gauss point (from flat array)
+      const double* phi2_jg = &phi2Flat[jg * nDof2_ref];
+
+      // pointer into jac22 (accumulated over i,j)
+      double* jac22pt = jac22_jel;
+
+      // i-loop (shape functions of jel)
+      for (unsigned i = 0; i < nDof2; ++i) {
+        const double cPhi2i = C * phi2_jg[i];
+        mCphi2i[i] -= cPhi2i;
+
+        // j-loop for jac22
+        const double* phi2pt = phi2_jg;
+        for (unsigned j = 0; j < nDof2; ++j, ++phi2pt, ++jac22pt) {
+            *jac22pt -= cPhi2i * (*phi2pt);
+        }
+
+        res2_jel[i] += cPhi2i * solu2;
+      }
+    } // end jg loop
+
+    // Finalize jac21 and res2 (coupling with element1)
+    unsigned ijIndex = 0;
+    for (unsigned i = 0; i < nDof2; ++i) {
+        const double mSum = mCphi2i[i];
+        for (unsigned j = 0; j < nDof1; ++j, ++ijIndex) {
+            jac21_jel[ijIndex] -= mSum * phi1[j];
+        }
+        res2_jel[i] += mSum * solu1g;
+    }
+}
+
 double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
                                     const RegionDeviceData& D,
                                     const unsigned* jelIndex,
@@ -1297,13 +1393,11 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
 {
     double area = 0.0;
 
-    // ----- 1) solu1g = sum_i solu1[i]*phi1[i] -----
     double solu1g = 0.0;
     for (unsigned i = 0; i < nDof1; ++i) {
         solu1g += solu1[i] * phi1[i];
     }
 
-    // ----- 2) mCphi2iSum[jj] : size nDof2(jel) for each jelIndex[jj] -----
     std::vector<std::vector<double>> mCphi2iSum(jelCount);
     for (unsigned jj = 0; jj < jelCount; ++jj) {
         unsigned jel = jelIndex[jj];
@@ -1313,93 +1407,19 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
 
     const double eps = element1.GetEps();
     NonLocalBall* thisBall = dynamic_cast<NonLocalBall*>(this);
+    assert(thisBall && "Assembly2_flat_CPU currently assumes NonLocalBall");
 
-    // ----- 3) Main loop over interacting elements jj -----
+    // ----- Main loop over interacting elements jj, -----
+    // ----- delegated to helper "nonLocalInnerElementKernel" -----
     for (unsigned jj = 0; jj < jelCount; ++jj) {
-        unsigned jel = jelIndex[jj];
+        const unsigned jel   = jelIndex[jj];
+        double* mCphi2i      = mCphi2iSum[jj].data();
+        double* jac21_jel    = _jac21[jel].data();
+        double* jac22_jel    = _jac22[jel].data();
+        double* res2_jel     = _res2[jel].data();
 
-        const unsigned dim      = D.dim[jel];
-        const unsigned nGauss2  = D.nGauss2[jel];
-        const unsigned nDof2    = D.nDof2[jel];
-
-        // 3a) bounding box: [min0,max0,min1,max1,...]
-        const unsigned baseMinMax = D.x2MinMaxOffset[jel];
-
-        bool coarseIntersectionTest = true;
-        for (unsigned k = 0; k < dim; ++k) {
-            double xmin = D.x2MinMaxAll[baseMinMax + 2 * k    ];
-            double xmax = D.x2MinMaxAll[baseMinMax + 2 * k + 1];
-
-            if ((xg1[k] - xmax) > delta + eps || (xmin - xg1[k]) > delta + eps) {
-                coarseIntersectionTest = false;
-                break;
-            }
-        }
-
-        if (!coarseIntersectionTest) {
-            continue;
-        }
-
-        // 3b) fetch base offsets for Gauss data
-        const unsigned baseXg2   = D.xg2Offset[jel];
-        const unsigned baseW2    = D.w2Offset[jel];
-        const unsigned baseSolu2 = D.solu2Offset[jel];
-        // (I2 is not used in this Assembly2)
-
-        // pointer into global jac22, as in original code
-        double* jac22_data = _jac22[jel].data();
-
-        // 3c) loop over Gauss points jg
-        for (unsigned jg = 0; jg < nGauss2; ++jg) {
-
-            // coordinates xg2[jg][k] from flat array
-            double xg2_jg[3] = {0.0, 0.0, 0.0};  // up to 3D
-            for (unsigned k = 0; k < dim; ++k) {
-                xg2_jg[k] = D.xg2All[baseXg2 + jg * dim + k];
-            }
-
-            // NEW: no std::vector temporaries, use raw helper
-            double U_jjjg = element1.GetSmoothStepFunction(thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
-
-
-            if (U_jjjg <= 0.0) continue;
-
-            const double w2    = D.w2All[baseW2    + jg];
-            const double solu2 = D.solu2All[baseSolu2 + jg];
-
-            // C = U * w2 * 2*weight1*kernel
-            double C = U_jjjg * w2 * twoWeigh1Kernel;
-
-            // phi2 at this Gauss point (from flat array)
-            // assuming nDof2 == nDof2_ref and nGauss2 == nGauss2_ref
-            const double* phi2_jg = &phi2Flat[jg * nDof2_ref];
-
-            // pointer into jac22 (accumulated over i,j as in original code)
-            double* jac22pt = jac22_data;
-
-            // loop over shape functions i
-            for (unsigned i = 0; i < nDof2; ++i) {
-                double cPhi2i = C * phi2_jg[i];
-                mCphi2iSum[jj][i] -= cPhi2i;
-
-                // inner loop over j for jac22
-                const double* phi2pt = phi2_jg;
-                for (unsigned j = 0; j < nDof2; ++j, ++phi2pt, ++jac22pt) {
-                    *jac22pt -= cPhi2i * (*phi2pt);
-                }
-
-                _res2[jel][i] += cPhi2i * solu2;
-            }
-        } // end jg loop
-
-        // 3d) finalize jac21 and res2 as in original code
-        unsigned ijIndex = 0;
-        for (unsigned i = 0; i < nDof2; ++i) {
-            for (unsigned j = 0; j < nDof1; ++j, ++ijIndex) {
-                _jac21[jel][ijIndex] -= mCphi2iSum[jj][i] * phi1[j];
-            }
-            _res2[jel][i] += mCphi2iSum[jj][i] * solu1g;
-        }
+        nonLocalInnerElementKernel(element1, D, jel, xg1, nDof1, phi1, twoWeigh1Kernel, solu1g, delta, eps,
+                                      phi2Flat, nDof2_ref, mCphi2i, jac21_jel, jac22_jel, res2_jel, thisBall);
     }
 
     return area;
