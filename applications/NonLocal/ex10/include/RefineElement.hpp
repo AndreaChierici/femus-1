@@ -10,6 +10,19 @@ struct SmoothStepData {
   double a0, a1, a3, a5, a7, a9;
 };
 
+#pragma omp declare target
+inline double SmoothStepEval(double dg1, const SmoothStepData& s) {
+  if (dg1 < -s.eps)
+    return 0.0;
+  else if (dg1 <  s.eps) {
+    const double dg2 = dg1 * dg1;
+    return (s.a0 + dg1 * (s.a1 + dg2 * (s.a3 + dg2 * (s.a5 + dg2 * (s.a7 + dg2 * s.a9)))));
+  }
+  else
+    return 1.0;
+}
+#pragma omp end declare target
+
 
 class RefineElement {
   public:
@@ -45,19 +58,6 @@ class RefineElement {
       s.a9  = _a9;
       return s;
     }
-
-    #pragma omp declare target
-    inline double SmoothStepEval(double dg1, const SmoothStepData& s) {
-      if (dg1 < -s.eps)
-        return 0.0;
-      else if (dg1 <  s.eps) {
-        const double dg2 = dg1 * dg1;
-        return (s.a0 + dg1 * (s.a1 + dg2 * (s.a3 + dg2 * (s.a5 + dg2 * (s.a7 + dg2 * s.a9)))));
-      }
-      else
-        return 1.0;
-    }
-    #pragma omp end declare target
 
     const elem_type *GetFem1() const {
       return _finiteElement1;

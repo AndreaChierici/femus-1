@@ -2,7 +2,7 @@
 #define __femus_NonLocal_hpp__
 
 #include "GetNormal.hpp"
-#include "RefineElement.hpp
+#include "RefineElement.hpp"
 
 // #pragma omp requires unified_shared_memory
 
