@@ -5,6 +5,11 @@
 #include "CutFemWeight.hpp"
 #include "CDWeights.hpp"
 
+struct SmoothStepData {
+  double eps;
+  double a0, a1, a3, a5, a7, a9;
+};
+
 
 class RefineElement {
   public:
@@ -27,7 +32,32 @@ class RefineElement {
       else
         return 1.;
     };
-#pragma omp end declare target
+    #pragma omp end declare target
+
+    SmoothStepData GetSmoothStepData() const {
+      SmoothStepData s;
+      s.eps = _eps;
+      s.a0  = _a0;
+      s.a1  = _a1;
+      s.a3  = _a3;
+      s.a5  = _a5;
+      s.a7  = _a7;
+      s.a9  = _a9;
+      return s;
+    }
+
+    #pragma omp declare target
+    inline double SmoothStepEval(double dg1, const SmoothStepData& s) {
+      if (dg1 < -s.eps)
+        return 0.0;
+      else if (dg1 <  s.eps) {
+        const double dg2 = dg1 * dg1;
+        return (s.a0 + dg1 * (s.a1 + dg2 * (s.a3 + dg2 * (s.a5 + dg2 * (s.a7 + dg2 * s.a9)))));
+      }
+      else
+        return 1.0;
+    }
+    #pragma omp end declare target
 
     const elem_type *GetFem1() const {
       return _finiteElement1;

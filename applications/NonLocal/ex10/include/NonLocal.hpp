@@ -2,6 +2,7 @@
 #define __femus_NonLocal_hpp__
 
 #include "GetNormal.hpp"
+#include "RefineElement.hpp
 
 // #pragma omp requires unified_shared_memory
 
@@ -267,7 +268,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
     }
   }
 
-  // 3) For now: loop over tasks on CPU, but using flat data
+  // For now: loop over tasks on CPU, but using flat data
   for (unsigned t = 0; t < _tasks.size(); ++t) {
     const auto& task = _tasks[t];
 
@@ -295,7 +296,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   }
   // After all tasks have contributed into flat arrays,
   // scatter back into _jac21/_jac22/_res2 so the rest of the code works unchanged.
-  ScatterBackFromFlat(region2, element1.GetNumberOfNodes());
+  ScatterBackFromFlat(region2, nDof1);
 }
 
 void NonLocal::BuildMatrixView(const Region& region2, unsigned nDof1) {
@@ -1372,10 +1373,18 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   return area;
 }
 
+
+#pragma omp declare target
+double interface_distance_ball_raw(const double* xc,
+                                   const double* xp,
+                                   unsigned dim,
+                                   double radius);
+#pragma omp end declare target
+
+
 // Small POD-style helper: does all per-(task, jel) work.
 // No std::vector, works on raw pointers only.
 inline void nonLocalInnerElementKernel(
-    const RefineElement&      element1,
     const RegionDeviceData&   D,
     unsigned                  jel,
     const double*             xg1,            // length dim
@@ -1390,8 +1399,8 @@ inline void nonLocalInnerElementKernel(
     double*                   mCphi2i,        // length nDof2(jel)
     double*                   jac21_jel,      // &_jac21[jel][0]
     double*                   jac22_jel,      // &_jac22[jel][0]
-    double*                   res2_jel,       // &_res2[jel][0]
-    const NonLocalBall*       thisBall)
+    double*                   res2_jel,
+    const SmoothStepData&     stepData )
 {
     const unsigned dim     = D.dim[jel];
     const unsigned nGauss2 = D.nGauss2[jel];
@@ -1426,8 +1435,13 @@ inline void nonLocalInnerElementKernel(
         xg2_jg[k] = D.xg2All[baseXg2 + jg * dim + k];
       }
 
+      // const SmoothStepData s = element1.GetSmoothStepData();
+
+      double dg1 = interface_distance_ball_raw(xg1, xg2_jg, dim, delta);
       // Smooth cut function U(jj,jg)
-      const double U_jjjg = element1.GetSmoothStepFunction(thisBall->GetInterfaceDistance_raw(xg1, xg2_jg, dim, delta));
+      double U_jjjg = SmoothStepEval(dg1, stepData);
+
+      // const double U_jjjg = element1.GetSmoothStepFunction(interface_distance_ball_raw(xg1, xg2_jg, dim, delta));
 
       if (U_jjjg <= 0.0) continue;
 
@@ -1468,6 +1482,18 @@ inline void nonLocalInnerElementKernel(
     }
 }
 
+#pragma omp declare target
+inline double interface_distance_ball_raw(const double* xc, const double* xp, unsigned dim, double radius){
+  double distance = 0.0;
+  for (unsigned k = 0; k < dim; ++k) {
+    double diff = xp[k] - xc[k];
+    distance += diff * diff;
+  }
+  distance = radius - std::sqrt(distance);
+  return distance;
+}
+#pragma omp end declare target
+
 double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
                                     const RegionDeviceData& D,
                                     const unsigned* jelIndex,
@@ -1490,6 +1516,8 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
         solu1g += solu1[i] * phi1[i];
     }
 
+    SmoothStepData stepData = element1.GetSmoothStepData();
+
     std::vector<std::vector<double>> mCphi2iSum(jelCount);
     for (unsigned jj = 0; jj < jelCount; ++jj) {
         unsigned jel = jelIndex[jj];
@@ -1498,21 +1526,21 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
     }
 
     const double eps = element1.GetEps();
-    NonLocalBall* thisBall = dynamic_cast<NonLocalBall*>(this);
-    assert(thisBall && "Assembly2_flat_CPU currently assumes NonLocalBall");
+    // NonLocalBall* thisBall = dynamic_cast<NonLocalBall*>(this);
+    // assert(thisBall && "Assembly2_flat_CPU currently assumes NonLocalBall");
 
     // ----- Main loop over interacting elements jj, -----
     // ----- delegated to helper "nonLocalInnerElementKernel" -----
     for (unsigned jj = 0; jj < jelCount; ++jj) {
-    const unsigned jel   = jelIndex[jj];
-    double* mCphi2i      = mCphi2iSum[jj].data();
-    double* jac21_jel    = _matView.jac21Flat.data() + _matView.offsetJac21[jel];
-    double* jac22_jel    = _matView.jac22Flat.data() + _matView.offsetJac22[jel];
-    double* res2_jel     = _matView.res2Flat .data() + _matView.offsetRes2 [jel];
+      const unsigned jel   = jelIndex[jj];
+      double* mCphi2i      = mCphi2iSum[jj].data();
+      double* jac21_jel    = _matView.jac21Flat.data() + _matView.offsetJac21[jel];
+      double* jac22_jel    = _matView.jac22Flat.data() + _matView.offsetJac22[jel];
+      double* res2_jel     = _matView.res2Flat .data() + _matView.offsetRes2 [jel];
 
-    nonLocalInnerElementKernel(element1, D, jel, xg1, nDof1, phi1, twoWeigh1Kernel, solu1g, delta, eps, phi2Flat,
-                               nDof2_ref, mCphi2i, jac21_jel, jac22_jel, res2_jel, thisBall);
-}
+      nonLocalInnerElementKernel(D, jel, xg1, nDof1, phi1, twoWeigh1Kernel, solu1g, delta, eps,
+                                 phi2Flat, nDof2_ref, mCphi2i, jac21_jel, jac22_jel, res2_jel, stepData);
+    }
 
 
     return area;
