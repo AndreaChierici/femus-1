@@ -246,6 +246,13 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
 }
 
 
+double interface_distance_ball_raw(const double* xc,
+                                   const double* xp,
+                                   unsigned dim,
+                                   double radius);
+
+
+
 
 void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 Region& region2,
@@ -1572,13 +1579,6 @@ double NonLocal::Assembly2(const RefineElement & element1, const Region & region
   return area;
 }
 
-
-#pragma omp declare target
-double interface_distance_ball_raw(const double* xc,
-                                   const double* xp,
-                                   unsigned dim,
-                                   double radius);
-#pragma omp end declare target
 
 
 // Small POD-style helper: does all per-(task, jel) work.
