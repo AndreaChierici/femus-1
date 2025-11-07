@@ -276,6 +276,29 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
 
   SmoothStepData stepData = element1.GetSmoothStepData();
 
+  // Build the POD view for GPU
+  RegionDeviceView V {
+    D.dim.data(), D.nGauss2.data(), D.nDof2.data(),
+    D.x2MinMaxOffset.data(), D.x2MinMaxAll.data(),
+    D.xg2Offset.data(), D.xg2All.data(),
+    D.w2Offset.data(), D.w2All.data(),
+    D.solu2Offset.data(), D.solu2All.data()
+  };
+
+  // Also record the lengths (since V has no std::vector)
+  const size_t dimCount            = D.dim.size();
+  const size_t nGauss2Count        = D.nGauss2.size();
+  const size_t nDof2Count          = D.nDof2.size();
+  const size_t x2MinMaxOffsetCount = D.x2MinMaxOffset.size();
+  const size_t x2MinMaxAllCount    = D.x2MinMaxAll.size();
+  const size_t xg2OffsetCount      = D.xg2Offset.size();
+  const size_t xg2AllCount         = D.xg2All.size();
+  const size_t w2OffsetCount       = D.w2Offset.size();
+  const size_t w2AllCount          = D.w2All.size();
+  const size_t solu2OffsetCount    = D.solu2Offset.size();
+  const size_t solu2AllCount       = D.solu2All.size();
+
+  // Loop over the tasks
   for (unsigned t = 0; t < _tasks.size(); ++t) {
     const auto& task = _tasks[t];
 
@@ -293,28 +316,6 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
     for (unsigned k = 0; k < element1.GetDimension(); ++k) {
       xg1[k] = task.xg1[k];
     }
-
-    // Build the POD view for GPU
-    RegionDeviceView V {
-      D.dim.data(), D.nGauss2.data(), D.nDof2.data(),
-      D.x2MinMaxOffset.data(), D.x2MinMaxAll.data(),
-      D.xg2Offset.data(), D.xg2All.data(),
-      D.w2Offset.data(), D.w2All.data(),
-      D.solu2Offset.data(), D.solu2All.data()
-    };
-
-    // Also record the lengths (since V has no std::vector)
-    const size_t dimCount            = D.dim.size();
-    const size_t nGauss2Count        = D.nGauss2.size();
-    const size_t nDof2Count          = D.nDof2.size();
-    const size_t x2MinMaxOffsetCount = D.x2MinMaxOffset.size();
-    const size_t x2MinMaxAllCount    = D.x2MinMaxAll.size();
-    const size_t xg2OffsetCount      = D.xg2Offset.size();
-    const size_t xg2AllCount         = D.xg2All.size();
-    const size_t w2OffsetCount       = D.w2Offset.size();
-    const size_t w2AllCount          = D.w2All.size();
-    const size_t solu2OffsetCount    = D.solu2Offset.size();
-    const size_t solu2AllCount       = D.solu2All.size();
 
     // Call the GPU routine
     Assembly2_flat_GPU(V, jel.data(), task.jelCount,
@@ -1658,12 +1659,16 @@ double NonLocal::Assembly2_flat_GPU(const RegionDeviceView& V,
     unsigned* offsetMCptr = offsetMC.data();
     double*   mCphi2AllPtr = mCphi2All.data();
 
-    const unsigned dimSpace = D.dim[0];
+    const unsigned dimSpace = V.dim[0];
     const double   eps      = stepData.eps;
 
-    // 7) Offload jj loop
+    const unsigned threads_per_team = 128; // or 256
+    const unsigned numTeams = (jelCount == 0) ? 1 :
+                              std::min(jelCount, 456u);// 7) Offload jj loop
+
     // #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
     #pragma omp target teams distribute parallel for \
+    num_teams(numTeams) thread_limit(threads_per_team) \
       map(to: jelIndex[0:jelCount], \
             V.dim[0:dimCount], \
             V.nGauss2[0:nGauss2Count], \
