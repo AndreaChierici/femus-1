@@ -96,7 +96,7 @@ class NonLocal {
                           unsigned nGauss2_ref,
                           unsigned nDof2_ref);
 
-    double NonLocal::Assembly2_flat_GPU(const RegionDeviceView& V, const unsigned* jelIndex, unsigned jelCount, unsigned nDof1,
+    double Assembly2_flat_GPU(const RegionDeviceView& V, const unsigned* jelIndex, unsigned jelCount, unsigned nDof1,
       const double* xg1, double twoWeigh1Kernel, const double* phi1, const double* solu1, double delta, const double* phi2Flat,
       unsigned nGauss2_ref, unsigned nDof2_ref, const SmoothStepData& stepData, size_t dimCount, size_t nGauss2Count,
       size_t nDof2Count, size_t x2MinMaxOffsetCount, size_t x2MinMaxAllCount, size_t xg2OffsetCount, size_t xg2AllCount,
@@ -317,10 +317,10 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
     const size_t solu2AllCount       = D.solu2All.size();
 
     // Call the GPU routine
-    Assembly2_flat_GPU(V, jelIndex, jelCount,
-                   nDof1, xg1, twoWeigh1Kernel,
-                   phi1, solu1, delta,
-                   phi2Flat, nGauss2_ref, nDof2_ref,
+    Assembly2_flat_GPU(V, jel.data(), task.jelCount,
+                   nDof1, xg1.data(), twoWeigh1Kernel,
+                   phi1.data(), solu1.data(), delta,
+                   phi2Flat.data(), nGauss2_ref, nDof2_ref,
                    stepData,
                    dimCount, nGauss2Count, nDof2Count,
                    x2MinMaxOffsetCount, x2MinMaxAllCount,
