@@ -245,7 +245,6 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
   }
 }
 
-
 void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 Region& region2,
                                 const std::vector<double>& solu1,
@@ -270,7 +269,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   region2.BuildDeviceData(D);
 
   // Build flat phi2 from a reference element (assume same type/order)
-  const elem_type* fem2_ref   = region2.GetFem(0);
+  const elem_type* fem2_ref    = region2.GetFem(0);
   const unsigned   nGauss2_ref = fem2_ref->GetGaussPointNumber();
   const unsigned   nDof2_ref   = region2.GetDofNumber(0);
 
@@ -278,7 +277,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   for (unsigned jg = 0; jg < nGauss2_ref; ++jg) {
     const double* phi2_jg = fem2_ref->GetPhi(jg);
     for (unsigned i = 0; i < nDof2_ref; ++i) {
-        phi2Flat[jg * nDof2_ref + i] = phi2_jg[i];
+      phi2Flat[jg * nDof2_ref + i] = phi2_jg[i];
     }
   }
 
@@ -320,8 +319,10 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const size_t offJac22Size = _matView.offsetJac22.size();
   const size_t offRes2Size  = _matView.offsetRes2.size();
 
+  // raw pointer for phi2Flat so it's an addressable lvalue in map clauses
+  double* phi2FlatPtr = phi2Flat.data();
 
-#pragma omp target data \
+  #pragma omp target data \
       map(to: V.dim[0:dimCount], \
               V.nGauss2[0:nGauss2Count], \
               V.nDof2[0:nDof2Count], \
@@ -333,176 +334,161 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
               V.w2All[0:w2AllCount], \
               V.solu2Offset[0:solu2OffsetCount], \
               V.solu2All[0:solu2AllCount], \
-              phi2Flat.data()[0:nGauss2_ref * nDof2_ref]) \
+              phi2FlatPtr[0:nGauss2_ref * nDof2_ref]) \
       map(tofrom: jac21FlatPtr[0:jac21Size], \
                       jac22FlatPtr[0:jac22Size], \
                       res2FlatPtr[0:res2Size])
-      {
-        for (unsigned t = 0; t < _tasks.size(); ++t) {
-        const auto& task = _tasks[t];
+  {
+    for (unsigned t = 0; t < _tasks.size(); ++t) {
+      const auto& task = _tasks[t];
 
-        // 1) Rebuild jel slice for this task
-        std::vector<unsigned> jel(task.jelCount);
-        for (unsigned jj = 0; jj < task.jelCount; ++jj) {
-          jel[jj] = _jelIndexAll[task.jelBegin + jj];
+      // 1) Rebuild jel slice for this task
+      std::vector<unsigned> jel(task.jelCount);
+      for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+        jel[jj] = _jelIndexAll[task.jelBegin + jj];
+      }
+
+      // 2) Rebuild phi1 for this task
+      std::vector<double> phi1(task.nDof1);
+      for (unsigned i = 0; i < task.nDof1; ++i) {
+        phi1[i] = _phi1All[task.phi1Offset + i];
+      }
+
+      // 3) Rebuild xg1
+      std::vector<double> xg1(element1.GetDimension());
+      for (unsigned k = 0; k < element1.GetDimension(); ++k) {
+        xg1[k] = task.xg1[k];
+      }
+
+      // 4) Compute solu1g (host)
+      double solu1g = 0.0;
+      for (unsigned i = 0; i < task.nDof1; ++i) {
+        solu1g += solu1[i] * phi1[i];
+      }
+
+      // 5) Build per-task offsetMC and scratch
+      std::vector<unsigned> offsetMC(task.jelCount + 1);
+      offsetMC[0] = 0;
+      for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+        const unsigned jelIdx = jel[jj];
+        const unsigned nDof2  = V.nDof2[jelIdx];
+        offsetMC[jj + 1] = offsetMC[jj] + nDof2;
+      }
+      const unsigned totalMC = offsetMC[task.jelCount];
+      std::vector<double> mCphi2All(totalMC, 0.0);
+
+      unsigned*       offsetMCptr = offsetMC.data();
+      double*         mCphi2AllPtr = mCphi2All.data();
+      const unsigned* jelPtr       = jel.data();
+      const double*   phi1Ptr      = phi1.data();
+      const double*   xg1Ptr       = xg1.data();
+
+      const unsigned dimSpace = element1.GetDimension();
+      const double   eps      = stepData.eps;
+
+      const unsigned threads_per_team = 128;
+      const unsigned numTeams = (task.jelCount == 0u)
+                                ? 1u
+                                : std::min(task.jelCount, 456u);
+
+      #pragma omp target teams distribute parallel for \
+          num_teams(numTeams) thread_limit(threads_per_team) \
+          is_device_ptr(jac21FlatPtr, jac22FlatPtr, res2FlatPtr, \
+                        offJac21Ptr, offJac22Ptr, offRes2Ptr, \
+                        V.dim, V.nGauss2, V.nDof2, \
+                        V.x2MinMaxOffset, V.x2MinMaxAll, \
+                        V.xg2Offset, V.xg2All, \
+                        V.w2Offset, V.w2All, \
+                        V.solu2Offset, V.solu2All, \
+                        phi2FlatPtr) \
+          map(to: jelPtr[0:task.jelCount], \
+                   offsetMCptr[0:task.jelCount+1], \
+                   phi1Ptr[0:task.nDof1], \
+                   xg1Ptr[0:dimSpace], \
+                   stepData, solu1g, delta, task.twoWeigh1Kernel, eps) \
+          map(tofrom: mCphi2AllPtr[0:totalMC])
+      for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+
+        const unsigned jelIdx = jelPtr[jj];
+        const unsigned nDof2  = V.nDof2[jelIdx];
+
+        const unsigned offMC = offsetMCptr[jj];
+        double* mCphi2i      = mCphi2AllPtr + offMC;
+
+        double* jac21_jel = jac21FlatPtr + offJac21Ptr[jelIdx];
+        double* jac22_jel = jac22FlatPtr + offJac22Ptr[jelIdx];
+        double* res2_jel  = res2FlatPtr  + offRes2Ptr [jelIdx];
+
+        const unsigned dim        = V.dim[jelIdx];
+        const unsigned nGauss2    = V.nGauss2[jelIdx];
+        const unsigned baseMinMax = V.x2MinMaxOffset[jelIdx];
+
+        // coarse intersection
+        bool coarseIntersectionTest = true;
+        for (unsigned k = 0; k < dim; ++k) {
+          const double xmin = V.x2MinMaxAll[baseMinMax + 2*k    ];
+          const double xmax = V.x2MinMaxAll[baseMinMax + 2*k + 1];
+          if ((xg1Ptr[k] - xmax) > delta + eps ||
+              (xmin - xg1Ptr[k]) > delta + eps) {
+            coarseIntersectionTest = false;
+            break;
+          }
         }
+        if (!coarseIntersectionTest) continue;
 
-        // 2) Rebuild phi1 for this task
-        std::vector<double> phi1(task.nDof1);
-        for (unsigned i = 0; i < task.nDof1; ++i) {
-          phi1[i] = _phi1All[task.phi1Offset + i];
-        }
+        const unsigned baseXg2   = V.xg2Offset[jelIdx];
+        const unsigned baseW2    = V.w2Offset[jelIdx];
+        const unsigned baseSolu2 = V.solu2Offset[jelIdx];
 
-        // 3) Rebuild xg1
-        std::vector<double> xg1(element1.GetDimension());
-        for (unsigned k = 0; k < element1.GetDimension(); ++k) {
-          xg1[k] = task.xg1[k];
-        }
+        // zero scratch
+        for (unsigned i = 0; i < nDof2; ++i) mCphi2i[i] = 0.0;
 
-        // 4) Compute solu1g (host)
-        double solu1g = 0.0;
-        for (unsigned i = 0; i < task.nDof1; ++i) {
-          solu1g += solu1[i] * phi1[i];
-        }
-
-        // 5) Build per-task offsetMC and scratch
-        std::vector<unsigned> offsetMC(task.jelCount + 1);
-        offsetMC[0] = 0;
-        for (unsigned jj = 0; jj < task.jelCount; ++jj) {
-          const unsigned jel = jel[jj];
-          const unsigned nDof2 = V.nDof2[jel];
-          offsetMC[jj + 1] = offsetMC[jj] + nDof2;
-        }
-        const unsigned totalMC = offsetMC[task.jelCount];
-        std::vector<double> mCphi2All(totalMC, 0.0);
-
-        unsigned* offsetMCptr  = offsetMC.data();
-        double*   mCphi2AllPtr = mCphi2All.data();
-        const unsigned* jelPtr = jel.data();
-        const double*   phi1Ptr = phi1.data();
-        const double*   xg1Ptr  = xg1.data();
-
-        const unsigned dimSpace = element1.GetDimension();
-        const double   eps      = stepData.eps;
-
-                const unsigned threads_per_team = 128;
-        const unsigned numTeams = (task.jelCount == 0u)
-                                  ? 1u
-                                  : std::min(task.jelCount, 456u);
-
-        #pragma omp target teams distribute parallel for \
-            num_teams(numTeams) thread_limit(threads_per_team) \
-            is_device_ptr(V.dim, V.nGauss2, V.nDof2, \
-                          V.x2MinMaxOffset, V.x2MinMaxAll, \
-                          V.xg2Offset, V.xg2All, \
-                          V.w2Offset, V.w2All, \
-                          V.solu2Offset, V.solu2All, \
-                          jac21FlatPtr, jac22FlatPtr, res2FlatPtr, \
-                          offJac21Ptr, offJac22Ptr, offRes2Ptr) \
-            map(to: jelPtr[0:task.jelCount], \
-                     offsetMCptr[0:task.jelCount+1], \
-                     phi1Ptr[0:task.nDof1], \
-                     xg1Ptr[0:dimSpace], \
-                     phi2Flat.data()[0:nGauss2_ref * nDof2_ref], \
-                     stepData, solu1g, delta, task.twoWeigh1Kernel, eps) \
-            map(tofrom: mCphi2AllPtr[0:totalMC])
-        for (unsigned jj = 0; jj < task.jelCount; ++jj) {
-
-          const unsigned jel   = jelPtr[jj];
-          const unsigned nDof2 = V.nDof2[jel];
-
-          const unsigned offMC = offsetMCptr[jj];
-          double* mCphi2i      = mCphi2AllPtr + offMC;
-
-          double* jac21_jel = jac21FlatPtr + offJac21Ptr[jel];
-          double* jac22_jel = jac22FlatPtr + offJac22Ptr[jel];
-          double* res2_jel  = res2FlatPtr  + offRes2Ptr [jel];
-
-          const unsigned dim        = V.dim[jel];
-          const unsigned nGauss2    = V.nGauss2[jel];
-          const unsigned baseMinMax = V.x2MinMaxOffset[jel];
-
-          // coarse intersection
-          bool coarseIntersectionTest = true;
+        for (unsigned jg = 0; jg < nGauss2; ++jg) {
+          double xg2_jg[3] = {0.0, 0.0, 0.0};
           for (unsigned k = 0; k < dim; ++k) {
-            const double xmin = V.x2MinMaxAll[baseMinMax + 2*k    ];
-            const double xmax = V.x2MinMaxAll[baseMinMax + 2*k + 1];
-            if ((xg1Ptr[k] - xmax) > delta + eps ||
-                (xmin - xg1Ptr[k]) > delta + eps) {
-              coarseIntersectionTest = false;
-              break;
-            }
-          }
-          if (!coarseIntersectionTest) continue;
-
-          const unsigned baseXg2   = V.xg2Offset[jel];
-          const unsigned baseW2    = V.w2Offset[jel];
-          const unsigned baseSolu2 = V.solu2Offset[jel];
-
-          // zero scratch
-          for (unsigned i = 0; i < nDof2; ++i) mCphi2i[i] = 0.0;
-
-          for (unsigned jg = 0; jg < nGauss2; ++jg) {
-            double xg2_jg[3] = {0.0, 0.0, 0.0};
-            for (unsigned k = 0; k < dim; ++k) {
-              xg2_jg[k] = V.xg2All[baseXg2 + jg*dim + k];
-            }
-
-            const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
-            const double U_jjjg = SmoothStepEval(dg1, stepData);
-            if (U_jjjg <= 0.0) continue;
-
-            const double w2    = V.w2All   [baseW2    + jg];
-            const double solu2 = V.solu2All[baseSolu2 + jg];
-
-            const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
-            const double* phi2_jg = &phi2Flat.data()[0] + jg * nDof2_ref;
-
-            double* jac22pt = jac22_jel;
-
-            for (unsigned i = 0; i < nDof2; ++i) {
-              const double cPhi2i = C * phi2_jg[i];
-              mCphi2i[i] -= cPhi2i;
-
-              const double* phi2pt = phi2_jg;
-              for (unsigned j = 0; j < nDof2; ++j, ++phi2pt, ++jac22pt) {
-                *jac22pt -= cPhi2i * (*phi2pt);
-              }
-
-              res2_jel[i] += cPhi2i * solu2;
-            }
+            xg2_jg[k] = V.xg2All[baseXg2 + jg*dim + k];
           }
 
-          unsigned ijIndex = 0;
+          const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
+          const double U_jjjg = SmoothStepEval(dg1, stepData);
+          if (U_jjjg <= 0.0) continue;
+
+          const double w2    = V.w2All   [baseW2    + jg];
+          const double solu2 = V.solu2All[baseSolu2 + jg];
+
+          const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
+          const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref;
+
+          double* jac22pt = jac22_jel;
+
           for (unsigned i = 0; i < nDof2; ++i) {
-            const double mSum = mCphi2i[i];
-            for (unsigned j = 0; j < task.nDof1; ++j, ++ijIndex) {
-              jac21_jel[ijIndex] -= mSum * phi1Ptr[j];
+            const double cPhi2i = C * phi2_jg[i];
+            mCphi2i[i] -= cPhi2i;
+
+            const double* phi2pt = phi2_jg;
+            for (unsigned j = 0; j < nDof2; ++j, ++phi2pt, ++jac22pt) {
+              *jac22pt -= cPhi2i * (*phi2pt);
             }
-            res2_jel[i] += mSum * solu1g;
+
+            res2_jel[i] += cPhi2i * solu2;
           }
-        } // end jj
-      }   // end tasks
-  }       // end target data
+        }
 
-
-
-    // // Call the GPU routine
-    // Assembly2_flat_GPU(V, jel.data(), task.jelCount,
-    //                task.nDof1, xg1.data(), task.twoWeigh1Kernel,
-    //                phi1.data(), solu1.data(), delta,
-    //                phi2Flat.data(), nGauss2_ref, nDof2_ref,
-    //                stepData,
-    //                dimCount, nGauss2Count, nDof2Count,
-    //                x2MinMaxOffsetCount, x2MinMaxAllCount,
-    //                xg2OffsetCount, xg2AllCount,
-    //                w2OffsetCount, w2AllCount,
-    //                solu2OffsetCount, solu2AllCount);
-
-    // Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
+        unsigned ijIndex = 0;
+        for (unsigned i = 0; i < nDof2; ++i) {
+          const double mSum = mCphi2i[i];
+          for (unsigned j = 0; j < task.nDof1; ++j, ++ijIndex) {
+            jac21_jel[ijIndex] -= mSum * phi1Ptr[j];
+          }
+          res2_jel[i] += mSum * solu1g;
+        }
+      } // end jj
+    }   // end tasks
+  }     // end target data
 
   ScatterBackFromFlat(region2, nDof1);
 }
+
 
 
 void NonLocal::BuildMatrixView(const Region& region2, unsigned nDof1) {
