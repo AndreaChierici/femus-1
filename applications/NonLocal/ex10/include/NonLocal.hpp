@@ -254,6 +254,14 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
 {
   const unsigned nDof1 = element1.GetNumberOfNodes();
 
+  const std::size_t totalTasks = _tasks.size();
+
+  // Early exit: small problems stay on CPU
+  if (totalTasks < 20) {  // TODO tune this
+    ProcessTasks_CPU(element1, region2, solu1, delta, printMesh);
+    return;
+  }
+
   // Prepare flat matrix layout (for all jel in region2)
   BuildMatrixView(region2, nDof1);
 
@@ -492,10 +500,6 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
     //                solu2OffsetCount, solu2AllCount);
 
     // Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
-
-
-  }
-      }
 
   ScatterBackFromFlat(region2, nDof1);
 }
