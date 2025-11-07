@@ -318,7 +318,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
 
     // Call the GPU routine
     Assembly2_flat_GPU(V, jel.data(), task.jelCount,
-                   nDof1, xg1.data(), twoWeigh1Kernel,
+                   task.nDof1, xg1.data(), task.twoWeigh1Kernel,
                    phi1.data(), solu1.data(), delta,
                    phi2Flat.data(), nGauss2_ref, nDof2_ref,
                    stepData,
@@ -1613,9 +1613,6 @@ double NonLocal::Assembly2_flat_GPU(const RegionDeviceView& V,
     for (unsigned i = 0; i < nDof1; ++i) {
         solu1g += solu1[i] * phi1[i];
     }
-
-    std::vector<unsigned> offsetMC(jelCount + 1);
-    offsetMC[0] = 0;
 
     std::vector<unsigned> offsetMC(jelCount + 1);
     offsetMC[0] = 0;
