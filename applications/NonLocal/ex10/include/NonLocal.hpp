@@ -245,6 +245,8 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
   }
 }
 
+
+
 void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 Region& region2,
                                 const std::vector<double>& solu1,
@@ -256,7 +258,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const std::size_t totalTasks = _tasks.size();
 
   // Early exit: small problems stay on CPU
-  if (totalTasks < 20) {  // TODO tune this
+  if (totalTasks < 20) {  // tune threshold as needed
     ProcessTasks_CPU(element1, region2, solu1, delta, printMesh);
     return;
   }
@@ -304,6 +306,19 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const size_t solu2OffsetCount    = D.solu2Offset.size();
   const size_t solu2AllCount       = D.solu2All.size();
 
+  // Pointer aliases for RegionDeviceView arrays (so we can map variables, not V.* expressions)
+  const unsigned* dimPtr         = V.dim;
+  const unsigned* nGauss2Ptr     = V.nGauss2;
+  const unsigned* nDof2Ptr       = V.nDof2;
+  const unsigned* x2MinMaxOffPtr = V.x2MinMaxOffset;
+  const double*   x2MinMaxAllPtr = V.x2MinMaxAll;
+  const unsigned* xg2OffPtr      = V.xg2Offset;
+  const double*   xg2AllPtr      = V.xg2All;
+  const unsigned* w2OffPtr       = V.w2Offset;
+  const double*   w2AllPtr       = V.w2All;
+  const unsigned* solu2OffPtr    = V.solu2Offset;
+  const double*   solu2AllPtr    = V.solu2All;
+
   // Flat matrix pointers + sizes
   double*   jac21FlatPtr = _matView.jac21Flat.data();
   double*   jac22FlatPtr = _matView.jac22Flat.data();
@@ -323,17 +338,17 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   double* phi2FlatPtr = phi2Flat.data();
 
   #pragma omp target data \
-      map(to: V.dim[0:dimCount], \
-              V.nGauss2[0:nGauss2Count], \
-              V.nDof2[0:nDof2Count], \
-              V.x2MinMaxOffset[0:x2MinMaxOffsetCount], \
-              V.x2MinMaxAll[0:x2MinMaxAllCount], \
-              V.xg2Offset[0:xg2OffsetCount], \
-              V.xg2All[0:xg2AllCount], \
-              V.w2Offset[0:w2OffsetCount], \
-              V.w2All[0:w2AllCount], \
-              V.solu2Offset[0:solu2OffsetCount], \
-              V.solu2All[0:solu2AllCount], \
+      map(to: dimPtr[0:dimCount], \
+              nGauss2Ptr[0:nGauss2Count], \
+              nDof2Ptr[0:nDof2Count], \
+              x2MinMaxOffPtr[0:x2MinMaxOffsetCount], \
+              x2MinMaxAllPtr[0:x2MinMaxAllCount], \
+              xg2OffPtr[0:xg2OffsetCount], \
+              xg2AllPtr[0:xg2AllCount], \
+              w2OffPtr[0:w2OffsetCount], \
+              w2AllPtr[0:w2AllCount], \
+              solu2OffPtr[0:solu2OffsetCount], \
+              solu2AllPtr[0:solu2AllCount], \
               phi2FlatPtr[0:nGauss2_ref * nDof2_ref]) \
       map(tofrom: jac21FlatPtr[0:jac21Size], \
                       jac22FlatPtr[0:jac22Size], \
@@ -371,13 +386,13 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       offsetMC[0] = 0;
       for (unsigned jj = 0; jj < task.jelCount; ++jj) {
         const unsigned jelIdx = jel[jj];
-        const unsigned nDof2  = V.nDof2[jelIdx];
+        const unsigned nDof2  = nDof2Ptr[jelIdx];
         offsetMC[jj + 1] = offsetMC[jj] + nDof2;
       }
       const unsigned totalMC = offsetMC[task.jelCount];
       std::vector<double> mCphi2All(totalMC, 0.0);
 
-      unsigned*       offsetMCptr = offsetMC.data();
+      unsigned*       offsetMCptr  = offsetMC.data();
       double*         mCphi2AllPtr = mCphi2All.data();
       const unsigned* jelPtr       = jel.data();
       const double*   phi1Ptr      = phi1.data();
@@ -393,14 +408,6 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
 
       #pragma omp target teams distribute parallel for \
           num_teams(numTeams) thread_limit(threads_per_team) \
-          is_device_ptr(jac21FlatPtr, jac22FlatPtr, res2FlatPtr, \
-                        offJac21Ptr, offJac22Ptr, offRes2Ptr, \
-                        V.dim, V.nGauss2, V.nDof2, \
-                        V.x2MinMaxOffset, V.x2MinMaxAll, \
-                        V.xg2Offset, V.xg2All, \
-                        V.w2Offset, V.w2All, \
-                        V.solu2Offset, V.solu2All, \
-                        phi2FlatPtr) \
           map(to: jelPtr[0:task.jelCount], \
                    offsetMCptr[0:task.jelCount+1], \
                    phi1Ptr[0:task.nDof1], \
@@ -410,7 +417,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       for (unsigned jj = 0; jj < task.jelCount; ++jj) {
 
         const unsigned jelIdx = jelPtr[jj];
-        const unsigned nDof2  = V.nDof2[jelIdx];
+        const unsigned nDof2  = nDof2Ptr[jelIdx];
 
         const unsigned offMC = offsetMCptr[jj];
         double* mCphi2i      = mCphi2AllPtr + offMC;
@@ -419,15 +426,15 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
         double* jac22_jel = jac22FlatPtr + offJac22Ptr[jelIdx];
         double* res2_jel  = res2FlatPtr  + offRes2Ptr [jelIdx];
 
-        const unsigned dim        = V.dim[jelIdx];
-        const unsigned nGauss2    = V.nGauss2[jelIdx];
-        const unsigned baseMinMax = V.x2MinMaxOffset[jelIdx];
+        const unsigned dim        = dimPtr[jelIdx];
+        const unsigned nGauss2    = nGauss2Ptr[jelIdx];
+        const unsigned baseMinMax = x2MinMaxOffPtr[jelIdx];
 
         // coarse intersection
         bool coarseIntersectionTest = true;
         for (unsigned k = 0; k < dim; ++k) {
-          const double xmin = V.x2MinMaxAll[baseMinMax + 2*k    ];
-          const double xmax = V.x2MinMaxAll[baseMinMax + 2*k + 1];
+          const double xmin = x2MinMaxAllPtr[baseMinMax + 2*k    ];
+          const double xmax = x2MinMaxAllPtr[baseMinMax + 2*k + 1];
           if ((xg1Ptr[k] - xmax) > delta + eps ||
               (xmin - xg1Ptr[k]) > delta + eps) {
             coarseIntersectionTest = false;
@@ -436,9 +443,9 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
         }
         if (!coarseIntersectionTest) continue;
 
-        const unsigned baseXg2   = V.xg2Offset[jelIdx];
-        const unsigned baseW2    = V.w2Offset[jelIdx];
-        const unsigned baseSolu2 = V.solu2Offset[jelIdx];
+        const unsigned baseXg2   = xg2OffPtr[jelIdx];
+        const unsigned baseW2    = w2OffPtr[jelIdx];
+        const unsigned baseSolu2 = solu2OffPtr[jelIdx];
 
         // zero scratch
         for (unsigned i = 0; i < nDof2; ++i) mCphi2i[i] = 0.0;
@@ -446,15 +453,15 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
         for (unsigned jg = 0; jg < nGauss2; ++jg) {
           double xg2_jg[3] = {0.0, 0.0, 0.0};
           for (unsigned k = 0; k < dim; ++k) {
-            xg2_jg[k] = V.xg2All[baseXg2 + jg*dim + k];
+            xg2_jg[k] = xg2AllPtr[baseXg2 + jg*dim + k];
           }
 
           const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
           const double U_jjjg = SmoothStepEval(dg1, stepData);
           if (U_jjjg <= 0.0) continue;
 
-          const double w2    = V.w2All   [baseW2    + jg];
-          const double solu2 = V.solu2All[baseSolu2 + jg];
+          const double w2    = w2AllPtr   [baseW2    + jg];
+          const double solu2 = solu2AllPtr[baseSolu2 + jg];
 
           const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
           const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref;
