@@ -37,6 +37,22 @@ struct RegionDeviceData {
     std::vector<double> I2All;
 };
 
+#pragma omp declare target
+struct RegionDeviceView {
+  const unsigned* dim;
+  const unsigned* nGauss2;
+  const unsigned* nDof2;
+  const unsigned* x2MinMaxOffset;
+  const double*   x2MinMaxAll;
+  const unsigned* xg2Offset;
+  const double*   xg2All;
+  const unsigned* w2Offset;
+  const double*   w2All;
+  const unsigned* solu2Offset;
+  const double*   solu2All;
+};
+#pragma omp end declare target
+
 
 class Region {
   private:

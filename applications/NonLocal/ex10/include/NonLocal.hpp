@@ -96,10 +96,11 @@ class NonLocal {
                           unsigned nGauss2_ref,
                           unsigned nDof2_ref);
 
-    double Assembly2_flat_GPU(const RegionDeviceData& D, const unsigned* jelIndex, unsigned jelCount, unsigned nDof1,
-                              const double* xg1, double twoWeigh1Kernel, const double* phi1, const double* solu1,
-                              double delta, bool printMesh, const double* phi2Flat, unsigned nGauss2_ref, unsigned nDof2_ref,
-                              const SmoothStepData& stepData);
+    double NonLocal::Assembly2_flat_GPU(const RegionDeviceView& V, const unsigned* jelIndex, unsigned jelCount, unsigned nDof1,
+      const double* xg1, double twoWeigh1Kernel, const double* phi1, const double* solu1, double delta, const double* phi2Flat,
+      unsigned nGauss2_ref, unsigned nDof2_ref, const SmoothStepData& stepData, size_t dimCount, size_t nGauss2Count,
+      size_t nDof2Count, size_t x2MinMaxOffsetCount, size_t x2MinMaxAllCount, size_t xg2OffsetCount, size_t xg2AllCount,
+      size_t w2OffsetCount, size_t w2AllCount, size_t solu2OffsetCount, size_t solu2AllCount);
 
     double GetSmoothTestFunction(const double &dg1, const double &eps);
 
@@ -293,7 +294,39 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       xg1[k] = task.xg1[k];
     }
 
-    Assembly2_flat_GPU(D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref, stepData);
+    // Build the POD view for GPU
+    RegionDeviceView V {
+      D.dim.data(), D.nGauss2.data(), D.nDof2.data(),
+      D.x2MinMaxOffset.data(), D.x2MinMaxAll.data(),
+      D.xg2Offset.data(), D.xg2All.data(),
+      D.w2Offset.data(), D.w2All.data(),
+      D.solu2Offset.data(), D.solu2All.data()
+    };
+
+    // Also record the lengths (since V has no std::vector)
+    const size_t dimCount            = D.dim.size();
+    const size_t nGauss2Count        = D.nGauss2.size();
+    const size_t nDof2Count          = D.nDof2.size();
+    const size_t x2MinMaxOffsetCount = D.x2MinMaxOffset.size();
+    const size_t x2MinMaxAllCount    = D.x2MinMaxAll.size();
+    const size_t xg2OffsetCount      = D.xg2Offset.size();
+    const size_t xg2AllCount         = D.xg2All.size();
+    const size_t w2OffsetCount       = D.w2Offset.size();
+    const size_t w2AllCount          = D.w2All.size();
+    const size_t solu2OffsetCount    = D.solu2Offset.size();
+    const size_t solu2AllCount       = D.solu2All.size();
+
+    // Call the GPU routine
+    Assembly2_flat_GPU(V, jelIndex, jelCount,
+                   nDof1, xg1, twoWeigh1Kernel,
+                   phi1, solu1, delta,
+                   phi2Flat, nGauss2_ref, nDof2_ref,
+                   stepData,
+                   dimCount, nGauss2Count, nDof2Count,
+                   x2MinMaxOffsetCount, x2MinMaxAllCount,
+                   xg2OffsetCount, xg2AllCount,
+                   w2OffsetCount, w2AllCount,
+                   solu2OffsetCount, solu2AllCount);
 
     // Assembly2_flat_CPU(element1, D, jel.data(), task.jelCount, task.nDof1, xg1.data(), task.twoWeigh1Kernel, phi1.data(), solu1.data(), delta, printMesh, phi2Flat.data(), nGauss2_ref, nDof2_ref);
 
@@ -1551,7 +1584,7 @@ double NonLocal::Assembly2_flat_CPU(const RefineElement& element1,
     return area;
 }
 
-double NonLocal::Assembly2_flat_GPU(const RegionDeviceData& D,
+double NonLocal::Assembly2_flat_GPU(const RegionDeviceView& V,
                                     const unsigned* jelIndex,
                                     unsigned jelCount,
                                     unsigned nDof1,
@@ -1560,11 +1593,18 @@ double NonLocal::Assembly2_flat_GPU(const RegionDeviceData& D,
                                     const double* phi1,
                                     const double* solu1,
                                     double delta,
-                                    bool /*printMesh*/,
                                     const double* phi2Flat,
                                     unsigned nGauss2_ref,
                                     unsigned nDof2_ref,
-                                    const SmoothStepData& stepData)
+                                    const SmoothStepData& stepData,
+                                    // sizes for mapping
+                                    size_t dimCount, size_t nGauss2Count,
+                                    size_t nDof2Count,
+                                    size_t x2MinMaxOffsetCount,
+                                    size_t x2MinMaxAllCount,
+                                    size_t xg2OffsetCount, size_t xg2AllCount,
+                                    size_t w2OffsetCount, size_t w2AllCount,
+                                    size_t solu2OffsetCount, size_t solu2AllCount)
 {
     double area = 0.0;
 
@@ -1574,29 +1614,31 @@ double NonLocal::Assembly2_flat_GPU(const RegionDeviceData& D,
         solu1g += solu1[i] * phi1[i];
     }
 
-    // 2) Build flat mCphi2All + offsets on host
+    std::vector<unsigned> offsetMC(jelCount + 1);
+    offsetMC[0] = 0;
+
     std::vector<unsigned> offsetMC(jelCount + 1);
     offsetMC[0] = 0;
     for (unsigned jj = 0; jj < jelCount; ++jj) {
-        unsigned jel   = jelIndex[jj];
-        unsigned nDof2 = D.nDof2[jel];
+        const unsigned jel   = jelIndex[jj];
+        const unsigned nDof2 = V.nDof2[jel];      // <--- use V
         offsetMC[jj + 1] = offsetMC[jj] + nDof2;
     }
     const unsigned totalMC = offsetMC[jelCount];
     std::vector<double> mCphi2All(totalMC, 0.0);
 
-    // 3) Prepare raw pointers from RegionDeviceData
-    const unsigned* dimPtr         = D.dim.data();
-    const unsigned* nGauss2Ptr     = D.nGauss2.data();
-    const unsigned* nDof2Ptr       = D.nDof2.data();
-    const unsigned* x2MinMaxOffPtr = D.x2MinMaxOffset.data();
-    const double*   x2MinMaxAllPtr = D.x2MinMaxAll.data();
-    const unsigned* xg2OffPtr      = D.xg2Offset.data();
-    const double*   xg2AllPtr      = D.xg2All.data();
-    const unsigned* w2OffPtr       = D.w2Offset.data();
-    const double*   w2AllPtr       = D.w2All.data();
-    const unsigned* solu2OffPtr    = D.solu2Offset.data();
-    const double*   solu2AllPtr    = D.solu2All.data();
+    const unsigned* dimPtr         = V.dim;
+    const unsigned* nGauss2Ptr     = V.nGauss2;
+    const unsigned* nDof2Ptr       = V.nDof2;
+    const unsigned* x2MinMaxOffPtr = V.x2MinMaxOffset;
+    const double*   x2MinMaxAllPtr = V.x2MinMaxAll;
+    const unsigned* xg2OffPtr      = V.xg2Offset;
+    const double*   xg2AllPtr      = V.xg2All;
+    const unsigned* w2OffPtr       = V.w2Offset;
+    const double*   w2AllPtr       = V.w2All;
+    const unsigned* solu2OffPtr    = V.solu2Offset;
+    const double*   solu2AllPtr    = V.solu2All;
+
 
     // 4) Pointers to flat matrices
     double* jac21FlatPtr = _matView.jac21Flat.data();
@@ -1623,26 +1665,27 @@ double NonLocal::Assembly2_flat_GPU(const RegionDeviceData& D,
     const double   eps      = stepData.eps;
 
     // 7) Offload jj loop
+    // #pragma omp target teams distribute parallel for num_teams(456) thread_limit(256)
     #pragma omp target teams distribute parallel for \
-        map(to: jelIndex[0:jelCount], \
-                dimPtr[0:D.dim.size()], \
-                nGauss2Ptr[0:D.nGauss2.size()], \
-                nDof2Ptr[0:D.nDof2.size()], \
-                x2MinMaxOffPtr[0:D.x2MinMaxOffset.size()], \
-                x2MinMaxAllPtr[0:D.x2MinMaxAll.size()], \
-                xg2OffPtr[0:D.xg2Offset.size()], \
-                xg2AllPtr[0:D.xg2All.size()], \
-                w2OffPtr[0:D.w2Offset.size()], \
-                w2AllPtr[0:D.w2All.size()], \
-                solu2OffPtr[0:D.solu2Offset.size()], \
-                solu2AllPtr[0:D.solu2All.size()], \
-                phi2Flat[0:nGauss2_ref*nDof2_ref], \
-                offsetMCptr[0:jelCount+1], \
-                offJac21Ptr[0:offJac21Size], \
-                offJac22Ptr[0:offJac22Size], \
-                offRes2Ptr[0:offRes2Size], \
-                phi1[0:nDof1], xg1[0:dimSpace], \
-                stepData, solu1g, delta, twoWeigh1Kernel, nDof1, eps) \
+      map(to: jelIndex[0:jelCount], \
+            V.dim[0:dimCount], \
+            V.nGauss2[0:nGauss2Count], \
+            V.nDof2[0:nDof2Count], \
+            V.x2MinMaxOffset[0:x2MinMaxOffsetCount], \
+            V.x2MinMaxAll[0:x2MinMaxAllCount], \
+            V.xg2Offset[0:xg2OffsetCount], \
+            V.xg2All[0:xg2AllCount], \
+            V.w2Offset[0:w2OffsetCount], \
+            V.w2All[0:w2AllCount], \
+            V.solu2Offset[0:solu2OffsetCount], \
+            V.solu2All[0:solu2AllCount], \
+            phi2Flat[0:nGauss2_ref*nDof2_ref], \
+            offsetMCptr[0:jelCount+1], \
+            offJac21Ptr[0:offJac21Size], \
+            offJac22Ptr[0:offJac22Size], \
+            offRes2Ptr[0:offRes2Size], \
+            phi1[0:nDof1], xg1[0:dimSpace], \
+            stepData, solu1g, delta, twoWeigh1Kernel, nDof1, eps) \
         map(tofrom: jac21FlatPtr[0:jac21Size], \
                        jac22FlatPtr[0:jac22Size], \
                        res2FlatPtr[0:res2Size], \
