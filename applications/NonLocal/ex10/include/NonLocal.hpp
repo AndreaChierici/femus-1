@@ -245,12 +245,12 @@ void NonLocal::ProcessTasks_CPU(const RefineElement& element1,
   }
 }
 
-
+#pragma omp declare target
 double interface_distance_ball_raw(const double* xc,
                                    const double* xp,
                                    unsigned dim,
                                    double radius);
-
+#pragma omp end declare target
 
 
 
@@ -258,26 +258,27 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                                 Region& region2,
                                 const std::vector<double>& solu1,
                                 const double& delta,
-                                const bool& printMesh)
+                                const bool& /*printMesh*/)
 {
   const unsigned nDof1 = element1.GetNumberOfNodes();
+  const unsigned dimSpace = element1.GetDimension();
 
   const std::size_t totalTasks = _tasks.size();
 
   // Early exit: small problems stay on CPU
-  if (totalTasks < 20) {  // tune threshold as needed
-    ProcessTasks_CPU(element1, region2, solu1, delta, printMesh);
+  if (totalTasks < 2) {  // tune threshold as needed
+    ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
     return;
   }
 
-  // Prepare flat matrix layout (for all jel in region2)
+  // 1) Prepare flat matrix layout (for all jel in region2)
   BuildMatrixView(region2, nDof1);
 
-  // Build flattened Region data
+  // 2) Build flattened Region data
   RegionDeviceData D;
   region2.BuildDeviceData(D);
 
-  // Build flat phi2 from a reference element (assume same type/order)
+  // 3) Build flat phi2 from a reference element (assume same type/order)
   const elem_type* fem2_ref    = region2.GetFem(0);
   const unsigned   nGauss2_ref = fem2_ref->GetGaussPointNumber();
   const unsigned   nDof2_ref   = region2.GetDofNumber(0);
@@ -289,10 +290,12 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       phi2Flat[jg * nDof2_ref + i] = phi2_jg[i];
     }
   }
+  double* phi2FlatPtr = phi2Flat.data();
 
   SmoothStepData stepData = element1.GetSmoothStepData();
+  const double   eps      = stepData.eps;
 
-  // Device view of RegionDeviceData
+  // 4) Device view of RegionDeviceData
   RegionDeviceView V {
     D.dim.data(), D.nGauss2.data(), D.nDof2.data(),
     D.x2MinMaxOffset.data(), D.x2MinMaxAll.data(),
@@ -313,7 +316,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const size_t solu2OffsetCount    = D.solu2Offset.size();
   const size_t solu2AllCount       = D.solu2All.size();
 
-  // Pointer aliases for RegionDeviceView arrays (so we can map variables, not V.* expressions)
+  // 5) Pointer aliases for RegionDeviceView arrays
   const unsigned* dimPtr         = V.dim;
   const unsigned* nGauss2Ptr     = V.nGauss2;
   const unsigned* nDof2Ptr       = V.nDof2;
@@ -326,7 +329,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const unsigned* solu2OffPtr    = V.solu2Offset;
   const double*   solu2AllPtr    = V.solu2All;
 
-  // Flat matrix pointers + sizes
+  // 6) Flat matrix pointers + sizes
   double*   jac21FlatPtr = _matView.jac21Flat.data();
   double*   jac22FlatPtr = _matView.jac22Flat.data();
   double*   res2FlatPtr  = _matView.res2Flat.data();
@@ -341,9 +344,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const size_t offJac22Size = _matView.offsetJac22.size();
   const size_t offRes2Size  = _matView.offsetRes2.size();
 
-  // raw pointer for phi2Flat so it's an addressable lvalue in map clauses
-  double* phi2FlatPtr = phi2Flat.data();
-
+  // 7) Map region data + matrices + phi2Flat once
   #pragma omp target data \
       map(to: dimPtr[0:dimCount], \
               nGauss2Ptr[0:nGauss2Count], \
@@ -361,58 +362,51 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
                       jac22FlatPtr[0:jac22Size], \
                       res2FlatPtr[0:res2Size])
   {
+    // Loop over tasks on HOST; each task launches one kernel over its jel
     for (unsigned t = 0; t < _tasks.size(); ++t) {
-      const auto& task = _tasks[t];
+      const NonlocalTask& task = _tasks[t];
 
-      // 1) Rebuild jel slice for this task
-      std::vector<unsigned> jel(task.jelCount);
-      for (unsigned jj = 0; jj < task.jelCount; ++jj) {
-        jel[jj] = _jelIndexAll[task.jelBegin + jj];
+      // 1) Use flattened indices instead of rebuilding vectors
+
+      // jel slice: pointer into global _jelIndexAll
+      const unsigned* jelPtr = _jelIndexAll.data() + task.jelBegin;
+
+      // phi1 slice: pointer into global _phi1All
+      const double* phi1Ptr = _phi1All.data() + task.phi1Offset;
+
+      // xg1 (local coords of current Gauss point of element1)
+      double xg1_host[3] = {0.0, 0.0, 0.0};
+      for (unsigned k = 0; k < dimSpace; ++k) {
+        xg1_host[k] = task.xg1[k];
       }
+      const double* xg1Ptr = xg1_host;
 
-      // 2) Rebuild phi1 for this task
-      std::vector<double> phi1(task.nDof1);
-      for (unsigned i = 0; i < task.nDof1; ++i) {
-        phi1[i] = _phi1All[task.phi1Offset + i];
-      }
-
-      // 3) Rebuild xg1
-      std::vector<double> xg1(element1.GetDimension());
-      for (unsigned k = 0; k < element1.GetDimension(); ++k) {
-        xg1[k] = task.xg1[k];
-      }
-
-      // 4) Compute solu1g (host)
+      // 2) Compute solu1g on host for this task
       double solu1g = 0.0;
       for (unsigned i = 0; i < task.nDof1; ++i) {
-        solu1g += solu1[i] * phi1[i];
+        solu1g += solu1[i] * phi1Ptr[i];
       }
 
-      // 5) Build per-task offsetMC and scratch
+      // 3) Build per-task offsetMC and scratch on host
       std::vector<unsigned> offsetMC(task.jelCount + 1);
       offsetMC[0] = 0;
       for (unsigned jj = 0; jj < task.jelCount; ++jj) {
-        const unsigned jelIdx = jel[jj];
+        const unsigned jelIdx = jelPtr[jj];
         const unsigned nDof2  = nDof2Ptr[jelIdx];
         offsetMC[jj + 1] = offsetMC[jj] + nDof2;
       }
       const unsigned totalMC = offsetMC[task.jelCount];
       std::vector<double> mCphi2All(totalMC, 0.0);
 
-      unsigned*       offsetMCptr  = offsetMC.data();
-      double*         mCphi2AllPtr = mCphi2All.data();
-      const unsigned* jelPtr       = jel.data();
-      const double*   phi1Ptr      = phi1.data();
-      const double*   xg1Ptr       = xg1.data();
-
-      const unsigned dimSpace = element1.GetDimension();
-      const double   eps      = stepData.eps;
+      unsigned* offsetMCptr  = offsetMC.data();
+      double*   mCphi2AllPtr = mCphi2All.data();
 
       const unsigned threads_per_team = 128;
       const unsigned numTeams = (task.jelCount == 0u)
                                 ? 1u
                                 : std::min(task.jelCount, 456u);
 
+      // 4) Parallel over jel for this task (safe: different jel → disjoint matrix blocks)
       #pragma omp target teams distribute parallel for \
           num_teams(numTeams) thread_limit(threads_per_team) \
           map(to: jelPtr[0:task.jelCount], \
@@ -496,12 +490,14 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
           }
           res2_jel[i] += mSum * solu1g;
         }
-      } // end jj
-    }   // end tasks
-  }     // end target data
+      } // jj
+    }   // tasks
+  }     // target data
 
+  // 8) Scatter from flat to original structures
   ScatterBackFromFlat(region2, nDof1);
 }
+
 
 
 
@@ -1682,7 +1678,11 @@ inline void nonLocalInnerElementKernel(
 }
 
 #pragma omp declare target
-inline double interface_distance_ball_raw(const double* xc, const double* xp, unsigned dim, double radius){
+inline double interface_distance_ball_raw(const double* xc,
+                                          const double* xp,
+                                          unsigned dim,
+                                          double radius)
+{
   double distance = 0.0;
   for (unsigned k = 0; k < dim; ++k) {
     double diff = xp[k] - xc[k];

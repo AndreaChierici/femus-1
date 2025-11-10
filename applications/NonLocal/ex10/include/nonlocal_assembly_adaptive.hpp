@@ -54,6 +54,7 @@ struct RegionDeviceView {
 #pragma omp end declare target
 
 
+
 class Region {
   private:
     unsigned _size;
