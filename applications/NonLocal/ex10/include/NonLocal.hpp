@@ -263,12 +263,21 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   const unsigned nDof1 = element1.GetNumberOfNodes();
   const unsigned dimSpace = element1.GetDimension();
 
-  const std::size_t totalTasks = _tasks.size();
+  unsigned totalTasks = _tasks.size();
 
-  // Early exit: small problems stay on CPU
-  if (totalTasks < 2) {  // tune threshold as needed
-    ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
-    return;
+  // Estimate total GPU work: sum over all jel for all tasks
+  unsigned totalJelWork = 0;
+  for (unsigned t = 0; t < totalTasks; ++t) {
+      totalJelWork += _tasks[t].jelCount;
+  }
+
+  // Pick a problem-size threshold for GPU
+  // e.g. 10000 = arbitrary; tune by timing
+  const unsigned MIN_GPU_WORK = 10000;
+
+  if (totalJelWork < MIN_GPU_WORK) {
+      ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
+      return;
   }
 
   // 1) Prepare flat matrix layout (for all jel in region2)
