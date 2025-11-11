@@ -490,8 +490,8 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 //   double eps = 0.125 * dMax *  pow(0.75, lmax1 - 3);
 
   //cubic
-  double dMax = (cutFem) ? 0. : 0.1 * pow(2. / 3., level - 1); //marta4, tri unstructured
-// double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
+  // double dMax = (cutFem) ? 0. : 0.1 * pow(2. / 3., level - 1); //marta4, tri unstructured
+double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
   double eps = 0.125 * dMax;
 
   //quartic
