@@ -252,11 +252,152 @@ double interface_distance_ball_raw(const double* xc,
                                    double radius);
 #pragma omp end declare target
 
-void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
-                                Region&              region2,
-                                const std::vector<double>& solu1,
-                                const double&        delta,
-                                const bool&          /*printMesh*/)
+template <unsigned MAX_NDOF2>
+static void ProcessTaskKernel_GPU_impl(const NonlocalTask& task,
+                                       const unsigned*     jelPtr,
+                                       const double*       phi1Ptr,
+                                       const double*       xg1Ptr,
+                                       double              solu1g,
+                                       const unsigned*     dimPtr,
+                                       const unsigned*     nGauss2Ptr,
+                                       const unsigned*     nDof2Ptr,
+                                       const unsigned*     x2MinMaxOffPtr,
+                                       const double*       x2MinMaxAllPtr,
+                                       const unsigned*     xg2OffPtr,
+                                       const double*       xg2AllPtr,
+                                       const unsigned*     w2OffPtr,
+                                       const double*       w2AllPtr,
+                                       const unsigned*     solu2OffPtr,
+                                       const double*       solu2AllPtr,
+                                       double*             jac21FlatPtr,
+                                       double*             jac22FlatPtr,
+                                       double*             res2FlatPtr,
+                                       unsigned*           offJac21Ptr,
+                                       unsigned*           offJac22Ptr,
+                                       unsigned*           offRes2Ptr,
+                                       const double*       phi2FlatPtr,
+                                       unsigned            nDof2_ref,
+                                       SmoothStepData      stepData,
+                                       double              eps,
+                                       double              delta)
+{
+  const unsigned threads_per_team = 128;
+  const unsigned numTeams         = task.jelCount
+                                    ? std::min<unsigned>(task.jelCount, 456u)
+                                    : 1u;
+
+  #pragma omp target teams distribute parallel for \
+          num_teams(numTeams) thread_limit(threads_per_team)
+  for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+
+    const unsigned jelIdx = jelPtr[jj];
+    const unsigned nDof2  = nDof2Ptr[jelIdx];
+
+    // We expect nDof2 == MAX_NDOF2 == nDof2_ref for this region.
+    if (nDof2 == 0u || nDof2 > MAX_NDOF2) {
+      continue; // you can turn this into an assert in debug builds
+    }
+
+    // Thread-local element buffers
+    double mCphi2_loc[MAX_NDOF2];
+    double res2_loc [MAX_NDOF2];
+    double jac22_loc[MAX_NDOF2 * MAX_NDOF2];
+
+    double* jac21_jel = jac21FlatPtr + offJac21Ptr[jelIdx];
+    double* jac22_jel = jac22FlatPtr + offJac22Ptr[jelIdx];
+    double* res2_jel  = res2FlatPtr  + offRes2Ptr [jelIdx];
+
+    const unsigned dim        = dimPtr[jelIdx];
+    const unsigned nGauss2    = nGauss2Ptr[jelIdx];
+    const unsigned baseMinMax = x2MinMaxOffPtr[jelIdx];
+
+    // Start from zero local contributions
+    for (unsigned i = 0; i < MAX_NDOF2; ++i) {
+      mCphi2_loc[i] = 0.0;
+      res2_loc[i]   = 0.0;
+    }
+    for (unsigned ij = 0; ij < MAX_NDOF2 * MAX_NDOF2; ++ij) {
+      jac22_loc[ij] = 0.0;
+    }
+
+    // Coarse intersection
+    bool hit = true;
+    for (unsigned k = 0; k < dim; ++k) {
+      const unsigned base = baseMinMax + 2u * k;
+      const double xmin  = x2MinMaxAllPtr[base    ];
+      const double xmax  = x2MinMaxAllPtr[base + 1u];
+      if ((xg1Ptr[k] - xmax) > delta + eps ||
+          (xmin - xg1Ptr[k]) > delta + eps) {
+        hit = false;
+        break;
+      }
+    }
+    if (!hit) continue;
+
+    const unsigned baseXg2   = xg2OffPtr   [jelIdx];
+    const unsigned baseW2    = w2OffPtr    [jelIdx];
+    const unsigned baseSolu2 = solu2OffPtr [jelIdx];
+
+    for (unsigned jg = 0; jg < nGauss2; ++jg) {
+      double xg2_jg[3] = {0.0, 0.0, 0.0};
+      for (unsigned k = 0; k < dim; ++k) {
+        xg2_jg[k] = xg2AllPtr[baseXg2 + jg * dim + k];
+      }
+
+      const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
+      const double U_jjjg = SmoothStepEval(dg1, stepData);
+      if (U_jjjg <= 0.0) continue;
+
+      const double w2    = w2AllPtr   [baseW2    + jg];
+      const double solu2 = solu2AllPtr[baseSolu2 + jg];
+
+      const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
+      const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref; // nDof2_ref == MAX_NDOF2 here
+
+      for (unsigned i = 0; i < nDof2; ++i) {
+        const double cPhi2i = C * phi2_jg[i];
+        mCphi2_loc[i] -= cPhi2i;
+
+        double*       jac22_row = jac22_loc + i * MAX_NDOF2;
+        const double* phi2pt    = phi2_jg;
+        for (unsigned j = 0; j < nDof2; ++j, ++phi2pt) {
+          jac22_row[j] -= cPhi2i * (*phi2pt);
+        }
+
+        res2_loc[i] += cPhi2i * solu2;
+      }
+    }
+
+    // Use mCphi2_loc to update jac21 and res2_loc
+    unsigned ijIndex = 0;
+    for (unsigned i = 0; i < nDof2; ++i) {
+      const double mSum = mCphi2_loc[i];
+      for (unsigned j = 0; j < task.nDof1; ++j, ++ijIndex) {
+        jac21_jel[ijIndex] -= mSum * phi1Ptr[j];
+      }
+      res2_loc[i] += mSum * solu1g;
+    }
+
+    // Single global writeback: add local contributions
+    for (unsigned i = 0; i < nDof2; ++i) {
+      res2_jel[i] += res2_loc[i];
+    }
+    for (unsigned i = 0; i < nDof2; ++i) {
+      double* row_loc = jac22_loc + i * MAX_NDOF2;
+      double* row_g   = jac22_jel + i * nDof2;
+      for (unsigned j = 0; j < nDof2; ++j) {
+        row_g[j] += row_loc[j];
+      }
+    }
+  } // jj
+}
+
+
+void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
+                                Region&                     region2,
+                                const std::vector<double>&  solu1,
+                                const double&               delta,
+                                const bool&                 /*printMesh*/)
 {
   const unsigned nDof1    = element1.GetNumberOfNodes();
   const unsigned dimSpace = element1.GetDimension();
@@ -281,10 +422,10 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   RegionDeviceData D;
   region2.BuildDeviceData(D);
 
-  // 3) Build flat phi2 from a reference element (assume same type/order)
+  // 3) Build flat phi2 from reference element
   const elem_type* fem2_ref    = region2.GetFem(0);
   const unsigned   nGauss2_ref = fem2_ref->GetGaussPointNumber();
-  const unsigned   nDof2_ref   = region2.GetDofNumber(0); // assumed constant for region2
+  const unsigned   nDof2_ref   = region2.GetDofNumber(0);
 
   std::vector<double> phi2Flat(nGauss2_ref * nDof2_ref);
   for (unsigned jg = 0; jg < nGauss2_ref; ++jg) {
@@ -327,13 +468,12 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
   SmoothStepData stepData = element1.GetSmoothStepData();
   const double   eps      = stepData.eps;
 
-  // 5) Host loop over tasks; each task launches a kernel over its jel range
-  for (const NonlocalTask& task : _tasks) {
+  // Helper lambda: run one task with the appropriate instantiation
+  auto run_task = [&](const NonlocalTask& task) {
+    if (!task.jelCount) return;
 
-    if (!task.jelCount) continue;
-
-    const unsigned* jelPtr  = _jelIndexAll.data() + task.jelBegin;   // length = task.jelCount
-    const double*   phi1Ptr = _phi1All.data()    + task.phi1Offset;  // length = task.nDof1
+    const unsigned* jelPtr  = _jelIndexAll.data() + task.jelBegin;
+    const double*   phi1Ptr = _phi1All.data()    + task.phi1Offset;
 
     // xg1 (local coords of current Gauss point of element1)
     double xg1_host[3] = {0.0, 0.0, 0.0};
@@ -348,137 +488,59 @@ void NonLocal::ProcessTasks_GPU(const RefineElement& element1,
       solu1g += solu1[i] * phi1Ptr[i];
     }
 
-    const unsigned threads_per_team = 128;
-    const unsigned numTeams         = task.jelCount
-                                      ? std::min<unsigned>(task.jelCount, 456u)
-                                      : 1u;
+    switch (nDof2_ref) {
+      case 4: // Q1 quad
+        ProcessTaskKernel_GPU_impl<4>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                      dimPtr, nGauss2Ptr, nDof2Ptr,
+                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                      xg2OffPtr, xg2AllPtr,
+                                      w2OffPtr, w2AllPtr,
+                                      solu2OffPtr, solu2AllPtr,
+                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                      phi2FlatPtr, nDof2_ref,
+                                      stepData, eps, delta);
+        break;
+      case 8: // serendipity Q8
+        ProcessTaskKernel_GPU_impl<8>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                      dimPtr, nGauss2Ptr, nDof2Ptr,
+                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                      xg2OffPtr, xg2AllPtr,
+                                      w2OffPtr, w2AllPtr,
+                                      solu2OffPtr, solu2AllPtr,
+                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                      phi2FlatPtr, nDof2_ref,
+                                      stepData, eps, delta);
+        break;
+      case 9: // full Q2
+        ProcessTaskKernel_GPU_impl<9>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                      dimPtr, nGauss2Ptr, nDof2Ptr,
+                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                      xg2OffPtr, xg2AllPtr,
+                                      w2OffPtr, w2AllPtr,
+                                      solu2OffPtr, solu2AllPtr,
+                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                      phi2FlatPtr, nDof2_ref,
+                                      stepData, eps, delta);
+        break;
+      default:
+        // Fallback: either CPU or your old GPU kernel
+        ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
+        break;
+    }
+  };
 
-    // 6) Parallel over jel for this task
-    // Each thread owns one jel and uses local (per-thread) buffers:
-    //   mCphi2_loc[nDof2_ref]
-    //   res2_loc[nDof2_ref]
-    //   jac22_loc[nDof2_ref * nDof2_ref]
-    #pragma omp target teams distribute parallel for \
-            num_teams(numTeams) thread_limit(threads_per_team)
-    for (unsigned jj = 0; jj < task.jelCount; ++jj) {
+  // Loop over tasks
+  for (const NonlocalTask& task : _tasks) {
+    run_task(task);
+  }
 
-      const unsigned jelIdx = jelPtr[jj];
-      const unsigned nDof2  = nDof2Ptr[jelIdx];
-
-      // If region2 is homogeneous, this should hold; keep guard anyway
-      if (nDof2 == 0 || nDof2 > nDof2_ref) continue;
-
-      // Per-thread local buffers (on device)
-      double mCphi2_loc[nDof2_ref];
-      double res2_loc [nDof2_ref];
-      double jac22_loc[nDof2_ref * nDof2_ref];
-
-      double* jac21_jel = jac21FlatPtr + offJac21Ptr[jelIdx];
-      double* jac22_jel = jac22FlatPtr + offJac22Ptr[jelIdx];
-      double* res2_jel  = res2FlatPtr  + offRes2Ptr [jelIdx];
-
-      const unsigned dim        = dimPtr[jelIdx];
-      const unsigned nGauss2    = nGauss2Ptr[jelIdx];
-      const unsigned baseMinMax = x2MinMaxOffPtr[jelIdx];
-
-      // Initialize locals from global (preserve current matrix/res state)
-      for (unsigned i = 0; i < nDof2; ++i) {
-        mCphi2_loc[i] = 0.0;
-        res2_loc[i]   = res2_jel[i];
-      }
-      // Optional: zero the remaining part if nDof2 < nDof2_ref
-      for (unsigned i = nDof2; i < nDof2_ref; ++i) {
-        mCphi2_loc[i] = 0.0;
-        res2_loc[i]   = 0.0;
-      }
-
-      for (unsigned i = 0; i < nDof2; ++i) {
-        double* row_loc = jac22_loc + i * nDof2_ref;
-        double* row_g   = jac22_jel + i * nDof2;
-        for (unsigned j = 0; j < nDof2; ++j) {
-          row_loc[j] = row_g[j];
-        }
-        // Optional: zero tail j from nDof2 to nDof2_ref
-        for (unsigned j = nDof2; j < nDof2_ref; ++j) {
-          row_loc[j] = 0.0;
-        }
-      }
-
-      // Coarse intersection
-      bool hit = true;
-      for (unsigned k = 0; k < dim; ++k) {
-        const unsigned base = baseMinMax + 2 * k;
-        const double xmin  = x2MinMaxAllPtr[base    ];
-        const double xmax  = x2MinMaxAllPtr[base + 1];
-        if ((xg1Ptr[k] - xmax) > delta + eps ||
-            (xmin - xg1Ptr[k]) > delta + eps) {
-          hit = false;
-          break;
-        }
-      }
-      if (!hit) continue;
-
-      const unsigned baseXg2   = xg2OffPtr   [jelIdx];
-      const unsigned baseW2    = w2OffPtr    [jelIdx];
-      const unsigned baseSolu2 = solu2OffPtr [jelIdx];
-
-      for (unsigned jg = 0; jg < nGauss2; ++jg) {
-        double xg2_jg[3] = {0.0, 0.0, 0.0};
-        for (unsigned k = 0; k < dim; ++k) {
-          xg2_jg[k] = xg2AllPtr[baseXg2 + jg * dim + k];
-        }
-
-        const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
-        const double U_jjjg = SmoothStepEval(dg1, stepData);
-        if (U_jjjg <= 0.0) continue;
-
-        const double w2    = w2AllPtr   [baseW2    + jg];
-        const double solu2 = solu2AllPtr[baseSolu2 + jg];
-
-        const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
-        const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref; // reference FE
-
-        for (unsigned i = 0; i < nDof2; ++i) {
-          const double cPhi2i = C * phi2_jg[i];
-          mCphi2_loc[i] -= cPhi2i;
-
-          double*       jac22_row = jac22_loc + i * nDof2_ref;
-          const double* phi2pt    = phi2_jg;
-          for (unsigned j = 0; j < nDof2; ++j, ++phi2pt) {
-            jac22_row[j] -= cPhi2i * (*phi2pt);
-          }
-
-          res2_loc[i] += cPhi2i * solu2;
-        }
-      }
-
-      // Use mCphi2_loc to update jac21 and res2_loc
-      unsigned ijIndex = 0;
-      for (unsigned i = 0; i < nDof2; ++i) {
-        const double mSum = mCphi2_loc[i];
-        for (unsigned j = 0; j < task.nDof1; ++j, ++ijIndex) {
-          jac21_jel[ijIndex] -= mSum * phi1Ptr[j];
-        }
-        res2_loc[i] += mSum * solu1g;
-      }
-
-      // Final write back: one pass over res2 and jac22
-      for (unsigned i = 0; i < nDof2; ++i) {
-        res2_jel[i] = res2_loc[i];
-      }
-      for (unsigned i = 0; i < nDof2; ++i) {
-        double* row_loc = jac22_loc + i * nDof2_ref;
-        double* row_g   = jac22_jel + i * nDof2;
-        for (unsigned j = 0; j < nDof2; ++j) {
-          row_g[j] = row_loc[j];
-        }
-      }
-    } // jj
-  }   // tasks
-
-  // 7) Scatter from flat to original structures
+  // 8) Scatter from flat to original structures
   ScatterBackFromFlat(region2, nDof1);
 }
+
 
 
 
