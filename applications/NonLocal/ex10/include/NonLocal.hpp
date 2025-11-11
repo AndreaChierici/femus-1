@@ -124,6 +124,17 @@ class NonLocal {
       return _jac22[jel];
     };
 
+     struct NonlocalTask {
+      double   xg1[3];          // 2D or 3D, we just use first 'dim'
+      double   twoWeigh1Kernel;
+      unsigned nDof1;
+
+      unsigned phi1Offset;      // index into _phi1All where phi1 starts
+
+      unsigned jelBegin;        // index into _jelIndexAll
+      unsigned jelCount;        // how many entries for this task
+    };
+
   private:
     std::vector < std::vector < double > > _res2;
     std::vector < std::vector < double > > _jac21;
@@ -166,17 +177,6 @@ class NonLocal {
     unsigned _cut;
 
     void PrintElement(const std::vector < std::vector < double> > &xv, const RefineElement &refineElement);
-
-    struct NonlocalTask {
-      double   xg1[3];          // 2D or 3D, we just use first 'dim'
-      double   twoWeigh1Kernel;
-      unsigned nDof1;
-
-      unsigned phi1Offset;      // index into _phi1All where phi1 starts
-
-      unsigned jelBegin;        // index into _jelIndexAll
-      unsigned jelCount;        // how many entries for this task
-    };
 
     std::vector<NonlocalTask> _tasks;
     std::vector<unsigned>     _jelIndexAll;
@@ -253,7 +253,7 @@ double interface_distance_ball_raw(const double* xc,
 #pragma omp end declare target
 
 template <unsigned MAX_NDOF2>
-static void ProcessTaskKernel_GPU_impl(const NonlocalTask& task,
+static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
                                        const unsigned*     jelPtr,
                                        const double*       phi1Ptr,
                                        const double*       xg1Ptr,
