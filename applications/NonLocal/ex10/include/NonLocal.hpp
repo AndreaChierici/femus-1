@@ -293,9 +293,9 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
     const unsigned jelIdx = jelPtr[jj];
     const unsigned nDof2  = nDof2Ptr[jelIdx];
 
-    // We expect nDof2 == MAX_NDOF2 == nDof2_ref for this region.
+    // We expect nDof2 <= MAX_NDOF2 and nDof2_ref == MAX_NDOF2
     if (nDof2 == 0u || nDof2 > MAX_NDOF2) {
-      continue; // you can turn this into an assert in debug builds
+      continue;
     }
 
     // Thread-local element buffers
@@ -352,7 +352,7 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
       const double solu2 = solu2AllPtr[baseSolu2 + jg];
 
       const double C = U_jjjg * w2 * task.twoWeigh1Kernel;
-      const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref; // nDof2_ref == MAX_NDOF2 here
+      const double* phi2_jg = phi2FlatPtr + jg * nDof2_ref;
 
       for (unsigned i = 0; i < nDof2; ++i) {
         const double cPhi2i = C * phi2_jg[i];
@@ -390,6 +390,22 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
       }
     }
   } // jj
+}
+
+// Helper: flatten phi2(jg,i) for a given reference element (one FE type)
+inline void build_phi2Flat_for(const elem_type*     fem2_ref,
+                               unsigned             nDof2_ref,
+                               std::vector<double>& phi2Flat)
+{
+  const unsigned nGauss2_ref = fem2_ref->GetGaussPointNumber();
+  phi2Flat.resize(nGauss2_ref * nDof2_ref);
+  for (unsigned jg = 0; jg < nGauss2_ref; ++jg) {
+    const double* phi2_jg = fem2_ref->GetPhi(jg);
+    double* dest = &phi2Flat[jg * nDof2_ref];
+    for (unsigned i = 0; i < nDof2_ref; ++i) {
+      dest[i] = phi2_jg[i];
+    }
+  }
 }
 
 
@@ -468,79 +484,182 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
   SmoothStepData stepData = element1.GetSmoothStepData();
   const double   eps      = stepData.eps;
 
-  // Helper lambda: run one task with the appropriate instantiation
-  auto run_task = [&](const NonlocalTask& task) {
-    if (!task.jelCount) return;
+   const unsigned nElem = region2.size();
 
-    const unsigned* jelPtr  = _jelIndexAll.data() + task.jelBegin;
-    const double*   phi1Ptr = _phi1All.data()    + task.phi1Offset;
+  struct ElemGroup {
+    const elem_type*   fem;
+    unsigned           nDof2;
+    unsigned           nGauss2_ref;
+    std::vector<unsigned> jelIndices;  // all jel with this (fem, nDof2)
+    std::vector<double>   phi2Flat;    // [nGauss2_ref * nDof2]
+  };
 
-    // xg1 (local coords of current Gauss point of element1)
-    double xg1_host[3] = {0.0, 0.0, 0.0};
-    for (unsigned k = 0; k < dimSpace; ++k) {
-      xg1_host[k] = task.xg1[k];
+  std::vector<ElemGroup> groups;
+  groups.reserve(4);
+  std::vector<int> elemGroupId(nElem, -1);
+
+  for (unsigned jel = 0; jel < nElem; ++jel) {
+    const elem_type* fem2 = region2.GetFem(jel);
+    const unsigned   nDof2 = region2.GetDofNumber(jel);
+
+    int found = -1;
+    for (std::size_t g = 0; g < groups.size(); ++g) {
+      if (groups[g].fem == fem2 && groups[g].nDof2 == nDof2) {
+        found = static_cast<int>(g);
+        break;
+      }
     }
-    const double* xg1Ptr = xg1_host;
 
-    // solu1(xg1) on host for this task
-    double solu1g = 0.0;
-    for (unsigned i = 0; i < task.nDof1; ++i) {
-      solu1g += solu1[i] * phi1Ptr[i];
+    if (found < 0) {
+      ElemGroup g;
+      g.fem         = fem2;
+      g.nDof2       = nDof2;
+      g.nGauss2_ref = fem2->GetGaussPointNumber();
+      groups.push_back(g);
+      found = static_cast<int>(groups.size() - 1);
     }
 
-    switch (nDof2_ref) {
-      case 4: // Q1 quad
-        ProcessTaskKernel_GPU_impl<4>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
-                                      dimPtr, nGauss2Ptr, nDof2Ptr,
-                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
-                                      xg2OffPtr, xg2AllPtr,
-                                      w2OffPtr, w2AllPtr,
-                                      solu2OffPtr, solu2AllPtr,
-                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
-                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
-                                      phi2FlatPtr, nDof2_ref,
-                                      stepData, eps, delta);
-        break;
-      case 8: // serendipity Q8
-        ProcessTaskKernel_GPU_impl<8>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
-                                      dimPtr, nGauss2Ptr, nDof2Ptr,
-                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
-                                      xg2OffPtr, xg2AllPtr,
-                                      w2OffPtr, w2AllPtr,
-                                      solu2OffPtr, solu2AllPtr,
-                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
-                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
-                                      phi2FlatPtr, nDof2_ref,
-                                      stepData, eps, delta);
-        break;
-      case 9: // full Q2
-        ProcessTaskKernel_GPU_impl<9>(task, jelPtr, phi1Ptr, xg1Ptr, solu1g,
-                                      dimPtr, nGauss2Ptr, nDof2Ptr,
-                                      x2MinMaxOffPtr, x2MinMaxAllPtr,
-                                      xg2OffPtr, xg2AllPtr,
-                                      w2OffPtr, w2AllPtr,
-                                      solu2OffPtr, solu2AllPtr,
-                                      jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
-                                      offJac21Ptr, offJac22Ptr, offRes2Ptr,
-                                      phi2FlatPtr, nDof2_ref,
-                                      stepData, eps, delta);
-        break;
+    elemGroupId[jel] = found;
+    groups[found].jelIndices.push_back(jel);
+  }
+
+  // 5) Build phi2Flat for each group and check which nDof2 are supported on the GPU
+  auto is_supported_nDof2 = [](unsigned nDof2) -> bool {
+    // Extend this set if you have more element types (e.g. higher order)
+    switch (nDof2) {
+      case 3:  // P1 triangle
+      case 4:  // Q1 quad
+      case 6:  // P2 triangle
+      case 8:  // serendipity Q8
+      case 9:  // Q2 quad
+        return true;
       default:
-        // Fallback: either CPU or your old GPU kernel
-        ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
-        break;
+        return false;
     }
   };
 
-  // Loop over tasks
-  for (const NonlocalTask& task : _tasks) {
-    run_task(task);
+  for (auto& g : groups) {
+    if (!is_supported_nDof2(g.nDof2)) {
+      // We currently don't support this nDof2 on GPU; bail out to CPU
+      ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
+      return;
+    }
+    build_phi2Flat_for(g.fem, g.nDof2, g.phi2Flat);
   }
 
-  // 8) Scatter from flat to original structures
+  // 6) For each (group, task) pair, run the GPU kernel on the subset of jels in that group
+  std::vector<unsigned> jelBuf;
+  jelBuf.reserve(128); // arbitrary
+
+  for (std::size_t gIdx = 0; gIdx < groups.size(); ++gIdx) {
+    ElemGroup& G       = groups[gIdx];
+    const unsigned nDof2_ref = G.nDof2;
+    const double*  phi2FlatPtr = G.phi2Flat.data();
+
+    for (const NonlocalTask& task : _tasks) {
+      if (!task.jelCount) continue;
+
+      // Build subset of jels in this task that belong to this group
+      jelBuf.clear();
+      jelBuf.reserve(task.jelCount);
+      for (unsigned loc = 0; loc < task.jelCount; ++loc) {
+        unsigned jel = _jelIndexAll[task.jelBegin + loc];
+        if (elemGroupId[jel] == static_cast<int>(gIdx)) {
+          jelBuf.push_back(jel);
+        }
+      }
+      if (jelBuf.empty()) continue;
+
+      const unsigned* jelPtr  = jelBuf.data();
+      const double*   phi1Ptr = _phi1All.data() + task.phi1Offset;
+
+      // xg1 (local coords of current Gauss point of element1)
+      double xg1_host[3] = {0.0, 0.0, 0.0};
+      for (unsigned k = 0; k < dimSpace; ++k) {
+        xg1_host[k] = task.xg1[k];
+      }
+      const double* xg1Ptr = xg1_host;
+
+      // solu1(xg1) on host for this task
+      double solu1g = 0.0;
+      for (unsigned i = 0; i < task.nDof1; ++i) {
+        solu1g += solu1[i] * phi1Ptr[i];
+      }
+
+      NonlocalTask localTask = task;
+      localTask.jelCount     = jelBuf.size(); // we only process this subset
+
+      switch (G.nDof2) {
+        case 3:
+          ProcessTaskKernel_GPU_impl<3>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                        dimPtr, nGauss2Ptr, nDof2Ptr,
+                                        x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                        xg2OffPtr, xg2AllPtr,
+                                        w2OffPtr, w2AllPtr,
+                                        solu2OffPtr, solu2AllPtr,
+                                        jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                        offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                        phi2FlatPtr, nDof2_ref,
+                                        stepData, eps, delta);
+          break;
+        case 4:
+          ProcessTaskKernel_GPU_impl<4>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                        dimPtr, nGauss2Ptr, nDof2Ptr,
+                                        x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                        xg2OffPtr, xg2AllPtr,
+                                        w2OffPtr, w2AllPtr,
+                                        solu2OffPtr, solu2AllPtr,
+                                        jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                        offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                        phi2FlatPtr, nDof2_ref,
+                                        stepData, eps, delta);
+          break;
+        case 6:
+          ProcessTaskKernel_GPU_impl<6>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                        dimPtr, nGauss2Ptr, nDof2Ptr,
+                                        x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                        xg2OffPtr, xg2AllPtr,
+                                        w2OffPtr, w2AllPtr,
+                                        solu2OffPtr, solu2AllPtr,
+                                        jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                        offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                        phi2FlatPtr, nDof2_ref,
+                                        stepData, eps, delta);
+          break;
+        case 8:
+          ProcessTaskKernel_GPU_impl<8>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                        dimPtr, nGauss2Ptr, nDof2Ptr,
+                                        x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                        xg2OffPtr, xg2AllPtr,
+                                        w2OffPtr, w2AllPtr,
+                                        solu2OffPtr, solu2AllPtr,
+                                        jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                        offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                        phi2FlatPtr, nDof2_ref,
+                                        stepData, eps, delta);
+          break;
+        case 9:
+          ProcessTaskKernel_GPU_impl<9>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+                                        dimPtr, nGauss2Ptr, nDof2Ptr,
+                                        x2MinMaxOffPtr, x2MinMaxAllPtr,
+                                        xg2OffPtr, xg2AllPtr,
+                                        w2OffPtr, w2AllPtr,
+                                        solu2OffPtr, solu2AllPtr,
+                                        jac21FlatPtr, jac22FlatPtr, res2FlatPtr,
+                                        offJac21Ptr, offJac22Ptr, offRes2Ptr,
+                                        phi2FlatPtr, nDof2_ref,
+                                        stepData, eps, delta);
+          break;
+        default:
+          // Should not happen, we filtered unsupported nDof2 above
+          break;
+      }
+    } // tasks
+  }   // groups
+
+  // 7) Scatter from flat to original structures
   ScatterBackFromFlat(region2, nDof1);
 }
-
 
 
 
