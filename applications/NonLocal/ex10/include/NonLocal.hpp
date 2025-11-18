@@ -552,14 +552,14 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
     const unsigned  nDof2_ref  = G.nDof2;
     const double*   phi2FlatPtrG = G.phi2Flat.data();
 
-    for (const NonlocalTask& task : _tasks) {
+    for (const NonlocalTask& task : _tasks) { //loop over leafs of iel
       if (!task.jelCount) continue;
 
       // Build subset of jels in this task that belong to this group
       jelBuf.clear();
       jelBuf.reserve(task.jelCount);
       for (unsigned loc = 0; loc < task.jelCount; ++loc) {
-        const unsigned jel = _jelIndexAll[task.jelBegin + loc];
+        const unsigned jel = _jelIndexAll[task.jelBegin + loc]; //TODO maybe store them separately QUAD/TRI? to get rid of the if below
         if (elemGroupId[jel] == static_cast<int>(gIdx)) {
           jelBuf.push_back(jel);
         }
