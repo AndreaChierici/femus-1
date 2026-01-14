@@ -256,7 +256,9 @@ template <unsigned MAX_NDOF2>
 static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
                                        const unsigned*     jelPtr,
                                        const double*       phi1Ptr,
-                                       const double*       xg1Ptr,
+                                       double              xg1_0,
+                                       double              xg1_1,
+                                       double              xg1_2,
                                        double              solu1g,
                                        const unsigned*     dimPtr,
                                        const unsigned*     nGauss2Ptr,
@@ -281,6 +283,10 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
                                        double              eps,
                                        double              delta)
 {
+  auto xg1_at = [&](unsigned k) -> double {
+    return (k == 0u) ? xg1_0 : (k == 1u) ? xg1_1 : xg1_2;
+  };
+
   const unsigned threads_per_team = 128;
   const unsigned numTeams         = task.jelCount
                                     ? std::min<unsigned>(task.jelCount, 456u)
@@ -326,8 +332,8 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
       const unsigned base = baseMinMax + 2u * k;
       const double xmin  = x2MinMaxAllPtr[base    ];
       const double xmax  = x2MinMaxAllPtr[base + 1u];
-      if ((xg1Ptr[k] - xmax) > delta + eps ||
-          (xmin - xg1Ptr[k]) > delta + eps) {
+      if ((xg1_at(k) - xmax) > delta + eps ||
+          (xmin - xg1_at(k)) > delta + eps) {
         hit = false;
         break;
       }
@@ -344,7 +350,8 @@ static void ProcessTaskKernel_GPU_impl(const NonLocal::NonlocalTask& task,
         xg2_jg[k] = xg2AllPtr[baseXg2 + jg * dim + k];
       }
 
-      const double dg1    = interface_distance_ball_raw(xg1Ptr, xg2_jg, dim, delta);
+      double xg1_loc[3] = {xg1_0, xg1_1, xg1_2};
+      const double dg1    = interface_distance_ball_raw(xg1_loc, xg2_jg, dim, delta);
       const double U_jjjg = SmoothStepEval(dg1, stepData);
       if (U_jjjg <= 0.0) continue;
 
@@ -569,12 +576,12 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
       const unsigned* jelPtr  = jelBuf.data();
       const double*   phi1Ptr = _phi1All.data() + task.phi1Offset;
 
-      // xg1 (local coords of current Gauss point of element1)
-      double xg1_host[3] = {0.0, 0.0, 0.0};
-      for (unsigned k = 0; k < dimSpace; ++k) {
-        xg1_host[k] = task.xg1[k];
-      }
-      const double* xg1Ptr = xg1_host;
+      // // xg1 (local coords of current Gauss point of element1)
+      // double xg1_host[3] = {0.0, 0.0, 0.0};
+      // for (unsigned k = 0; k < dimSpace; ++k) {
+      //   xg1_host[k] = task.xg1[k];
+      // }
+      // const double* xg1Ptr = xg1_host;
 
       // solu1(xg1) on host for this task
       double solu1g = 0.0;
@@ -585,9 +592,13 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
       NonlocalTask localTask = task;
       localTask.jelCount     = static_cast<unsigned>(jelBuf.size());
 
+      const double xg1_0 = task.xg1[0];
+      const double xg1_1 = (dimSpace > 1u) ? task.xg1[1] : 0.0;
+      const double xg1_2 = (dimSpace > 2u) ? task.xg1[2] : 0.0;
+
       switch (G.nDof2) {
         case 3:
-          ProcessTaskKernel_GPU_impl<3>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+          ProcessTaskKernel_GPU_impl<3>(localTask, jelPtr, phi1Ptr, xg1_0, xg1_1, xg1_2, solu1g,
                                         dimPtr, nGauss2Ptr, nDof2Ptr,
                                         x2MinMaxOffPtr, x2MinMaxAllPtr,
                                         xg2OffPtr, xg2AllPtr,
@@ -599,7 +610,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
                                         stepData, eps, delta);
           break;
         case 4:
-          ProcessTaskKernel_GPU_impl<4>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+          ProcessTaskKernel_GPU_impl<4>(localTask, jelPtr, phi1Ptr, xg1_0, xg1_1, xg1_2, solu1g,
                                         dimPtr, nGauss2Ptr, nDof2Ptr,
                                         x2MinMaxOffPtr, x2MinMaxAllPtr,
                                         xg2OffPtr, xg2AllPtr,
@@ -611,7 +622,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
                                         stepData, eps, delta);
           break;
         case 6:
-          ProcessTaskKernel_GPU_impl<6>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+          ProcessTaskKernel_GPU_impl<6>(localTask, jelPtr, phi1Ptr, xg1_0, xg1_1, xg1_2, solu1g,
                                         dimPtr, nGauss2Ptr, nDof2Ptr,
                                         x2MinMaxOffPtr, x2MinMaxAllPtr,
                                         xg2OffPtr, xg2AllPtr,
@@ -623,7 +634,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
                                         stepData, eps, delta);
           break;
         case 8:
-          ProcessTaskKernel_GPU_impl<8>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+          ProcessTaskKernel_GPU_impl<8>(localTask, jelPtr, phi1Ptr, xg1_0, xg1_1, xg1_2, solu1g,
                                         dimPtr, nGauss2Ptr, nDof2Ptr,
                                         x2MinMaxOffPtr, x2MinMaxAllPtr,
                                         xg2OffPtr, xg2AllPtr,
@@ -635,7 +646,7 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
                                         stepData, eps, delta);
           break;
         case 9:
-          ProcessTaskKernel_GPU_impl<9>(localTask, jelPtr, phi1Ptr, xg1Ptr, solu1g,
+          ProcessTaskKernel_GPU_impl<9>(localTask, jelPtr, phi1Ptr, xg1_0, xg1_1, xg1_2, solu1g,
                                         dimPtr, nGauss2Ptr, nDof2Ptr,
                                         x2MinMaxOffPtr, x2MinMaxAllPtr,
                                         xg2OffPtr, xg2AllPtr,
