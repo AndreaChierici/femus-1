@@ -21,8 +21,6 @@
 #include "adept.h"
 
 const unsigned DIM = 2;
-const double GAMMA = 0.5;
-bool UseNewmarkUpdateWithD = true;
 
 double dt = 0.025;
 const unsigned n_timesteps = 400;
@@ -36,8 +34,18 @@ bool withDisturbance = false;
 std::vector<unsigned> g_controlNodeDofs;
 unsigned gdof;
 
+struct Indices {
+    std::vector<unsigned> P, PStar, CStar;
+    std::vector<unsigned> Z, ZOld, E;
+    unsigned Zi, Xi, Yi, Ei, Ztot, R, C;
+    unsigned d, Bd; // only if withDisturbance
+  };
 
-std::vector<double> x1;
+static Indices g_idx;
+
+
+std::vector<double> x1_vec;
+std::vector<double> y1_vec;
 std::vector<std::vector<double>> w(cascadeIterations);
 std::vector<std::vector<double>> wOld(cascadeIterations);
 
@@ -55,7 +63,6 @@ struct WNodeIDs {
   unsigned X1;  // node for W-equation #2
   unsigned Y1;  // node for W-equation #3
 };
-WNodeIDs g_specialWnodes;
 
 
 double SetVariableTimeStep(const double time) {
@@ -83,9 +90,6 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
     dirichlet = true;
     value = 0.;
   }
-
-
-
   // if((DIM == 2 && facename == 4) || (DIM == 3 && facename == 5)) {   // left boundary condition.
   //   dirichlet = true;
   // }
@@ -99,9 +103,6 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 }
 
 
-void NewmarkUpdate(MultiLevelSolution *mlSol);
-void NewmarkUpdateWithD(MultiLevelSolution *mlSol);
-
 void AssembleResAD(MultiLevelProblem& ml_prob);
 void AssembleResP(MultiLevelProblem& ml_prob);
 
@@ -110,9 +111,6 @@ std::vector<double> PrecomputePstarIntegrals(Solution* sol);
 
 std::vector<double> ComputeL2NormCascadeOverC(Solution* sol, unsigned cascadeIterations);
 
-
-unsigned FindClosestNode(const Mesh* msh, const std::vector<double>& x0);
-std::vector<double> MarkControlNodes(const Mesh* msh, const std::vector<std::vector<double>>& points);
 std::vector<unsigned> GetControlNodeIndices(const Mesh* msh, const std::vector<std::vector<double>>& points);
 
 // std::vector<unsigned> GetGlobalNodeIDsForW(const Mesh* msh, unsigned elemID, const std::vector<unsigned>& localNodeIDs);
@@ -130,6 +128,10 @@ int main(int argc, char** args) {
 
   double length = 1;
   double lengthx = M_PI;
+
+  std::vector<std::vector<double>> controlPoints = {
+    {M_PI / 2., 0.5}
+  };
 
   if (DIM == 2) {
     mlMsh.GenerateCoarseBoxMesh(nx, ny, 0, 0., lengthx, 0., length, 0., 0., QUAD9, "seventh");
@@ -150,10 +152,6 @@ int main(int argc, char** args) {
     const unsigned level = mlMsh.GetNumberOfLevels() - 1;
   Solution* sol = mlSol.GetSolutionLevel(level);
   Mesh* msh = sol->GetMesh();
-
-  std::vector<std::vector<double>> controlPoints = {
-    {2. * M_PI / 3., 0.5},{M_PI / 3., 0.5}
-  };
 
   g_controlNodeDofs = GetControlNodeIndices(msh, controlPoints);
 
@@ -200,6 +198,77 @@ int main(int argc, char** args) {
   mlSol.Initialize("All");
   mlSol.AttachSetBoundaryConditionFunction(SetBoundaryCondition);
   mlSol.GenerateBdc("All");
+
+  const unsigned nCtrl = g_controlNodeDofs.size();
+  g_idx.P.resize(nCtrl);
+  g_idx.PStar.resize(nCtrl);
+  g_idx.CStar.resize(nCtrl);
+
+  for (unsigned p = 0; p < nCtrl; ++p) {
+    g_idx.P[p]     = mlSol.GetIndex(("P" + std::to_string(p)).c_str());
+    g_idx.PStar[p] = mlSol.GetIndex(("PStar" + std::to_string(p)).c_str());
+    g_idx.CStar[p] = mlSol.GetIndex(("CStarCPStar" + std::to_string(p)).c_str());
+  }
+
+  g_idx.Z.resize(cascadeIterations);
+  g_idx.ZOld.resize(cascadeIterations);
+  g_idx.E.resize(cascadeIterations);
+
+  for (unsigned j = 0; j < cascadeIterations; ++j) {
+    g_idx.Z[j]    = mlSol.GetIndex(("Z" + std::to_string(j)).c_str());
+    g_idx.ZOld[j] = mlSol.GetIndex(("Z" + std::to_string(j) + "Old").c_str());
+    g_idx.E[j]    = mlSol.GetIndex(("E" + std::to_string(j)).c_str());
+  }
+
+  // singletons
+  g_idx.Zi   = mlSol.GetIndex("Zi");
+  g_idx.Xi   = mlSol.GetIndex("Xi");
+  g_idx.Yi   = mlSol.GetIndex("Yi");
+  g_idx.Ei   = mlSol.GetIndex("Ei");
+  g_idx.Ztot = mlSol.GetIndex("Z");
+  g_idx.R    = mlSol.GetIndex("R");
+  g_idx.C    = mlSol.GetIndex("C");
+
+  if (withDisturbance) {
+    g_idx.d  = mlSol.GetIndex("d");
+    g_idx.Bd = mlSol.GetIndex("Bd");
+  }
+
+  auto bad = [](unsigned v) { return v == static_cast<unsigned>(-1); };
+
+  // controls
+  for (unsigned p = 0; p < nCtrl; ++p) {
+    if (bad(g_idx.P[p]) || bad(g_idx.PStar[p]) || bad(g_idx.CStar[p])) {
+      std::cerr << "Bad control indices at p=" << p << "\n";
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+  }
+
+  // cascade
+  for (unsigned j = 0; j < cascadeIterations; ++j) {
+    if (bad(g_idx.Z[j]) || bad(g_idx.ZOld[j]) || bad(g_idx.E[j])) {
+      std::cerr << "Bad cascade indices at j=" << j << "\n";
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+  }
+
+  // singletons
+  if (bad(g_idx.Zi) || bad(g_idx.Xi) || bad(g_idx.Yi) || bad(g_idx.Ei) ||
+      bad(g_idx.Ztot) || bad(g_idx.R) || bad(g_idx.C)) {
+    std::cerr << "Bad singleton indices\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+
+  // disturbance-only
+  if (withDisturbance) {
+    if (bad(g_idx.d) || bad(g_idx.Bd)) {
+      std::cerr << "Bad disturbance indices\n";
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+  }
+
+
+
 
   MultiLevelProblem mlProb(&mlSol);
 
@@ -257,17 +326,10 @@ int main(int argc, char** args) {
 
   std::vector<double> IntegralP = PrecomputePstarIntegrals(sol);
 
-  // PStar = IntegralP;
-
-  // Find and number 3 nodes for W solution
-  const unsigned targetElem = 0;
-  g_specialWnodes = GetGlobalNodeIDsForW(msh, targetElem);
-
   // ****here we solve the system for P****
 
-  for (unsigned j = 0; j < cascadeIterations; j++) {
-    std::string ZjOld = "Z" + std::to_string(j) + "Old";
-    sol->_Sol[(mlSol.GetIndex(ZjOld.c_str()))]->zero();
+  for (unsigned j = 0; j < cascadeIterations; ++j) {
+    sol->_Sol[g_idx.ZOld[j]]->zero();
   }
 
   int world_rank = -1;
@@ -309,8 +371,8 @@ int main(int argc, char** args) {
     std::shared_ptr<NumericVector> dOriginal;
     if (withDisturbance) dOriginal = sol->_Sol[mlSol.GetIndex("d")]->clone();
 
-    sol->_Sol[mlSol.GetIndex("Z")]->zero();
-    *(sol->_Sol[mlSol.GetIndex("Ei")]) = *(sol->_Sol[(mlSol.GetIndex("R"))]);
+    sol->_Sol[g_idx.Ztot]->zero();
+    *(sol->_Sol[g_idx.Ei]) = *(sol->_Sol[g_idx.R]);
 
     if(world_rank == 0) wFile << std::setw(14) << t * dt;
 
@@ -318,15 +380,11 @@ int main(int argc, char** args) {
 
       jTMP = j;
 
-      std::string Zj = "Z" + std::to_string(j);
-      std::string ZjOld = "Z" + std::to_string(j) + "Old";
-      std::string Ej = "E" + std::to_string(j);
-
       //For withDisturbance, and j = 1,2,.., we set the disturbance to be zero
       if (withDisturbance && j > 0) sol->_Sol[mlSol.GetIndex("d")]->zero();
 
-      *(sol->_Sol[mlSol.GetIndex("Zi")]) = *(sol->_Sol[(mlSol.GetIndex(ZjOld.c_str()))]);
-      *(sol->_SolOld[mlSol.GetIndex("Zi")]) = *(sol->_Sol[(mlSol.GetIndex(ZjOld.c_str()))]);
+      *(sol->_Sol[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
+      *(sol->_SolOld[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
 
       system.MGsolve();
 
@@ -334,28 +392,26 @@ int main(int argc, char** args) {
 
       wOld[j] = w[j];
 
-      *(sol->_Sol[mlSol.GetIndex("Z")]) += *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
+      *(sol->_Sol[g_idx.Ztot]) += *(sol->_Sol[g_idx.Zi]);
 
-      for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
-        std::string Pp = "P" + std::to_string(p);
-        sol->_Sol[mlSol.GetIndex("Z")]->add(w[j][p], *(sol->_Sol[(mlSol.GetIndex(Pp.c_str()))]));
+      for (unsigned p=0; p<nCtrl; ++p) {
+        sol->_Sol[g_idx.Ztot]->add(w[j][p], *(sol->_Sol[g_idx.P[p]]));
       }
 
 
-      *(sol->_Sol[mlSol.GetIndex(Zj.c_str())]) = *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
-      *(sol->_Sol[mlSol.GetIndex(Ej.c_str())]) = *(sol->_Sol[(mlSol.GetIndex("Ei"))]);
-      *(sol->_Sol[mlSol.GetIndex(Ej.c_str())]) -= *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
+      *(sol->_Sol[g_idx.Z[j]]) = *(sol->_Sol[g_idx.Zi]);
+      *(sol->_Sol[g_idx.E[j]]) = *(sol->_Sol[g_idx.Ei]);
+      *(sol->_Sol[g_idx.E[j]]) -= *(sol->_Sol[g_idx.Zi]);
 
       for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
-        std::string Pp = "P" + std::to_string(p);
-        sol->_Sol[mlSol.GetIndex(Ej.c_str())]->add(-w[j][p], *(sol->_Sol[(mlSol.GetIndex(Pp.c_str()))]));
+        sol->_Sol[g_idx.E[j]]->add(-w[j][p], *(sol->_Sol[g_idx.P[p]]));
       }
 
-      *(sol->_Sol[mlSol.GetIndex("Ei")]) = *(sol->_Sol[(mlSol.GetIndex(Ej.c_str()))]);
+      *(sol->_Sol[g_idx.Ei]) = *(sol->_Sol[g_idx.E[j]]);
 
       if (world_rank == 0) {
         for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
-        wFile << "  " << std::setw(14) << w[j][p] << " " << std::setw(14) << x1[p] << " " << std::setw(14) << y1[p];
+        wFile << "  " << std::setw(14) << w[j][p] << " " << std::setw(14) << x1_vec[p] << " " << std::setw(14) << y1_vec[p];
         }
       }
     }
@@ -382,10 +438,8 @@ int main(int argc, char** args) {
       errorFile.flush();
     }
 
-    for (unsigned j = 0; j < cascadeIterations; j++) {
-      std::string Zj = "Z" + std::to_string(j);
-      std::string ZjOld = "Z" + std::to_string(j) + "Old";
-      *(sol->_Sol[(mlSol.GetIndex(ZjOld.c_str()))]) = *(sol->_Sol[mlSol.GetIndex(Zj.c_str())]);
+    for (unsigned j = 0; j < cascadeIterations; ++j) {
+      *(sol->_Sol[g_idx.ZOld[j]]) = *(sol->_Sol[g_idx.Z[j]]);
     }
   }
 
@@ -422,8 +476,8 @@ double flc4hs(double const & x, double const & eps) {
 }*/
 
 double GetTargetSolution(const std::vector<double> &xv, const double &time) {
-  // return sin(M_PI * xv[1]) * sin(xv[0] - time) * flc4hs(time - 2., 2.) ;
-  return /* flc4hs(time - 2., 2.)**/1.;
+  return sin(M_PI * xv[1]) * sin(xv[0] - time) * flc4hs(time - 2., 2.) ;
+  // return /* flc4hs(time - 2., 2.)**/1.;
 }
 
 
@@ -651,8 +705,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   RES->zero(); // Set to zero all the entries of the Global Residual std::vector
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
-  x1.resize(g_controlNodeDofs.size(),0.);
-  std::vector<double> y1(g_controlNodeDofs.size(),0.);
+  x1_vec.resize(g_controlNodeDofs.size(),0.);
+  y1_vec.resize(g_controlNodeDofs.size(),0.);
+  // std::vector<double> y1(g_controlNodeDofs.size(),0.);
   w[jTMP].resize(g_controlNodeDofs.size(),0.);
 
   std::vector<double> u1 (g_controlNodeDofs.size(),0.);
@@ -680,22 +735,16 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
     double CstarCPstarP = 0.0;
     double CstarCPstarE = 0.0;
 
-    std::string Pj = "P" + std::to_string(j);
-    std::string PStarj = "PStar" + std::to_string(j);
-    std::string CStarCPStarj = "CStarCPStar" + std::to_string(j);
+    const unsigned solIndexPStarj  = g_idx.PStar[j];
+    const unsigned solIndexPCStarj = g_idx.CStar[j];
+    const unsigned solIndexPj      = g_idx.P[j];
 
-    unsigned solIndexPj = mlSol->GetIndex(Pj.c_str());
-
-    unsigned solIndexPStarj   = mlSol->GetIndex(PStarj.c_str());
-    unsigned solIndexPCStarj  = mlSol->GetIndex(CStarCPStarj.c_str());
-
-    const NumericVector* PStarVecj      = sol->_Sol[solIndexPStarj];
+    const NumericVector* PStarVecj       = sol->_Sol[solIndexPStarj];
     const NumericVector* CStarCPStarVecj = sol->_Sol[solIndexPCStarj];
+    const NumericVector* PVecj           = sol->_Sol[solIndexPj];
 
     const unsigned first_dof = PStarVecj->first_local_index();
     const unsigned last_dof  = PStarVecj->last_local_index();
-
-    const NumericVector* PVecj = sol->_Sol[solIndexPj];
 
 
 
@@ -748,12 +797,12 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
   double rhs = rhs1 + rhs2;
 
-  x1[j] = rhs / lhs;
-  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1[j] - h * PstarX));
-  y1[j] = - b * b / (a * alpha) * (- h * PstarX + x1[j]);
+  x1_vec[j] = rhs / lhs;
+  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
+  y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
 
 
-  u1[j] = (- h * b * PstarX + b * x1[j] ) / alpha;
+  u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
 
   }
 
@@ -799,10 +848,7 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       solY[i] = (*sol->_Sol[solIndexY])(iDof);
 
       for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
-        std::string Pj = "P" + std::to_string(j);
-        unsigned solIndexPj = mlSol->GetIndex(Pj.c_str());
-
-        solP[j][i] = (*sol->_Sol[solIndexPj])(iDof);
+        solP[j][i] = (*sol->_Sol[g_idx.P[j]])(iDof);
       }
 
       solE[i] = (*sol->_Sol[solIndexE])(iDof);
@@ -873,8 +919,8 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
         for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
           aResZ += h * a * solP[j][i] * w[jTMP][j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
-          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] + beta * (+ h * solP[j][i] * y1[j])) * phi[i];
-          aResY +=  h * a * solP[j][i] * y1[j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
+          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] + beta * (+ h * solP[j][i] * y1_vec[j])) * phi[i];
+          aResY +=  h * a * solP[j][i] * y1_vec[j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
         }
 
 
@@ -1044,9 +1090,6 @@ std::vector<double> PrecomputePstarIntegrals(Solution* sol) {
 
   const unsigned cIndex = sol->GetIndex("C");  // element-wise indicator CsC
 
-  // global scalar integral ∫Ω P dx (for PStar scalar)
-  double localIntegral = 0.0;
-
   std::vector<double> globalIntegral(g_controlNodeDofs.size(), 0.);
 
   // nodal weights:
@@ -1056,17 +1099,16 @@ std::vector<double> PrecomputePstarIntegrals(Solution* sol) {
 
   for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
 
-    std::string Pj = "P" + std::to_string(j);
+    // global scalar integral ∫Ω P dx (for PStar scalar)
+    double localIntegral = 0.0;
 
-    const unsigned pIndexj    = sol->GetIndex(Pj.c_str());
+    const unsigned pIndexj = g_idx.P[j];
     const unsigned pType     = sol->GetSolutionType(pIndexj);
     const unsigned coordXType = 2;  // quadratic coordinates
 
-    std::string PStarj = "PStar" + std::to_string(j);
-    std::string CStarCPStarj = "CStarCPStar" + std::to_string(j);
+    const unsigned pStarIndexj       = g_idx.PStar[j];
+    const unsigned cStarCPStarIndexj = g_idx.CStar[j];
 
-    const unsigned pStarIndexj       = sol->GetIndex(PStarj.c_str());
-    const unsigned cStarCPStarIndexj = sol->GetIndex(CStarCPStarj.c_str());
 
     sol->_Sol[pStarIndexj]->zero();
     sol->_Sol[cStarCPStarIndexj]->zero();
@@ -1212,72 +1254,6 @@ std::vector<double> ComputeL2NormCascadeOverC(Solution* sol, unsigned cascadeIte
 
   for (double& val : global_integral) val = std::sqrt(val);
   return global_integral;
-}
-
-
-unsigned FindClosestNode(const Mesh* msh, const std::vector<double>& x0) {
-  const unsigned dim = msh->GetDimension();
-  unsigned coordXType = 2;  // coordinates always quadratic
-
-  double minDist2 = std::numeric_limits<double>::max();
-  unsigned closestDof = static_cast<unsigned>(-1);
-
-  unsigned nNodes = msh->_topology->_Sol[0]->size();  // total number of coordinate dofs
-
-  for (unsigned i = 0; i < nNodes; ++i) {
-    std::vector<double> xv(dim);
-    for (unsigned k = 0; k < dim; ++k)
-      xv[k] = (*msh->_topology->_Sol[k])(i);
-
-    double dist2 = 0.0;
-    for (unsigned k = 0; k < dim; ++k) {
-      double diff = xv[k] - x0[k];
-      dist2 += diff * diff;
-    }
-
-    if (dist2 < minDist2) {
-      minDist2 = dist2;
-      closestDof = i;
-    }
-  }
-
-  return closestDof;
-}
-
-
-std::vector<double> MarkControlNodes(const Mesh* msh, const std::vector<std::vector<double>>& points) {
-  const unsigned dim = msh->GetDimension();
-  unsigned nNodes = msh->_topology->_Sol[0]->size();
-
-  std::vector<double> controlFlag(nNodes, 0.0);
-
-  // helper lambda to compute squared distance
-  auto dist2 = [&](unsigned node, const std::vector<double>& x0) {
-    double d2 = 0.0;
-    for (unsigned k = 0; k < dim; ++k) {
-      double diff = (*msh->_topology->_Sol[k])(node) - x0[k];
-      d2 += diff * diff;
-    }
-    return d2;
-  };
-
-  // loop over all input points
-  for (const auto& x0 : points) {
-    double minD2 = std::numeric_limits<double>::max();
-    unsigned closest = 0;
-
-    for (unsigned i = 0; i < nNodes; ++i) {
-      double d2 = dist2(i, x0);
-      if (d2 < minD2) {
-        minD2 = d2;
-        closest = i;
-      }
-    }
-
-    controlFlag[closest] = 1.0;
-  }
-
-  return controlFlag;
 }
 
 
