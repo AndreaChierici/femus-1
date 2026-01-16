@@ -32,13 +32,14 @@ unsigned jTMP = 0;
 
 bool withDisturbance = false;
 
-static double PStar = 0.0;
+// static double PStar = 0.0;
 std::vector<unsigned> g_controlNodeDofs;
+unsigned gdof;
 
 
-double x1 = 0.;
-std::vector<double> w(cascadeIterations, 0.);
-std::vector<double> wOld(cascadeIterations, 0.);
+std::vector<double> x1;
+std::vector<std::vector<double>> w(cascadeIterations);
+std::vector<std::vector<double>> wOld(cascadeIterations);
 
 double alpha = 1.0e-7;
 double beta = 0.125;
@@ -104,7 +105,7 @@ void NewmarkUpdateWithD(MultiLevelSolution *mlSol);
 void AssembleResAD(MultiLevelProblem& ml_prob);
 void AssembleResP(MultiLevelProblem& ml_prob);
 
-double PrecomputePstarIntegrals(Solution* sol);
+std::vector<double> PrecomputePstarIntegrals(Solution* sol);
 
 
 std::vector<double> ComputeL2NormCascadeOverC(Solution* sol, unsigned cascadeIterations);
@@ -145,6 +146,29 @@ int main(int argc, char** args) {
   mlMsh.PrintInfo();
 
   MultiLevelSolution mlSol(&mlMsh);
+
+    const unsigned level = mlMsh.GetNumberOfLevels() - 1;
+  Solution* sol = mlSol.GetSolutionLevel(level);
+  Mesh* msh = sol->GetMesh();
+
+  std::vector<std::vector<double>> controlPoints = {
+    {2. * M_PI / 3., 0.5},{M_PI / 3., 0.5}
+  };
+
+  g_controlNodeDofs = GetControlNodeIndices(msh, controlPoints);
+
+  w.assign(cascadeIterations,std::vector<double>(g_controlNodeDofs.size(),0.));
+  wOld.assign(cascadeIterations,std::vector<double>(g_controlNodeDofs.size(),0.));
+
+  for (unsigned j = 0; j < g_controlNodeDofs.size(); j++) {
+    std::string Pj = "P" + std::to_string(j);
+    std::string PStarj = "PStar" + std::to_string(j);
+    std::string CStarCPStarj = "CStarCPStar" + std::to_string(j);
+
+    mlSol.AddSolution(Pj.c_str(), LAGRANGE, SECOND, false);
+    mlSol.AddSolution(PStarj.c_str(), LAGRANGE, SECOND, false);
+    mlSol.AddSolution(CStarCPStarj.c_str(), LAGRANGE, SECOND, false);
+  }
 
   mlSol.AddSolution("Zi", LAGRANGE, SECOND, 2);
   mlSol.AddSolution("Xi", LAGRANGE, SECOND);
@@ -198,15 +222,8 @@ int main(int argc, char** args) {
   system.init();
   system.SetOuterSolver(PREONLY);
 
-  const unsigned level = mlMsh.GetNumberOfLevels() - 1;
-  Solution* sol = mlSol.GetSolutionLevel(level);
-  Mesh* msh = sol->GetMesh();
 
-  std::vector<std::vector<double>> controlPoints = {
-    {M_PI / 2., 0.5}
-  };
 
-  g_controlNodeDofs = GetControlNodeIndices(msh, controlPoints);
 
 
   // RegionBox boxB{M_PI/3., 2*M_PI/3., 0., 1};
@@ -228,12 +245,19 @@ int main(int argc, char** args) {
   vtkIO.SetDebugOutput(false);
   vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, 0);
 
+  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+    std::string Pj = "P" + std::to_string(j);
 
-  systemP.MGsolve();
+    gdof = g_controlNodeDofs[j];
 
-  double IntegralP = PrecomputePstarIntegrals(sol);
+    systemP.MGsolve();
 
-  PStar = IntegralP;
+    *(sol->_Sol[mlSol.GetIndex(Pj.c_str())]) = *(sol->_Sol[(mlSol.GetIndex("P"))]);
+  }
+
+  std::vector<double> IntegralP = PrecomputePstarIntegrals(sol);
+
+  // PStar = IntegralP;
 
   // Find and number 3 nodes for W solution
   const unsigned targetElem = 0;
@@ -311,17 +335,28 @@ int main(int argc, char** args) {
       wOld[j] = w[j];
 
       *(sol->_Sol[mlSol.GetIndex("Z")]) += *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
-      sol->_Sol[mlSol.GetIndex("Z")]->add(w[j], *(sol->_Sol[(mlSol.GetIndex("P"))]));
+
+      for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
+        std::string Pp = "P" + std::to_string(p);
+        sol->_Sol[mlSol.GetIndex("Z")]->add(w[j][p], *(sol->_Sol[(mlSol.GetIndex(Pp.c_str()))]));
+      }
 
 
       *(sol->_Sol[mlSol.GetIndex(Zj.c_str())]) = *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
       *(sol->_Sol[mlSol.GetIndex(Ej.c_str())]) = *(sol->_Sol[(mlSol.GetIndex("Ei"))]);
       *(sol->_Sol[mlSol.GetIndex(Ej.c_str())]) -= *(sol->_Sol[(mlSol.GetIndex("Zi"))]);
-      sol->_Sol[mlSol.GetIndex(Ej.c_str())]->add(-w[j], *(sol->_Sol[(mlSol.GetIndex("P"))]));
+
+      for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
+        std::string Pp = "P" + std::to_string(p);
+        sol->_Sol[mlSol.GetIndex(Ej.c_str())]->add(-w[j][p], *(sol->_Sol[(mlSol.GetIndex(Pp.c_str()))]));
+      }
+
       *(sol->_Sol[mlSol.GetIndex("Ei")]) = *(sol->_Sol[(mlSol.GetIndex(Ej.c_str()))]);
 
       if (world_rank == 0) {
-        wFile << "  " << std::setw(14) << w[j] << " " << std::setw(14) << x1 << " " << std::setw(14) << y1;
+        for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
+        wFile << "  " << std::setw(14) << w[j][p] << " " << std::setw(14) << x1[p] << " " << std::setw(14) << y1[p];
+        }
       }
     }
 
@@ -557,11 +592,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
   unsigned solIndexE = mlSol->GetIndex("Ei");
 
-  unsigned solIndexP = mlSol->GetIndex("P");
-
-  unsigned solIndexPStar   = mlSol->GetIndex("PStar");
-  unsigned solIndexPCStar  = mlSol->GetIndex("CStarCPStar");
-
   // unsigned solIndexB = mlSol->GetIndex("B");
   unsigned solIndexC = mlSol->GetIndex("C");
   unsigned solIndexBd;
@@ -603,7 +633,7 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   // w[jTMP] = 0.;
 
   std::vector < double > solE;
-  std::vector < double > solP;
+  std::vector<std::vector < double > > solP(g_controlNodeDofs.size());
   std::vector < double > solBd;
 
   std::vector < std::vector < double > > coordX(dim);    // local coordinates
@@ -621,42 +651,64 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   RES->zero(); // Set to zero all the entries of the Global Residual std::vector
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
-  // global scalars
-  double PstarZ = 0.0;
-  double PstarX = 0.0;
-  double PstarY = 0.0;
-  double CstarCPstarZ = 0.0;
-  double CstarCPstarY = 0.0;
-  double CstarCPstarP = 0.0;
-  double CstarCPstarE = 0.0;
+  x1.resize(g_controlNodeDofs.size(),0.);
+  std::vector<double> y1(g_controlNodeDofs.size(),0.);
+  w[jTMP].resize(g_controlNodeDofs.size(),0.);
 
-  x1 = 0.0;
-  double y1 = 0.0;
-  w[jTMP] = 0.0;
+  std::vector<double> u1 (g_controlNodeDofs.size(),0.);
 
   // node-based loop: use PStar(i) = ∫Ω P φ_i, CStarCPStar(i) = ∫Ω_C P φ_i
-  const NumericVector* PStarVec      = sol->_Sol[solIndexPStar];
-  const NumericVector* CStarCPStarVec = sol->_Sol[solIndexPCStar];
+
 
   const NumericVector* ZVec = sol->_Sol[solIndexZ];
   const NumericVector* XVec = sol->_Sol[solIndexX];
   const NumericVector* YVec = sol->_Sol[solIndexY];
-  const NumericVector* PVec = sol->_Sol[solIndexP];
   const NumericVector* EVec = sol->_Sol[solIndexE];
 
-  // local ownership range for DOFs
-  const unsigned first_dof = PStarVec->first_local_index();
-  const unsigned last_dof  = PStarVec->last_local_index();
+
+
+
+
+  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+
+    // global scalars
+    double PstarZ = 0.0;
+    double PstarX = 0.0;
+    double PstarY = 0.0;
+    double CstarCPstarZ = 0.0;
+    double CstarCPstarY = 0.0;
+    double CstarCPstarP = 0.0;
+    double CstarCPstarE = 0.0;
+
+    std::string Pj = "P" + std::to_string(j);
+    std::string PStarj = "PStar" + std::to_string(j);
+    std::string CStarCPStarj = "CStarCPStar" + std::to_string(j);
+
+    unsigned solIndexPj = mlSol->GetIndex(Pj.c_str());
+
+    unsigned solIndexPStarj   = mlSol->GetIndex(PStarj.c_str());
+    unsigned solIndexPCStarj  = mlSol->GetIndex(CStarCPStarj.c_str());
+
+    const NumericVector* PStarVecj      = sol->_Sol[solIndexPStarj];
+    const NumericVector* CStarCPStarVecj = sol->_Sol[solIndexPCStarj];
+
+    const unsigned first_dof = PStarVecj->first_local_index();
+    const unsigned last_dof  = PStarVecj->last_local_index();
+
+    const NumericVector* PVecj = sol->_Sol[solIndexPj];
+
+
 
   for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
-    const double wP  = (*PStarVec)(gdof);       // ∫Ω    P φ_i
-    const double wPC = (*CStarCPStarVec)(gdof); // ∫Ω_C  P φ_i
+    const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
+    const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
 
     const double Zi = (*ZVec)(gdof);
     const double Xi = (*XVec)(gdof);
     const double Yi = (*YVec)(gdof);
-    const double Pi = (*PVec)(gdof);
     const double Ei = (*EVec)(gdof);
+
+    const double Pi = (*PVecj)(gdof);
 
     // ∫Ω P Z ≈ Σ_i wP_i * Z_i
     PstarZ       += wP  * Zi;
@@ -691,17 +743,19 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   // Precomputation of w,x1,y1 with analytic relations
   double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
 
-  double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
+  double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
   double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ - beta * CstarCPstarY );
 
   double rhs = rhs1 + rhs2;
 
-  x1 = rhs / lhs;
-  w[jTMP] = dt / (1 - a * dt) * (wOld[jTMP] / dt + b * b / alpha * (x1 - h * PstarX));
-  y1 = - b * b / (a * alpha) * (- h * PstarX + x1);
+  x1[j] = rhs / lhs;
+  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1[j] - h * PstarX));
+  y1[j] = - b * b / (a * alpha) * (- h * PstarX + x1[j]);
 
 
-  double u1 = (- h * b * PstarX + b * x1 ) / alpha;
+  u1[j] = (- h * b * PstarX + b * x1[j] ) / alpha;
+
+  }
 
   // element loop: each process loops only on the elements that owns
   for (unsigned iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
@@ -726,7 +780,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
     solX.resize(nDofs);
     solY.resize(nDofs);
     solE.resize(nDofs);
-    solP.resize(nDofs);
+
+    for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) solP[j].resize(nDofs);
+
     if(withDisturbance) solBd.resize(nDofs);
 
     for (unsigned  k = 0; k < dim; k++) {
@@ -742,7 +798,12 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       solX[i] = (*sol->_Sol[solIndexX])(iDof);
       solY[i] = (*sol->_Sol[solIndexY])(iDof);
 
-      solP[i] = (*sol->_Sol[solIndexP])(iDof);
+      for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+        std::string Pj = "P" + std::to_string(j);
+        unsigned solIndexPj = mlSol->GetIndex(Pj.c_str());
+
+        solP[j][i] = (*sol->_Sol[solIndexPj])(iDof);
+      }
 
       solE[i] = (*sol->_Sol[solIndexE])(iDof);
       if(withDisturbance) solBd[i] = (*sol->_Sol[solIndexd])(iDof);
@@ -806,15 +867,21 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       for (unsigned i = 0; i < nDofs; i++) {
         unsigned coordXDof  = msh->GetSolutionDof(i, iel, coordXType);
 
-        adept::adouble aResZ = (Zg - ZOldg) / dt * phi[i] + h * a * solP[i] * w[jTMP] * phi[i] + h * b * solP[i] * u1 * phi[i];
-        adept::adouble aResX = - (CsC > 0.5) * (r - (1. - beta) * (Zg + h * solP[i] * w[jTMP]) - beta * (Yg + h * solP[i] * y1)) * phi[i];
-        adept::adouble aResY =  + h * a * solP[i] * y1 * phi[i] + h * b * solP[i] * u1 * phi[i];
+        adept::adouble aResZ = (Zg - ZOldg) / dt * phi[i];
+        adept::adouble aResX = - (CsC > 0.5) * (r - (1. - beta) * Zg - beta * Yg) * phi[i];
+        adept::adouble aResY = 0;
+
+        for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+          aResZ += h * a * solP[j][i] * w[jTMP][j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
+          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] + beta * (+ h * solP[j][i] * y1[j])) * phi[i];
+          aResY +=  h * a * solP[j][i] * y1[j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
+        }
 
 
-        for (unsigned j = 0; j < dim; j++) { // second index j in each equation
-          aResZ +=  mu * gradPhi[i * dim + j] * gradZg[j]; // diffusion
-          aResX +=  mu * gradPhi[i * dim + j] * gradXg[j]; // diffusion
-          aResY +=  mu * gradPhi[i * dim + j] * gradYg[j]; // diffusion
+        for (unsigned d = 0; d < dim; d++) { // second index j in each equation
+          aResZ +=  mu * gradPhi[i * dim + d] * gradZg[d]; // diffusion
+          aResX +=  mu * gradPhi[i * dim + d] * gradXg[d]; // diffusion
+          aResY +=  mu * gradPhi[i * dim + d] * gradYg[d]; // diffusion
         }
 
 
@@ -955,10 +1022,12 @@ void AssembleResP(MultiLevelProblem& ml_prob) {
     s.clear_dependents();
   }
 
-  // point-loads: δ at selected nodes (B = Σ_i δ_{x_i})
-  for (unsigned gdof : g_controlNodeDofs) {
-    RES->add(gdof, 1.0);
-  }
+  // // point-loads: δ at selected nodes (B = Σ_i δ_{x_i})
+  // for (unsigned gdof : g_controlNodeDofs) {
+  //   RES->add(gdof, 1.0);
+  // }
+
+  RES->add(gdof, 1.0);
 
   RES->close();
   KK->close();
@@ -968,32 +1037,41 @@ void AssembleResP(MultiLevelProblem& ml_prob) {
 
 
 
-double PrecomputePstarIntegrals(Solution* sol) {
+std::vector<double> PrecomputePstarIntegrals(Solution* sol) {
   Mesh* msh = sol->GetMesh();
   const unsigned dim = msh->GetDimension();
   unsigned iproc = msh->processor_id();
-
-  const unsigned pIndex    = sol->GetIndex("P");
-  const unsigned pType     = sol->GetSolutionType(pIndex);
-  const unsigned coordXType = 2;  // quadratic coordinates
-
-  const unsigned pStarIndex       = sol->GetIndex("PStar");
-  const unsigned cStarCPStarIndex = sol->GetIndex("CStarCPStar");
 
   const unsigned cIndex = sol->GetIndex("C");  // element-wise indicator CsC
 
   // global scalar integral ∫Ω P dx (for PStar scalar)
   double localIntegral = 0.0;
 
+  std::vector<double> globalIntegral(g_controlNodeDofs.size(), 0.);
+
   // nodal weights:
   //   PStar(i)       = ∫Ω       P φ_i dx
   //   CStarCPStar(i) = ∫Ω_C     P φ_i dx   with Ω_C selected by CsC > 0.5
-  const std::size_t nDofsGlobal = sol->_Sol[pIndex]->size();
-  // std::vector<double> nodeWeightsP(nDofsGlobal, 0.0);
-  // std::vector<double> nodeWeightsC(nDofsGlobal, 0.0);
 
-  sol->_Sol[pStarIndex]->zero();
-  sol->_Sol[cStarCPStarIndex]->zero();
+
+  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+
+    std::string Pj = "P" + std::to_string(j);
+
+    const unsigned pIndexj    = sol->GetIndex(Pj.c_str());
+    const unsigned pType     = sol->GetSolutionType(pIndexj);
+    const unsigned coordXType = 2;  // quadratic coordinates
+
+    std::string PStarj = "PStar" + std::to_string(j);
+    std::string CStarCPStarj = "CStarCPStar" + std::to_string(j);
+
+    const unsigned pStarIndexj       = sol->GetIndex(PStarj.c_str());
+    const unsigned cStarCPStarIndexj = sol->GetIndex(CStarCPStarj.c_str());
+
+    sol->_Sol[pStarIndexj]->zero();
+    sol->_Sol[cStarCPStarIndexj]->zero();
+
+
 
   // element loop (each process owns its range)
   for (unsigned iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; ++iel) {
@@ -1016,7 +1094,7 @@ double PrecomputePstarIntegrals(Solution* sol) {
     std::vector<double> pVal(nDofs);
     for (unsigned i = 0; i < nDofs; i++) {
       unsigned pDof = msh->GetSolutionDof(i, iel, pType);
-      pVal[i] = (*sol->_Sol[pIndex])(pDof);
+      pVal[i] = (*sol->_Sol[pIndexj])(pDof);
     }
 
     // Gauss integration
@@ -1040,16 +1118,15 @@ double PrecomputePstarIntegrals(Solution* sol) {
         // nodeWeightsP[pDof] += contrib;              // full domain Ω
         // nodeWeightsC[pDof] += inC * contrib;        // restricted to C
 
-        sol->_Sol[pStarIndex]->add(pDof,contrib);
-        sol->_Sol[cStarCPStarIndex]->add(pDof,inC*contrib);
+        sol->_Sol[pStarIndexj]->add(pDof,contrib);
+        sol->_Sol[cStarCPStarIndexj]->add(pDof,inC*contrib);
       }
     }
   }
 
 
   // MPI reductions TODO
-  double globalIntegral = 0.0;
-  MPI_Allreduce(&localIntegral, &globalIntegral, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&localIntegral, &globalIntegral[j], 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // // Reduce nodal weights in-place
   // MPI_Allreduce(MPI_IN_PLACE, nodeWeightsP.data(),
@@ -1064,8 +1141,9 @@ double PrecomputePstarIntegrals(Solution* sol) {
   //   sol->_Sol[cStarCPStarIndex]->set(static_cast<unsigned>(gdof), nodeWeightsC[gdof]);
   // }
 
-  sol->_Sol[pStarIndex]->close();
-  sol->_Sol[cStarCPStarIndex]->close();
+  sol->_Sol[pStarIndexj]->close();
+  sol->_Sol[cStarCPStarIndexj]->close();
+  }
 
   return globalIntegral;
 }
