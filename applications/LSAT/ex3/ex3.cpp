@@ -104,6 +104,7 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 
 
 void AssembleResAD(MultiLevelProblem& ml_prob);
+void AssembleResADReduced(MultiLevelProblem& ml_prob);
 void AssembleResP(MultiLevelProblem& ml_prob);
 
 std::vector<double> PrecomputePstarIntegrals(Solution* sol);
@@ -149,7 +150,7 @@ int main(int argc, char** args) {
 
   MultiLevelSolution mlSol(&mlMsh);
 
-    const unsigned level = mlMsh.GetNumberOfLevels() - 1;
+  const unsigned level = mlMsh.GetNumberOfLevels() - 1;
   Solution* sol = mlSol.GetSolutionLevel(level);
   Mesh* msh = sol->GetMesh();
 
@@ -280,12 +281,21 @@ int main(int argc, char** args) {
 
 
 
+  TransientNonlinearImplicitSystem& systemR = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT");
+
+  systemR.AddSolutionToSystemPDE("Zi");
+  systemR.AddSolutionToSystemPDE("Xi");
+  systemR.SetAssembleFunction(AssembleResADReduced);
+  systemR.AttachGetTimeIntervalFunction(SetVariableTimeStep);
+  systemR.init();
+  systemR.SetOuterSolver(PREONLY);
+
+
   TransientNonlinearImplicitSystem& system = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT");
 
   system.AddSolutionToSystemPDE("Zi");
   system.AddSolutionToSystemPDE("Xi");
   system.AddSolutionToSystemPDE("Yi");
-  // system.AddSolutionToSystemPDE("Wi");
   system.SetAssembleFunction(AssembleResAD);
   system.AttachGetTimeIntervalFunction(SetVariableTimeStep);
   system.init();
@@ -363,7 +373,7 @@ int main(int argc, char** args) {
     wFile << std::setprecision(8);
   }
 
-  // Time loop
+  // BEGIN Time loop
   for (unsigned t = 1; t <= n_timesteps; t++) {
     if(withDisturbance) SetPrescribedFields(sol, t * dt, "R", "d");
     else SetPrescribedFields(sol, t * dt, "R");
@@ -386,7 +396,8 @@ int main(int argc, char** args) {
       *(sol->_Sol[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
       *(sol->_SolOld[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
 
-      system.MGsolve();
+      if(withDisturbance && j ==0) system.MGsolve();
+      else systemR.MGsolve();
 
       //std::cout<<"j = " << j << " w = " << w[j] <<std::endl;
 
@@ -422,9 +433,6 @@ int main(int argc, char** args) {
     }
 
 
-
-
-
     // restore prescribed disturbance before visualization output
     if (withDisturbance) *(sol->_Sol[mlSol.GetIndex("d")]) = *dOriginal;
 
@@ -442,6 +450,7 @@ int main(int argc, char** args) {
       *(sol->_Sol[g_idx.ZOld[j]]) = *(sol->_Sol[g_idx.Z[j]]);
     }
   }
+  //END time loop
 
   MPI_Barrier(MPI_COMM_WORLD);
   if (world_rank == 0) errorFile.close();
@@ -605,6 +614,326 @@ void SetRegions(Solution* sol,
 
 
 //Assemble Residual using A to update D amd V
+void AssembleResADReduced(MultiLevelProblem& ml_prob) {
+  //  ml_prob is the global object from/to where get/set all the data
+  //  level is the level of the PDE system to be assembled
+  //  levelMax is the Maximum level of the MultiLevelProblem
+  //  assembleMatrix is a flag that tells if only the residual or also the matrix should be assembled
+
+
+  adept::Stack& s = FemusInit::_adeptStack;
+
+  //  extract pointers to the several objects that we are going to use
+  TransientNonlinearImplicitSystem* mlPdeSys   = &ml_prob.get_system<TransientNonlinearImplicitSystem> ("LSAT");   // pointer to the linear implicit system named "Beam"
+  const unsigned level = mlPdeSys->GetLevelToAssemble();
+
+  Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
+  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
+
+  MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
+  Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
+
+
+  LinearEquationSolver* pdeSys        = mlPdeSys->_LinSolver[level]; // pointer to the equation (level) object
+  SparseMatrix*    KK         = pdeSys->_KK;  // pointer to the global stifness matrix object in pdeSys (level)
+  NumericVector*   RES          = pdeSys->_RES; // pointer to the global residual std::vector object in pdeSys (level)
+
+  const unsigned  dim = msh->GetDimension(); // get the domain dimension of the problem
+
+  unsigned    iproc = msh->processor_id(); // get the process_id (for parallel computation)
+
+  double dt =  mlPdeSys->GetIntervalTime();
+  double time =  mlPdeSys->GetTime();
+
+
+  //solution variable
+  // Note: for P* use PStar = IntegralP;
+  // PStarNodes = std::move(WeightsP);
+  unsigned solIndexZ = mlSol->GetIndex("Zi");
+  unsigned solIndexX = mlSol->GetIndex("Xi");
+
+  unsigned solIndexE = mlSol->GetIndex("Ei");
+
+  // unsigned solIndexB = mlSol->GetIndex("B");
+  unsigned solIndexC = mlSol->GetIndex("C");
+  unsigned solIndexBd;
+  unsigned solIndexd;
+
+
+  unsigned solType = mlSol->GetSolutionType(solIndexZ);
+
+
+  unsigned solPdeIndexZ = mlPdeSys->GetSolPdeIndex("Zi");
+  unsigned solPdeIndexX = mlPdeSys->GetSolPdeIndex("Xi");
+
+  std::vector < double > solZOld;    // local solution
+
+  std::vector < double > solZdouble;    // local solution
+  std::vector < double > solXdouble;
+
+  std::vector < adept::adouble > solZ;    // local solution
+  std::vector < adept::adouble > solX;
+
+  std::vector < double > solE;
+  std::vector<std::vector < double > > solP(g_controlNodeDofs.size());
+  std::vector < double > solBd;
+
+  std::vector < std::vector < double > > coordX(dim);    // local coordinates
+  unsigned coordXType = 2; // get the finite element type for "x", it is always 2 (LAGRANGE QUADRATIC)
+
+  std::vector <double> phi;  // local test function for velocity
+  std::vector <double> gradPhi; // local test function first order partial derivatives
+  double weight; // gauss point weight
+
+  std::vector < unsigned > sysDof; // local to global pdeSys dofs
+  std::vector < adept::adouble > aRes;
+  std::vector < double > res; // local redidual std::vector
+  std::vector < double > Jac;
+
+  RES->zero(); // Set to zero all the entries of the Global Residual std::vector
+  KK->zero(); // Set to zero all the entries of the Global Matrix
+
+  x1_vec.resize(g_controlNodeDofs.size(),0.);
+  y1_vec.resize(g_controlNodeDofs.size(),0.);
+  // std::vector<double> y1(g_controlNodeDofs.size(),0.);
+  w[jTMP].resize(g_controlNodeDofs.size(),0.);
+
+  std::vector<double> u1 (g_controlNodeDofs.size(),0.);
+
+  // node-based loop: use PStar(i) = ∫Ω P φ_i, CStarCPStar(i) = ∫Ω_C P φ_i
+
+  const NumericVector* ZVec = sol->_Sol[solIndexZ];
+  const NumericVector* XVec = sol->_Sol[solIndexX];
+  const NumericVector* EVec = sol->_Sol[solIndexE];
+
+  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+
+    // global scalars
+    double PstarZ = 0.0;
+    double PstarX = 0.0;
+    double CstarCPstarZ = 0.0;
+    double CstarCPstarP = 0.0;
+    double CstarCPstarE = 0.0;
+
+    const unsigned solIndexPStarj  = g_idx.PStar[j];
+    const unsigned solIndexPCStarj = g_idx.CStar[j];
+    const unsigned solIndexPj      = g_idx.P[j];
+
+    const NumericVector* PStarVecj       = sol->_Sol[solIndexPStarj];
+    const NumericVector* CStarCPStarVecj = sol->_Sol[solIndexPCStarj];
+    const NumericVector* PVecj           = sol->_Sol[solIndexPj];
+
+    const unsigned first_dof = PStarVecj->first_local_index();
+    const unsigned last_dof  = PStarVecj->last_local_index();
+
+
+
+  for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
+    const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
+    const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
+
+    const double Zi = (*ZVec)(gdof);
+    const double Xi = (*XVec)(gdof);
+    const double Ei = (*EVec)(gdof);
+
+    const double Pi = (*PVecj)(gdof);
+
+    // ∫Ω P Z ≈ Σ_i wP_i * Z_i
+    PstarZ       += wP  * Zi;
+    // ∫Ω_C P Z ≈ Σ_i wPC_i * Z_i
+    CstarCPstarZ += wPC * Zi;
+
+    PstarX       += wP  * Xi;
+
+    CstarCPstarP += wPC * Pi;
+    CstarCPstarE += wPC * Ei;
+  }
+
+  // ---- global reduction so all ranks see the same scalars ----
+  double local_vec[5]  = {PstarZ, CstarCPstarZ, PstarX, CstarCPstarP, CstarCPstarE};
+  double global_vec[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+
+  MPI_Allreduce(local_vec, global_vec, 5, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  PstarZ        = global_vec[0];
+  CstarCPstarZ  = global_vec[1];
+  PstarX        = global_vec[2];
+  CstarCPstarP  = global_vec[3];
+  CstarCPstarE  = global_vec[4];
+
+
+  // Precomputation of w,x1,y1 with analytic relations
+  double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
+
+  double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
+  double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ );
+
+  double rhs = rhs1 + rhs2;
+
+  x1_vec[j] = rhs / lhs;
+  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
+  y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
+
+
+  u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
+
+  }
+
+  // element loop: each process loops only on the elements that owns
+  for (unsigned iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
+
+    short unsigned ielGeom = msh->GetElementType(iel);
+
+    // double BBs = (*sol->_Sol[solIndexB])(iel);
+    double CsC = (*sol->_Sol[solIndexC])(iel);
+    double Bds = 0;
+    if(withDisturbance) Bds = (*sol->_Sol[solIndexBd])(iel);;
+
+    unsigned nDofs = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
+
+    unsigned nUnkn = 2;
+    unsigned nDofsAll = nUnkn * nDofs;
+
+    sysDof.resize(nDofsAll);
+    aRes.assign(nDofsAll, 0.);
+
+    solZOld.resize(nDofs);
+    solZ.resize(nDofs);
+    solX.resize(nDofs);
+    solE.resize(nDofs);
+
+    for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) solP[j].resize(nDofs);
+
+    if(withDisturbance) solBd.resize(nDofs);
+
+    for (unsigned  k = 0; k < dim; k++) {
+      coordX[k].resize(nDofs);
+    }
+
+    // local storage of global mapping and solution
+    for (unsigned i = 0; i < nDofs; i++) {
+      unsigned iDof = msh->GetSolutionDof(i, iel, solType);
+
+      solZOld[i] = (*sol->_SolOld[solIndexZ])(iDof);
+      solZ[i] = (*sol->_Sol[solIndexZ])(iDof);
+      solX[i] = (*sol->_Sol[solIndexX])(iDof);
+
+      for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+        solP[j][i] = (*sol->_Sol[g_idx.P[j]])(iDof);
+      }
+
+      solE[i] = (*sol->_Sol[solIndexE])(iDof);
+
+      for (unsigned k = 0; k < nUnkn; k++) {
+        unsigned solIndex = (k == 0) ? solIndexZ : solIndexX;
+        unsigned solPdeIndex = (k == 0) ? solPdeIndexZ : solPdeIndexX;
+        sysDof[k * nDofs + i] = pdeSys->GetSystemDof(solIndex, solPdeIndex, i, iel);
+      }
+    }
+
+    // local storage of coordinates
+    for (unsigned i = 0; i < nDofs; i++) {
+      unsigned coordXDof  = msh->GetSolutionDof(i, iel, coordXType);    // local to global mapping between coordinates node and coordinate dof
+      for (unsigned k = 0; k < dim; k++) {
+        coordX[k][i] = (*msh->_topology->_Sol[k])(coordXDof);      // global extraction and local storage for the element coordinates
+      }
+    }
+
+    s.new_recording();
+
+    // *** Gauss point loop ***
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][solType]->GetGaussPointNumber(); ig++) {
+      // *** get gauss point weight, test function and test function partial derivatives ***
+      msh->_finiteElement[ielGeom][solType]->Jacobian(coordX, ig, weight, phi, gradPhi);
+
+      double ZOldg = 0.;
+      adept::adouble Zg = 0.;
+      adept::adouble Xg = 0.;
+
+      double r = 0.;
+      double d = 0.;
+
+      std::vector < adept::adouble > gradZg(dim, 0.);
+      std::vector < adept::adouble > gradXg(dim, 0.);
+
+      for (unsigned i = 0; i < nDofs; i++) {
+
+        ZOldg += solZOld[i] * phi[i];
+        Zg += solZ[i] * phi[i];
+        Xg += solX[i] * phi[i];
+
+        r += solE[i] * phi[i];
+
+        for (unsigned j = 0; j < dim; j++) {
+          gradZg[j] += solZ[i] * gradPhi[i * dim + j];
+          gradXg[j] += solX[i] * gradPhi[i * dim + j];
+        }
+      }
+
+
+      // *** phiA_i loop ***
+      for (unsigned i = 0; i < nDofs; i++) {
+        unsigned coordXDof  = msh->GetSolutionDof(i, iel, coordXType);
+
+        adept::adouble aResZ = (Zg - ZOldg) / dt * phi[i];
+        adept::adouble aResX = - (CsC > 0.5) * (r - (1. - beta) * Zg) * phi[i];
+
+        for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
+          aResZ += h * a * solP[j][i] * w[jTMP][j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
+          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] - beta * b * h * solP[j][i] * u1[j] / a) * phi[i];
+        }
+
+
+        for (unsigned d = 0; d < dim; d++) { // second index j in each equation
+          aResZ +=  mu * gradPhi[i * dim + d] * gradZg[d]; // diffusion
+          aResX +=  mu * gradPhi[i * dim + d] * gradXg[d]; // diffusion
+        }
+
+
+        aRes[0 * nDofs + i] += aResZ * weight;
+        aRes[1 * nDofs + i] += aResX * weight;
+
+      } // end phiA_i loop
+    }
+
+    //--------------------------------------------------------------------------------------------------------
+    // Add the local Matrix/Vector into the global Matrix/Vector
+
+    res.resize(nDofsAll);
+    //copy the value of the adept::adoube mRes in double Res and store
+    for (int i = 0; i < nDofsAll; i++) {
+      res[i] = -aRes[i].value();
+    }
+
+    // define the dependent variables
+    s.dependent(aRes.data(), nDofsAll);
+    s.independent(solZ.data(), nDofs);
+    s.independent(solX.data(), nDofs);
+
+    Jac.assign(nDofsAll * nDofsAll, 0.);
+    // get the jacobian matrix (ordered by column)
+    s.jacobian(Jac.data(), true);
+
+    RES->add_vector_blocked(res, sysDof);
+    KK->add_matrix_blocked(Jac, sysDof, sysDof);
+
+    s.clear_independents();
+    s.clear_dependents();
+
+  } //end element loop for each process
+
+  RES->close();
+  KK->close();
+  //KK->draw();
+
+  // double a;
+  // std::cin>>a;
+
+}
+
+
+
+//Assemble Residual using A to update D amd V
 void AssembleResAD(MultiLevelProblem& ml_prob) {
   //  ml_prob is the global object from/to where get/set all the data
   //  level is the level of the PDE system to be assembled
@@ -748,61 +1077,61 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
 
 
-  for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
-    const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
-    const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
+    for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
+      const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
+      const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
 
-    const double Zi = (*ZVec)(gdof);
-    const double Xi = (*XVec)(gdof);
-    const double Yi = (*YVec)(gdof);
-    const double Ei = (*EVec)(gdof);
+      const double Zi = (*ZVec)(gdof);
+      const double Xi = (*XVec)(gdof);
+      const double Yi = (*YVec)(gdof);
+      const double Ei = (*EVec)(gdof);
 
-    const double Pi = (*PVecj)(gdof);
+      const double Pi = (*PVecj)(gdof);
 
-    // ∫Ω P Z ≈ Σ_i wP_i * Z_i
-    PstarZ       += wP  * Zi;
-    // ∫Ω_C P Z ≈ Σ_i wPC_i * Z_i
-    CstarCPstarZ += wPC * Zi;
+      // ∫Ω P Z ≈ Σ_i wP_i * Z_i
+      PstarZ       += wP  * Zi;
+      // ∫Ω_C P Z ≈ Σ_i wPC_i * Z_i
+      CstarCPstarZ += wPC * Zi;
 
-    PstarX       += wP  * Xi;
-    PstarY       += wP  * Yi;
-    CstarCPstarY += wPC * Yi;
+      PstarX       += wP  * Xi;
+      PstarY       += wP  * Yi;
+      CstarCPstarY += wPC * Yi;
 
-    CstarCPstarP += wPC * Pi;
-    CstarCPstarE += wPC * Ei;
-  }
+      CstarCPstarP += wPC * Pi;
+      CstarCPstarE += wPC * Ei;
+    }
 
-  // ---- global reduction so all ranks see the same scalars ----
-  double local_vec[7]  = {PstarZ, CstarCPstarZ, PstarX, PstarY,
-                          CstarCPstarY, CstarCPstarP, CstarCPstarE
-                         };
-  double global_vec[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    // ---- global reduction so all ranks see the same scalars ----
+    double local_vec[7]  = {PstarZ, CstarCPstarZ, PstarX, PstarY,
+      CstarCPstarY, CstarCPstarP, CstarCPstarE
+    };
+    double global_vec[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
-  MPI_Allreduce(local_vec, global_vec, 7, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(local_vec, global_vec, 7, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-  PstarZ        = global_vec[0];
-  CstarCPstarZ  = global_vec[1];
-  PstarX        = global_vec[2];
-  PstarY        = global_vec[3];
-  CstarCPstarY  = global_vec[4];
-  CstarCPstarP  = global_vec[5];
-  CstarCPstarE  = global_vec[6];
-
-
-  // Precomputation of w,x1,y1 with analytic relations
-  double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
-
-  double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
-  double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ - beta * CstarCPstarY );
-
-  double rhs = rhs1 + rhs2;
-
-  x1_vec[j] = rhs / lhs;
-  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
-  y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
+    PstarZ        = global_vec[0];
+    CstarCPstarZ  = global_vec[1];
+    PstarX        = global_vec[2];
+    PstarY        = global_vec[3];
+    CstarCPstarY  = global_vec[4];
+    CstarCPstarP  = global_vec[5];
+    CstarCPstarE  = global_vec[6];
 
 
-  u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
+    // Precomputation of w,x1,y1 with analytic relations
+    double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
+
+    double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
+    double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ - beta * CstarCPstarY );
+
+    double rhs = rhs1 + rhs2;
+
+    x1_vec[j] = rhs / lhs;
+    w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
+    y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
+
+
+    u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
 
   }
 
@@ -856,9 +1185,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
       for (unsigned k = 0; k < nUnkn; k++) {
         unsigned solIndex = (k == 0) ? solIndexZ :
-                            (k == 1) ? solIndexX : solIndexY;
+        (k == 1) ? solIndexX : solIndexY;
         unsigned solPdeIndex = (k == 0) ? solPdeIndexZ :
-                               (k == 1) ? solPdeIndexX : solPdeIndexY;
+        (k == 1) ? solPdeIndexX : solPdeIndexY;
         sysDof[k * nDofs + i] = pdeSys->GetSystemDof(solIndex, solPdeIndex, i, iel);
       }
     }
