@@ -20,6 +20,27 @@
 #include "TransientSystem.hpp"
 #include "adept.h"
 
+#include <cstdint>
+#include <limits>
+#include <cmath>
+
+// Pair: minimize dist2, break ties by smaller gid
+struct MinPair {
+  double dist2;
+  std::uint64_t gid;
+};
+
+static void mpi_minpair_op(void* inVec, void* inOutVec, int* len, MPI_Datatype* /*dtype*/) {
+  auto* in    = static_cast<MinPair*>(inVec);
+  auto* inout = static_cast<MinPair*>(inOutVec);
+  for (int i = 0; i < *len; ++i) {
+    const bool take_in =
+    (in[i].dist2 < inout[i].dist2) ||
+    (in[i].dist2 == inout[i].dist2 && in[i].gid < inout[i].gid);
+    if (take_in) inout[i] = in[i];
+  }
+}
+
 const unsigned DIM = 2;
 
 double dt = 0.025;
@@ -46,8 +67,9 @@ static Indices g_idx;
 
 std::vector<double> x1_vec;
 std::vector<double> y1_vec;
-std::vector<std::vector<double>> w(cascadeIterations);
-std::vector<std::vector<double>> wOld(cascadeIterations);
+std::vector<double> u1;
+std::vector<std::vector<double>> w;
+std::vector<std::vector<double>> wOld;
 
 double alpha = 1.0e-7;
 double beta = 0.125;
@@ -59,6 +81,9 @@ double mu = 1.;
 
 static double g_bc_time = 0.0;
 
+using namespace std;
+using namespace femus;
+
 
 struct WNodeIDs {
   unsigned W0;  // node for W-equation #1
@@ -66,14 +91,41 @@ struct WNodeIDs {
   unsigned Y1;  // node for W-equation #3
 };
 
+struct ODEParams {
+  double dt;
+  double alpha;
+  double beta;
+  double a;
+  double b;
+  double h;
+};
+
+struct ODEStageOut {
+  std::vector<double> x1;   // size nCtrl
+  std::vector<double> y1;   // size nCtrl
+  std::vector<double> u1;   // size nCtrl
+  std::vector<double> w;    // size nCtrl (updated w for this stage)
+};
+
+static inline void ensure_size(std::vector<double>& v, std::size_t n) {
+  if (v.size() != n) v.assign(n, 0.0);
+}
+
+ODEStageOut computeODESystemStage( const Solution& sol, unsigned idxZi, unsigned idxXi, unsigned idxEi, const std::vector<unsigned>& idxP,
+  const std::vector<unsigned>& idxPStar, const std::vector<unsigned>& idxCStar, const std::vector<double>& wOldStage, const ODEParams& par, MPI_Comm comm);
+
+static void computeODESystem( const Solution& sol, const Indices& idx, const std::vector<unsigned>& controlNodeDofs, const ODEParams& par,
+  unsigned jTMP, std::vector<std::vector<double>>& w, const std::vector<std::vector<double>>& wOld, std::vector<double>& x1_vec,
+  std::vector<double>& y1_vec, std::vector<double>& u1);
+
+
+static unsigned MapMeshDofToSystemRowP(const Mesh* msh, LinearEquationSolver* pdeSys, unsigned pIndex, unsigned pPdeIndex, unsigned pType, unsigned meshDofP);
+
 
 double SetVariableTimeStep(const double time) {
   return dt;
 }
 
-
-using namespace std;
-using namespace femus;
 
 struct RegionBox {
   double xMin, xMax;
@@ -83,7 +135,7 @@ struct RegionBox {
 
 void SetRegions(Solution *sol, /*const RegionBox& boxB,*/ const RegionBox& boxC);
 
-void SetPrescribedFields(Solution* sol, const double& time, const std::string& R, const std::string& D = "");
+void SetPrescribedFields(Solution* sol, const double& time, const std::string& R);
 
 bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[], double& value, const int facename, const double time) {
   bool dirichlet = true;
@@ -91,7 +143,6 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 
   if(withDisturbance){
     if(!strcmp(SolName, "s")) {  // where s is the name of the variable
-      bool dirichlet = true; // set dirichlet on all faces
       if(4 == facename) { // 0 is the face ( it could be 2)
         value = - M_PI * cos(g_bc_time * M_PI); // d_t(x,t)
       }
@@ -100,7 +151,6 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
       }
     }
     else if(!strcmp(SolName, "s1")) {  // where s is the name of the variable
-      bool dirichlet = true; // set dirichlet on all faces
       if(4 == facename) { // 0 is the face ( it could be 2)
         value = sin(x[1] * M_PI) + sin(g_bc_time * M_PI); // d(x,t)
       }
@@ -248,11 +298,9 @@ int main(int argc, char** args) {
   g_idx.R    = mlSol.GetIndex("R");
   g_idx.C    = mlSol.GetIndex("C");
 
-  g_idx.S = mlSol.GetIndex("s");
-  g_idx.S1 = mlSol.GetIndex("s1");
-
   if (withDisturbance) {
-    g_idx.d  = mlSol.GetIndex("d");
+    g_idx.S = mlSol.GetIndex("s");
+    g_idx.S1 = mlSol.GetIndex("s1");
   }
 
   auto bad = [](unsigned v) { return v == static_cast<unsigned>(-1); };
@@ -280,15 +328,33 @@ int main(int argc, char** args) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
-  // disturbance-only
-  if (withDisturbance) {
-    if (bad(g_idx.d)) {
-      std::cerr << "Bad disturbance indices\n";
-      MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-  }
 
+  // ---------- ODE parameters (constant for the run) ----------
+  ODEParams odePar;
+  odePar.dt    = dt;
+  odePar.alpha = alpha;
+  odePar.beta  = beta;
+  odePar.a     = a;
+  odePar.b     = b;
+  odePar.h     = h;
 
+  // ---------- cache indices / references once ----------
+  const unsigned idxZi   = g_idx.Zi;
+  const unsigned idxXi   = g_idx.Xi;
+  const unsigned idxYi   = g_idx.Yi;
+  const unsigned idxEi   = g_idx.Ei;
+  const unsigned idxZtot = g_idx.Ztot;
+  const unsigned idxR    = g_idx.R;
+  const unsigned idxC    = g_idx.C;
+
+  const unsigned idxS  = withDisturbance ? g_idx.S  : static_cast<unsigned>(-1);
+  const unsigned idxS1 = withDisturbance ? g_idx.S1 : static_cast<unsigned>(-1);
+
+  const std::vector<unsigned>& idxP     = g_idx.P;
+  const std::vector<unsigned>& idxPStar = g_idx.PStar;
+  const std::vector<unsigned>& idxCStar = g_idx.CStar;
+
+  const unsigned nCtrl_cached = static_cast<unsigned>(idxP.size());
 
 
   MultiLevelProblem mlProb(&mlSol);
@@ -399,15 +465,13 @@ int main(int argc, char** args) {
 
     g_bc_time = time;
 
-    mlSol.GenerateBdc("s");
-    mlSol.GenerateBdc("s1");
+    if(withDisturbance){
+      mlSol.GenerateBdc("s");
+      mlSol.GenerateBdc("s1");
+    }
 
 
-    if(withDisturbance) SetPrescribedFields(sol, t * dt, "R", "d");
-    else SetPrescribedFields(sol, t * dt, "R");
-
-    std::shared_ptr<NumericVector> dOriginal;
-    if (withDisturbance) dOriginal = sol->_Sol[mlSol.GetIndex("d")]->clone();
+    SetPrescribedFields(sol, t * dt, "R");
 
     sol->_Sol[g_idx.Ztot]->zero();
     *(sol->_Sol[g_idx.Ei]) = *(sol->_Sol[g_idx.R]);
@@ -428,6 +492,8 @@ int main(int argc, char** args) {
 
       *(sol->_Sol[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
       *(sol->_SolOld[g_idx.Zi]) = *(sol->_Sol[g_idx.ZOld[j]]);
+
+      computeODESystem(*sol, g_idx, g_controlNodeDofs, odePar, jTMP, w, wOld, x1_vec, y1_vec, u1);
 
       if(withDisturbance && j ==0) system.MGsolve();
       else systemR.MGsolve();
@@ -466,10 +532,6 @@ int main(int argc, char** args) {
       wFile << "\n";
       wFile.flush();
     }
-
-
-    // restore prescribed disturbance before visualization output
-    if (withDisturbance) *(sol->_Sol[mlSol.GetIndex("d")]) = *dOriginal;
 
     vtkIO.Write(DEFAULT_OUTPUTDIR, "biquadratic", variablesToBePrinted, t);
 
@@ -533,7 +595,7 @@ double GetDisturbanceSolution(const std::vector<double>& xv, const double& time)
   return (xv[0] - 2 * M_PI / 3.0) * (M_PI - xv[0]) * xv[1] * (1 - xv[1]) * sin(2 * time) * flc4hs(time - 0.5, 0.5);
 }
 
-void SetPrescribedFields(Solution* sol, const double& time, const std::string& R, const std::string& D) {
+void SetPrescribedFields(Solution* sol, const double& time, const std::string& R) {
 
   Mesh* msh = sol->GetMesh();
   const unsigned dim = msh->GetDimension();
@@ -544,16 +606,6 @@ void SetPrescribedFields(Solution* sol, const double& time, const std::string& R
 
   bool hasDisturbance = false;
   unsigned dIndex = 0;
-  unsigned dType = 0;
-
-  // Check if disturbance should be applied and if the field exists
-  if (withDisturbance && !D.empty()) {
-    if (sol->GetIndex(D.c_str()) != static_cast<unsigned>(-1)) {
-      hasDisturbance = true;
-      dIndex = sol->GetIndex(D.c_str());
-      dType = sol->GetSolutionType(dIndex);
-    }
-  }
 
   std::vector<double> xv(dim);
   unsigned xType = 2;  // coordinates always quadratic
@@ -571,17 +623,10 @@ void SetPrescribedFields(Solution* sol, const double& time, const std::string& R
       unsigned uDofR = msh->GetSolutionDof(i, iel, rType);
       double rVal = GetTargetSolution(xv, time);
       sol->_Sol[rIndex]->set(uDofR, rVal);
-
-      if (hasDisturbance) {
-        unsigned uDofD = msh->GetSolutionDof(i, iel, dType);
-        double dVal = GetDisturbanceSolution(xv, time);
-        sol->_Sol[dIndex]->set(uDofD, dVal);
-      }
     }
   }
 
   sol->_Sol[rIndex]->close();
-  if (hasDisturbance) sol->_Sol[dIndex]->close();
 }
 
 bool CheckIfInside(const std::vector<double>& xv, const RegionBox& box) {
@@ -655,7 +700,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -670,8 +714,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
   unsigned    iproc = msh->processor_id(); // get the process_id (for parallel computation)
 
   double dt =  mlPdeSys->GetIntervalTime();
-  double time =  mlPdeSys->GetTime();
-
 
   //solution variable
   // Note: for P* use PStar = IntegralP;
@@ -683,7 +725,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
 
   // unsigned solIndexB = mlSol->GetIndex("B");
   unsigned solIndexC = mlSol->GetIndex("C");
-  unsigned solIndexd;
 
 
   unsigned solType = mlSol->GetSolutionType(solIndexZ);
@@ -718,90 +759,14 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
   RES->zero(); // Set to zero all the entries of the Global Residual std::vector
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
-  x1_vec.resize(g_controlNodeDofs.size(),0.);
-  y1_vec.resize(g_controlNodeDofs.size(),0.);
-  // std::vector<double> y1(g_controlNodeDofs.size(),0.);
-  w[jTMP].resize(g_controlNodeDofs.size(),0.);
-
-  std::vector<double> u1 (g_controlNodeDofs.size(),0.);
-
-  // node-based loop: use PStar(i) = ∫Ω P φ_i, CStarCPStar(i) = ∫Ω_C P φ_i
-
-  const NumericVector* ZVec = sol->_Sol[solIndexZ];
-  const NumericVector* XVec = sol->_Sol[solIndexX];
-  const NumericVector* EVec = sol->_Sol[solIndexE];
-
-  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
-
-    // global scalars
-    double PstarZ = 0.0;
-    double PstarX = 0.0;
-    double CstarCPstarZ = 0.0;
-    double CstarCPstarP = 0.0;
-    double CstarCPstarE = 0.0;
-
-    const unsigned solIndexPStarj  = g_idx.PStar[j];
-    const unsigned solIndexPCStarj = g_idx.CStar[j];
-    const unsigned solIndexPj      = g_idx.P[j];
-
-    const NumericVector* PStarVecj       = sol->_Sol[solIndexPStarj];
-    const NumericVector* CStarCPStarVecj = sol->_Sol[solIndexPCStarj];
-    const NumericVector* PVecj           = sol->_Sol[solIndexPj];
-
-    const unsigned first_dof = PStarVecj->first_local_index();
-    const unsigned last_dof  = PStarVecj->last_local_index();
-
-
-
-  for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
-    const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
-    const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
-
-    const double Zi = (*ZVec)(gdof);
-    const double Xi = (*XVec)(gdof);
-    const double Ei = (*EVec)(gdof);
-
-    const double Pi = (*PVecj)(gdof);
-
-    // ∫Ω P Z ≈ Σ_i wP_i * Z_i
-    PstarZ       += wP  * Zi;
-    // ∫Ω_C P Z ≈ Σ_i wPC_i * Z_i
-    CstarCPstarZ += wPC * Zi;
-
-    PstarX       += wP  * Xi;
-
-    CstarCPstarP += wPC * Pi;
-    CstarCPstarE += wPC * Ei;
+  if (jTMP >= w.size()) {
+    std::cerr << "AssembleResADReduced: jTMP out of range\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
   }
-
-  // ---- global reduction so all ranks see the same scalars ----
-  double local_vec[5]  = {PstarZ, CstarCPstarZ, PstarX, CstarCPstarP, CstarCPstarE};
-  double global_vec[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
-
-  MPI_Allreduce(local_vec, global_vec, 5, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-  PstarZ        = global_vec[0];
-  CstarCPstarZ  = global_vec[1];
-  PstarX        = global_vec[2];
-  CstarCPstarP  = global_vec[3];
-  CstarCPstarE  = global_vec[4];
-
-
-  // Precomputation of w,x1,y1 with analytic relations
-  double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
-
-  double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
-  double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ );
-
-  double rhs = rhs1 + rhs2;
-
-  x1_vec[j] = rhs / lhs;
-  w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
-  y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
-
-
-  u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
-
+  const unsigned nCtrl = g_controlNodeDofs.size();
+  if (w[jTMP].size() != nCtrl || y1_vec.size() != nCtrl || u1.size() != nCtrl) {
+    std::cerr << "AssembleResADReduced: ODE arrays not ready or wrong size\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
   // element loop: each process loops only on the elements that owns
@@ -870,6 +835,7 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
       double ZOldg = 0.;
       adept::adouble Zg = 0.;
       adept::adouble Xg = 0.;
+      std::vector<double> Pg (g_controlNodeDofs.size(), 0.);
 
       double r = 0.;
       double d = 0.;
@@ -882,6 +848,7 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
         ZOldg += solZOld[i] * phi[i];
         Zg += solZ[i] * phi[i];
         Xg += solX[i] * phi[i];
+        for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) Pg[j] += solP[j][i] * phi[i];
 
         r += solE[i] * phi[i];
 
@@ -900,8 +867,8 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
         adept::adouble aResX = - (CsC > 0.5) * (r - (1. - beta) * Zg) * phi[i];
 
         for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
-          aResZ += h * a * solP[j][i] * w[jTMP][j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
-          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] - beta * b * h * solP[j][i] * u1[j] / a) * phi[i];
+          aResZ += h * a * Pg[j] * w[jTMP][j] * phi[i] + h * b * Pg[j] * u1[j] * phi[i];
+          aResX += (CsC > 0.5) * ( (1. - beta) * h * Pg[j] * w[jTMP][j] - beta * b * h * Pg[j] * u1[j] / a) * phi[i];
         }
 
 
@@ -969,7 +936,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
-  elem*          el         = msh->el;  // pointer to the elem object in msh (level)
 
   MultiLevelSolution*  mlSol        = ml_prob._ml_sol;  // pointer to the multilevel solution object
   Solution*    sol        = ml_prob._ml_sol->GetSolutionLevel(level);    // pointer to the solution (level) object
@@ -984,8 +950,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   unsigned    iproc = msh->processor_id(); // get the process_id (for parallel computation)
 
   double dt =  mlPdeSys->GetIntervalTime();
-  double time =  mlPdeSys->GetTime();
-
 
   //solution variable
   // Note: for P* use PStar = IntegralP;
@@ -1001,13 +965,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
   unsigned solIndexS = mlSol->GetIndex("s");
   unsigned solIndexS1 = mlSol->GetIndex("s1");
-
-  unsigned solIndexd;
-  if(withDisturbance) {
-    solIndexd = mlSol->GetIndex("d");
-  }
-
-
 
   unsigned solType = mlSol->GetSolutionType(solIndexZ);
 
@@ -1058,105 +1015,14 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   RES->zero(); // Set to zero all the entries of the Global Residual std::vector
   KK->zero(); // Set to zero all the entries of the Global Matrix
 
-  x1_vec.resize(g_controlNodeDofs.size(),0.);
-  y1_vec.resize(g_controlNodeDofs.size(),0.);
-  // std::vector<double> y1(g_controlNodeDofs.size(),0.);
-  w[jTMP].resize(g_controlNodeDofs.size(),0.);
-
-  std::vector<double> u1 (g_controlNodeDofs.size(),0.);
-
-  // node-based loop: use PStar(i) = ∫Ω P φ_i, CStarCPStar(i) = ∫Ω_C P φ_i
-
-
-  const NumericVector* ZVec = sol->_Sol[solIndexZ];
-  const NumericVector* XVec = sol->_Sol[solIndexX];
-  const NumericVector* YVec = sol->_Sol[solIndexY];
-  const NumericVector* EVec = sol->_Sol[solIndexE];
-
-
-
-
-
-  for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
-
-    // global scalars
-    double PstarZ = 0.0;
-    double PstarX = 0.0;
-    double PstarY = 0.0;
-    double CstarCPstarZ = 0.0;
-    double CstarCPstarY = 0.0;
-    double CstarCPstarP = 0.0;
-    double CstarCPstarE = 0.0;
-
-    const unsigned solIndexPStarj  = g_idx.PStar[j];
-    const unsigned solIndexPCStarj = g_idx.CStar[j];
-    const unsigned solIndexPj      = g_idx.P[j];
-
-    const NumericVector* PStarVecj       = sol->_Sol[solIndexPStarj];
-    const NumericVector* CStarCPStarVecj = sol->_Sol[solIndexPCStarj];
-    const NumericVector* PVecj           = sol->_Sol[solIndexPj];
-
-    const unsigned first_dof = PStarVecj->first_local_index();
-    const unsigned last_dof  = PStarVecj->last_local_index();
-
-
-
-    for (unsigned gdof = first_dof; gdof < last_dof; ++gdof) {
-      const double wP  = (*PStarVecj)(gdof);       // ∫Ω    P φ_i
-      const double wPC = (*CStarCPStarVecj)(gdof); // ∫Ω_C  P φ_i
-
-      const double Zi = (*ZVec)(gdof);
-      const double Xi = (*XVec)(gdof);
-      const double Yi = (*YVec)(gdof);
-      const double Ei = (*EVec)(gdof);
-
-      const double Pi = (*PVecj)(gdof);
-
-      // ∫Ω P Z ≈ Σ_i wP_i * Z_i
-      PstarZ       += wP  * Zi;
-      // ∫Ω_C P Z ≈ Σ_i wPC_i * Z_i
-      CstarCPstarZ += wPC * Zi;
-
-      PstarX       += wP  * Xi;
-      PstarY       += wP  * Yi;
-      CstarCPstarY += wPC * Yi;
-
-      CstarCPstarP += wPC * Pi;
-      CstarCPstarE += wPC * Ei;
-    }
-
-    // ---- global reduction so all ranks see the same scalars ----
-    double local_vec[7]  = {PstarZ, CstarCPstarZ, PstarX, PstarY,
-      CstarCPstarY, CstarCPstarP, CstarCPstarE
-    };
-    double global_vec[7] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-    MPI_Allreduce(local_vec, global_vec, 7, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    PstarZ        = global_vec[0];
-    CstarCPstarZ  = global_vec[1];
-    PstarX        = global_vec[2];
-    PstarY        = global_vec[3];
-    CstarCPstarY  = global_vec[4];
-    CstarCPstarP  = global_vec[5];
-    CstarCPstarE  = global_vec[6];
-
-
-    // Precomputation of w,x1,y1 with analytic relations
-    double lhs = - a + h * h * b * b * CstarCPstarP / alpha * ( (dt * (1 - beta) / (1 - a * dt)) - beta / a );
-
-    double rhs1 = - h * h * CstarCPstarP * ( (1 - beta) * (wOld[jTMP][j] / (1 - a * dt)) + h * b * b / alpha * (- (1 - beta) * dt / (1 - a * dt) + beta / a) * PstarX);
-    double rhs2 = - h * a * PstarX + h * ( CstarCPstarE - (1 - beta) * CstarCPstarZ - beta * CstarCPstarY );
-
-    double rhs = rhs1 + rhs2;
-
-    x1_vec[j] = rhs / lhs;
-    w[jTMP][j] = dt / (1 - a * dt) * (wOld[jTMP][j] / dt + b * b / alpha * (x1_vec[j] - h * PstarX));
-    y1_vec[j] = - b * b / (a * alpha) * (- h * PstarX + x1_vec[j]);
-
-
-    u1[j] = (- h * b * PstarX + b * x1_vec[j] ) / alpha;
-
+  if (jTMP >= w.size()) {
+    std::cerr << "AssembleResAD: jTMP out of range\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
+  }
+  const unsigned nCtrl = g_controlNodeDofs.size();
+  if (w[jTMP].size() != nCtrl || y1_vec.size() != nCtrl || u1.size() != nCtrl) {
+    std::cerr << "AssembleResAD: ODE arrays not ready or wrong size\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
   }
 
   // element loop: each process loops only on the elements that owns
@@ -1235,6 +1101,7 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       adept::adouble Zg = 0.;
       adept::adouble Xg = 0.;
       adept::adouble Yg = 0.;
+      std::vector<double> Pg(g_controlNodeDofs.size(), 0.);
 
       double r = 0.;
       double d = 0.;
@@ -1251,16 +1118,17 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
         Zg += solZ[i] * phi[i];
         Xg += solX[i] * phi[i];
         Yg += solY[i] * phi[i];
+        for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) Pg[j] += solP[j][i] * phi[i];
 
         r += solE[i] * phi[i];
 
         s += solS[i] * phi[i];
         s1 += solS1[i] * phi[i];
 
-        for (unsigned j = 0; j < dim; j++) {
-          gradZg[j] += solZ[i] * gradPhi[i * dim + j];
-          gradXg[j] += solX[i] * gradPhi[i * dim + j];
-          gradYg[j] += solY[i] * gradPhi[i * dim + j];
+        for (unsigned d = 0; d < dim; d++) {
+          gradZg[d] += solZ[i] * gradPhi[i * dim + d];
+          gradXg[d] += solX[i] * gradPhi[i * dim + d];
+          gradYg[d] += solY[i] * gradPhi[i * dim + d];
         }
       }
 
@@ -1274,9 +1142,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
         adept::adouble aResY = 0;
 
         for(unsigned j = 0; j < g_controlNodeDofs.size(); j++){
-          aResZ += h * a * solP[j][i] * w[jTMP][j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
-          aResX += (CsC > 0.5) * ( (1. - beta) * h * solP[j][i] * w[jTMP][j] + beta * (+ h * solP[j][i] * y1_vec[j])) * phi[i];
-          aResY +=  h * a * solP[j][i] * y1_vec[j] * phi[i] + h * b * solP[j][i] * u1[j] * phi[i];
+          aResZ += h * a * Pg[j] * w[jTMP][j] * phi[i] + h * b * Pg[j] * u1[j] * phi[i];
+          aResX += (CsC > 0.5) * ( (1. - beta) * h * Pg[j] * w[jTMP][j] + beta * (+ h * Pg[j] * y1_vec[j])) * phi[i];
+          aResY +=  h * a * Pg[j] * y1_vec[j] * phi[i] + h * b * Pg[j] * u1[j] * phi[i];
         }
 
 
@@ -1329,10 +1197,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
   RES->close();
   KK->close();
-  //KK->draw();
-
-  // double a;
-  // std::cin>>a;
 
 }
 
@@ -1430,12 +1294,12 @@ void AssembleResP(MultiLevelProblem& ml_prob) {
     s.clear_dependents();
   }
 
-  // // point-loads: δ at selected nodes (B = Σ_i δ_{x_i})
-  // for (unsigned gdof : g_controlNodeDofs) {
-  //   RES->add(gdof, 1.0);
-  // }
+  const unsigned meshDofP = gdof;  // this is what GetControlNodeIndices gave you (global mesh dof)
+  const unsigned sysRow = MapMeshDofToSystemRowP(msh, pdeSys, pIndex, pPdeIndex, pType, meshDofP);
 
-  RES->add(gdof, 1.0);
+  if (sysRow != static_cast<unsigned>(-1)) {
+    RES->add(sysRow, 1.0);
+  }
 
   RES->close();
   KK->close();
@@ -1454,7 +1318,7 @@ static void AssembleLaplacianCore(MultiLevelProblem& ml_prob,
                                   const char* var_name) {
   adept::Stack& s = FemusInit::_adeptStack;
 
-  auto* mlPdeSys = &ml_prob.get_system<LinearImplicitSystem>(system_name);
+  auto* mlPdeSys = &ml_prob.get_system<TransientLinearImplicitSystem>(system_name);
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh* msh = ml_prob._ml_msh->GetLevel(level);
@@ -1722,39 +1586,95 @@ std::vector<double> ComputeL2NormCascadeOverC(Solution* sol, unsigned cascadeIte
 
 
 std::vector<unsigned> GetControlNodeIndices(const Mesh* msh,
-    const std::vector<std::vector<double>>& points) {
+                                            const std::vector<std::vector<double>>& points) {
   const unsigned dim = msh->GetDimension();
-  unsigned nNodes = msh->_topology->_Sol[0]->size();
+  if (points.empty()) return {};
+
+  // Coordinate vectors (distributed)
+  const NumericVector* X0 = msh->_topology->_Sol[0];
+  const NumericVector* X1 = (dim > 1) ? msh->_topology->_Sol[1] : nullptr;
+  const NumericVector* X2 = (dim > 2) ? msh->_topology->_Sol[2] : nullptr;
+
+  // Owned global index range on THIS rank (unique ownership)
+  const unsigned first = X0->first_local_index();
+  const unsigned last  = X0->last_local_index();
+
+  // Create MPI datatype + op once per call (cheap; you can also cache globally)
+  MPI_Datatype MPI_MinPair;
+  MPI_Op       MPI_MinPairOp;
+
+  // MinPair is {double, uint64} with potential padding; define explicit MPI struct
+  {
+    MinPair tmp;
+    MPI_Aint displs[2];
+    int      blens[2] = {1, 1};
+    MPI_Datatype types[2] = {MPI_DOUBLE, MPI_UNSIGNED_LONG_LONG};
+
+    MPI_Aint base;
+    MPI_Get_address(&tmp, &base);
+    MPI_Get_address(&tmp.dist2, &displs[0]);
+    MPI_Get_address(&tmp.gid,   &displs[1]);
+    displs[0] -= base;
+    displs[1] -= base;
+
+    MPI_Type_create_struct(2, blens, displs, types, &MPI_MinPair);
+    MPI_Type_commit(&MPI_MinPair);
+
+    MPI_Op_create(&mpi_minpair_op, /*commute=*/1, &MPI_MinPairOp);
+  }
 
   std::vector<unsigned> controlIndices;
   controlIndices.reserve(points.size());
 
-  auto dist2 = [&](unsigned node, const std::vector<double>& x0) {
-    double d2 = 0.0;
-    for (unsigned k = 0; k < dim; ++k) {
-      double diff = (*msh->_topology->_Sol[k])(node) - x0[k];
-      d2 += diff * diff;
-    }
-    return d2;
-  };
-
   for (const auto& x0 : points) {
-    double minD2 = std::numeric_limits<double>::max();
-    unsigned closest = 0;
+    if (x0.size() < dim) {
+      std::cerr << "GetControlNodeIndices: point has wrong dimension\n";
+      MPI_Abort(MPI_COMM_WORLD, 1);
+    }
 
-    for (unsigned i = 0; i < nNodes; ++i) {
-      double d2 = dist2(i, x0);
-      if (d2 < minD2) {
-        minD2 = d2;
-        closest = i;
+    MinPair local;
+    local.dist2 = std::numeric_limits<double>::infinity();
+    local.gid   = std::numeric_limits<std::uint64_t>::max();
+
+    // Search only owned nodes
+    for (unsigned gdof = first; gdof < last; ++gdof) {
+      const double dx = (*X0)(gdof) - x0[0];
+      double d2 = dx * dx;
+
+      if (dim > 1) {
+        const double dy = (*X1)(gdof) - x0[1];
+        d2 += dy * dy;
+      }
+      if (dim > 2) {
+        const double dz = (*X2)(gdof) - x0[2];
+        d2 += dz * dz;
+      }
+
+      // local argmin, tie-break by smaller gdof
+      if (d2 < local.dist2 || (d2 == local.dist2 && std::uint64_t(gdof) < local.gid)) {
+        local.dist2 = d2;
+        local.gid   = gdof;
       }
     }
 
-    controlIndices.push_back(closest);
+    MinPair global = local;
+    MPI_Allreduce(&local, &global, 1, MPI_MinPair, MPI_MinPairOp, MPI_COMM_WORLD);
+
+    if (global.gid == std::numeric_limits<std::uint64_t>::max() ||
+      !std::isfinite(global.dist2)) {
+      std::cerr << "GetControlNodeIndices: failed to find a global closest node\n";
+    MPI_Abort(MPI_COMM_WORLD, 1);
+      }
+
+      controlIndices.push_back(static_cast<unsigned>(global.gid));
   }
+
+  MPI_Op_free(&MPI_MinPairOp);
+  MPI_Type_free(&MPI_MinPair);
 
   return controlIndices;
 }
+
 
 WNodeIDs GetGlobalNodeIDsForW(const Mesh* msh, unsigned elemID) {
   const unsigned solType = 2; // quadratic coordinates
@@ -1766,5 +1686,207 @@ WNodeIDs GetGlobalNodeIDsForW(const Mesh* msh, unsigned elemID) {
 
   return ids;
 }
+
+
+
+ODEStageOut computeODESystemStage(
+  const Solution& sol,
+  unsigned idxZi,
+  unsigned idxXi,
+  unsigned idxEi,
+  const std::vector<unsigned>& idxP,       // size nCtrl
+  const std::vector<unsigned>& idxPStar,   // size nCtrl
+  const std::vector<unsigned>& idxCStar,   // size nCtrl
+  const std::vector<double>& wOldStage,    // size nCtrl
+  const ODEParams& par,
+  MPI_Comm comm)
+{
+  const std::size_t nCtrl = idxP.size();
+  ODEStageOut out;
+  out.x1.assign(nCtrl, 0.0);
+  out.y1.assign(nCtrl, 0.0);
+  out.u1.assign(nCtrl, 0.0);
+  out.w.assign(nCtrl, 0.0);
+
+  if (idxPStar.size() != nCtrl || idxCStar.size() != nCtrl || wOldStage.size() != nCtrl) {
+    std::cerr << "computeODESystemStage: inconsistent nCtrl sizes\n";
+    MPI_Abort(comm, 1);
+  }
+
+  const NumericVector* ZVec = sol._Sol[idxZi];
+  const NumericVector* XVec = sol._Sol[idxXi];
+  const NumericVector* EVec = sol._Sol[idxEi];
+
+  // One Allreduce for all controls:
+  // For each control p: [PstarZ, CstarZ, PstarX, CstarP, CstarE] => 5 scalars.
+  std::vector<double> local(5 * nCtrl, 0.0), global(5 * nCtrl, 0.0);
+
+  for (std::size_t p = 0; p < nCtrl; ++p) {
+    const NumericVector* PStarVecp       = sol._Sol[idxPStar[p]];
+    const NumericVector* CStarCPStarVecp = sol._Sol[idxCStar[p]];
+    const NumericVector* PVecp           = sol._Sol[idxP[p]];
+
+    const unsigned first = PStarVecp->first_local_index();
+    const unsigned last  = PStarVecp->last_local_index();
+
+    double PstarZ = 0.0;
+    double CstarZ = 0.0;
+    double PstarX = 0.0;
+    double CstarP = 0.0;
+    double CstarE = 0.0;
+
+    for (unsigned gdof = first; gdof < last; ++gdof) {
+      const double wP  = (*PStarVecp)(gdof);
+      const double wPC = (*CStarCPStarVecp)(gdof);
+
+      const double Zi = (*ZVec)(gdof);
+      const double Xi = (*XVec)(gdof);
+      const double Ei = (*EVec)(gdof);
+      const double Pi = (*PVecp)(gdof);
+
+      PstarZ += wP  * Zi;
+      CstarZ += wPC * Zi;
+      PstarX += wP  * Xi;
+      CstarP += wPC * Pi;
+      CstarE += wPC * Ei;
+    }
+
+    local[5 * p + 0] = PstarZ;
+    local[5 * p + 1] = CstarZ;
+    local[5 * p + 2] = PstarX;
+    local[5 * p + 3] = CstarP;
+    local[5 * p + 4] = CstarE;
+  }
+
+  MPI_Allreduce(local.data(), global.data(),
+                static_cast<int>(global.size()),
+                MPI_DOUBLE, MPI_SUM, comm);
+
+  // Now compute x1,w,y1,u1 per control p
+  const double dt    = par.dt;
+  const double alpha = par.alpha;
+  const double beta  = par.beta;
+  const double a     = par.a;
+  const double b     = par.b;
+  const double h     = par.h;
+
+  const double one_minus_beta = 1.0 - beta;
+  const double denom_adt = (1.0 - a * dt);
+
+  // Basic safety checks to avoid NaNs
+  if (std::abs(denom_adt) < 1e-14) {
+    std::cerr << "computeODESystemStage: 1 - a*dt too small\n";
+    MPI_Abort(comm, 1);
+  }
+  if (std::abs(a) < 1e-14) {
+    std::cerr << "computeODESystemStage: a too small (division by a)\n";
+    MPI_Abort(comm, 1);
+  }
+  if (std::abs(alpha) < 1e-30) {
+    std::cerr << "computeODESystemStage: alpha too small\n";
+    MPI_Abort(comm, 1);
+  }
+
+  for (std::size_t p = 0; p < nCtrl; ++p) {
+    const double PstarZ = global[5 * p + 0];
+    const double CstarZ = global[5 * p + 1];
+    const double PstarX = global[5 * p + 2];
+    const double CstarP = global[5 * p + 3];
+    const double CstarE = global[5 * p + 4];
+
+    const double lhs =
+    -a + (h * h * b * b * CstarP / alpha) *
+    ((dt * one_minus_beta / denom_adt) - (beta / a));
+
+    // Guard against divide-by-zero
+    if (std::abs(lhs) < 1e-14) {
+      std::cerr << "computeODESystemStage: lhs too small at p=" << p << "\n";
+      MPI_Abort(comm, 1);
+    }
+
+    const double rhs1 =
+    -h * h * CstarP *
+    ( one_minus_beta * (wOldStage[p] / denom_adt)
+    + (h * b * b / alpha) * (-(one_minus_beta * dt / denom_adt) + (beta / a)) * PstarX );
+
+    const double rhs2 =
+    -h * a * PstarX + h * (CstarE - one_minus_beta * CstarZ);
+
+    const double rhs = rhs1 + rhs2;
+
+    const double x1 = rhs / lhs;
+    const double wnew =
+    (dt / denom_adt) * (wOldStage[p] / dt + (b * b / alpha) * (x1 - h * PstarX));
+    const double y1 = -(b * b / (a * alpha)) * (-h * PstarX + x1);
+    const double u1 = (-h * b * PstarX + b * x1) / alpha;
+
+    out.x1[p] = x1;
+    out.w[p]  = wnew;
+    out.y1[p] = y1;
+    out.u1[p] = u1;
+  }
+
+  return out;
+}
+
+
+static void computeODESystem(
+  const Solution& sol,
+  const Indices& idx,
+  const std::vector<unsigned>& controlNodeDofs,
+  const ODEParams& par,
+  unsigned jTMP,
+  std::vector<std::vector<double>>& w,
+  const std::vector<std::vector<double>>& wOld,
+  std::vector<double>& x1_vec,
+  std::vector<double>& y1_vec,
+  std::vector<double>& u1
+) {
+  const std::size_t nCtrl = controlNodeDofs.size();
+
+  // sizes
+  x1_vec.assign(nCtrl, 0.0);
+  y1_vec.assign(nCtrl, 0.0);
+  u1.assign(nCtrl, 0.0);
+  w[jTMP].assign(nCtrl, 0.0);
+
+  // compute in one shot
+  ODEStageOut out = computeODESystemStage(
+    sol,
+    idx.Zi, idx.Xi, idx.Ei,
+    idx.P, idx.PStar, idx.CStar,
+    wOld[jTMP],
+    par,
+    MPI_COMM_WORLD);
+
+  x1_vec = std::move(out.x1);
+  y1_vec = std::move(out.y1);
+  u1     = std::move(out.u1);
+  w[jTMP]= std::move(out.w);
+}
+
+
+static unsigned MapMeshDofToSystemRowP(const Mesh* msh, LinearEquationSolver* pdeSys, unsigned pIndex,
+                                       unsigned pPdeIndex, unsigned pType, unsigned meshDofP)
+{
+  // We search elements owned by this rank. For a point-load you only need
+  // the system row on the owning rank; RES->add handles parallel assembly.
+  const unsigned iproc = msh->processor_id();
+
+  for (unsigned iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; ++iel) {
+    const unsigned nDofs = msh->GetElementDofNumber(iel, pType);
+    for (unsigned i = 0; i < nDofs; ++i) {
+      const unsigned md = msh->GetSolutionDof(i, iel, pType);
+      if (md == meshDofP) {
+        return pdeSys->GetSystemDof(pIndex, pPdeIndex, i, iel);
+      }
+    }
+  }
+
+  // Not found on this rank (likely not owned). Return invalid.
+  return static_cast<unsigned>(-1);
+}
+
+
 
 
