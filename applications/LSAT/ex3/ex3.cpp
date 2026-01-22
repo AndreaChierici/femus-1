@@ -28,7 +28,7 @@ unsigned cascadeIterations = 2;
 
 unsigned jTMP = 0;
 
-bool withDisturbance = false;
+bool withDisturbance = true;
 
 // static double PStar = 0.0;
 std::vector<unsigned> g_controlNodeDofs;
@@ -37,8 +37,8 @@ unsigned gdof;
 struct Indices {
     std::vector<unsigned> P, PStar, CStar;
     std::vector<unsigned> Z, ZOld, E;
-    unsigned Zi, Xi, Yi, Ei, Ztot, R, C;
-    unsigned d, Bd; // only if withDisturbance
+    unsigned Zi, Xi, Yi, Ei, Ztot, R, C, S, S1;
+    unsigned d; // only if withDisturbance
   };
 
 static Indices g_idx;
@@ -56,6 +56,8 @@ double a = -5.;
 double b = 5.;
 
 double mu = 1.;
+
+static double g_bc_time = 0.0;
 
 
 struct WNodeIDs {
@@ -79,25 +81,34 @@ struct RegionBox {
 };
 
 
-void SetRegions(Solution *sol, /*const RegionBox& boxB,*/ const RegionBox& boxC, const RegionBox* boxBd = nullptr);
+void SetRegions(Solution *sol, /*const RegionBox& boxB,*/ const RegionBox& boxC);
 
 void SetPrescribedFields(Solution* sol, const double& time, const std::string& R, const std::string& D = "");
 
 bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[], double& value, const int facename, const double time) {
   bool dirichlet = true;
-  if(!strcmp(SolName, "Wi")) dirichlet = false;
-  else {
-    dirichlet = true;
-    value = 0.;
+  value = 0.;
+
+  if(withDisturbance){
+    if(!strcmp(SolName, "s")) {  // where s is the name of the variable
+      bool dirichlet = true; // set dirichlet on all faces
+      if(4 == facename) { // 0 is the face ( it could be 2)
+        value = - M_PI * cos(g_bc_time * M_PI); // d_t(x,t)
+      }
+      else { // all other faces
+        value = 0.;
+      }
+    }
+    else if(!strcmp(SolName, "s1")) {  // where s is the name of the variable
+      bool dirichlet = true; // set dirichlet on all faces
+      if(4 == facename) { // 0 is the face ( it could be 2)
+        value = sin(x[1] * M_PI) + sin(g_bc_time * M_PI); // d(x,t)
+      }
+      else { // all other faces
+        value = 0.;
+      }
+    }
   }
-  // if((DIM == 2 && facename == 4) || (DIM == 3 && facename == 5)) {   // left boundary condition.
-  //   dirichlet = true;
-  // }
-  //
-  // if((DIM == 2 && facename == 3) || (DIM == 3 && facename == 4)) {   // top boundary condition.
-  //   dirichlet = false;
-  //   value = 500.;
-  // }
 
   return dirichlet;
 }
@@ -106,6 +117,12 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 void AssembleResAD(MultiLevelProblem& ml_prob);
 void AssembleResADReduced(MultiLevelProblem& ml_prob);
 void AssembleResP(MultiLevelProblem& ml_prob);
+
+void AssembleLaplacian_s (MultiLevelProblem& ml_prob);
+void AssembleLaplacian_s1(MultiLevelProblem& ml_prob);
+
+static void AssembleLaplacianCore(MultiLevelProblem& ml_prob, const char* system_name, const char* var_name);
+
 
 std::vector<double> PrecomputePstarIntegrals(Solution* sol);
 
@@ -194,7 +211,8 @@ int main(int argc, char** args) {
   mlSol.AddSolution("C", DISCONTINUOUS_POLYNOMIAL, ZERO, false);
   if(withDisturbance) {
     mlSol.AddSolution("d", LAGRANGE, SECOND, false);
-    mlSol.AddSolution("Bd", DISCONTINUOUS_POLYNOMIAL, ZERO, false);
+    mlSol.AddSolution("s",  LAGRANGE, SECOND, false);
+    mlSol.AddSolution("s1", LAGRANGE, SECOND, false);
   }
   mlSol.Initialize("All");
   mlSol.AttachSetBoundaryConditionFunction(SetBoundaryCondition);
@@ -230,9 +248,11 @@ int main(int argc, char** args) {
   g_idx.R    = mlSol.GetIndex("R");
   g_idx.C    = mlSol.GetIndex("C");
 
+  g_idx.S = mlSol.GetIndex("s");
+  g_idx.S1 = mlSol.GetIndex("s1");
+
   if (withDisturbance) {
     g_idx.d  = mlSol.GetIndex("d");
-    g_idx.Bd = mlSol.GetIndex("Bd");
   }
 
   auto bad = [](unsigned v) { return v == static_cast<unsigned>(-1); };
@@ -262,7 +282,7 @@ int main(int argc, char** args) {
 
   // disturbance-only
   if (withDisturbance) {
-    if (bad(g_idx.d) || bad(g_idx.Bd)) {
+    if (bad(g_idx.d)) {
       std::cerr << "Bad disturbance indices\n";
       MPI_Abort(MPI_COMM_WORLD, 1);
     }
@@ -279,10 +299,29 @@ int main(int argc, char** args) {
   systemP.SetAssembleFunction(AssembleResP);
   systemP.init();
 
+  TransientLinearImplicitSystem& lap_s = mlProb.add_system<TransientLinearImplicitSystem>("Lap_s");
+  TransientLinearImplicitSystem& lap_s1 = mlProb.add_system<TransientLinearImplicitSystem>("Lap_s1");
+  TransientNonlinearImplicitSystem& system = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT");
 
+  if(withDisturbance){
+    lap_s.AddSolutionToSystemPDE("s");
+    lap_s.SetAssembleFunction(AssembleLaplacian_s);
+    lap_s.init();
 
-  TransientNonlinearImplicitSystem& systemR = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT");
+    lap_s1.AddSolutionToSystemPDE("s1");
+    lap_s1.SetAssembleFunction(AssembleLaplacian_s1);
+    lap_s1.init();
 
+    system.AddSolutionToSystemPDE("Zi");
+    system.AddSolutionToSystemPDE("Xi");
+    system.AddSolutionToSystemPDE("Yi");
+    system.SetAssembleFunction(AssembleResAD);
+    system.AttachGetTimeIntervalFunction(SetVariableTimeStep);
+    system.init();
+    system.SetOuterSolver(PREONLY);
+  }
+
+  TransientNonlinearImplicitSystem& systemR = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT_reduced");
   systemR.AddSolutionToSystemPDE("Zi");
   systemR.AddSolutionToSystemPDE("Xi");
   systemR.SetAssembleFunction(AssembleResADReduced);
@@ -291,28 +330,9 @@ int main(int argc, char** args) {
   systemR.SetOuterSolver(PREONLY);
 
 
-  TransientNonlinearImplicitSystem& system = mlProb.add_system<TransientNonlinearImplicitSystem>("LSAT");
-
-  system.AddSolutionToSystemPDE("Zi");
-  system.AddSolutionToSystemPDE("Xi");
-  system.AddSolutionToSystemPDE("Yi");
-  system.SetAssembleFunction(AssembleResAD);
-  system.AttachGetTimeIntervalFunction(SetVariableTimeStep);
-  system.init();
-  system.SetOuterSolver(PREONLY);
-
-
-
-
-
   // RegionBox boxB{M_PI/3., 2*M_PI/3., 0., 1};
   RegionBox boxC{(M_PI / 4.) - 0.001, (3.*M_PI / 4.) + 0.001, 0.249, 0.751};
-  if(withDisturbance) {
-    RegionBox boxBd{2 * M_PI / 3., M_PI, 0., 1};
-    // SetRegions(sol, boxB, boxC, &boxBd);
-    SetRegions(sol, boxC, &boxBd);
-  }
-  else SetRegions(sol, boxC);
+  SetRegions(sol, boxC);
   // else SetRegions(sol, boxB, boxC);
 
   sol->_Sol[mlSol.GetIndex("P")]->zero();
@@ -375,6 +395,14 @@ int main(int argc, char** args) {
 
   // BEGIN Time loop
   for (unsigned t = 1; t <= n_timesteps; t++) {
+    const double time = t * dt;
+
+    g_bc_time = time;
+
+    mlSol.GenerateBdc("s");
+    mlSol.GenerateBdc("s1");
+
+
     if(withDisturbance) SetPrescribedFields(sol, t * dt, "R", "d");
     else SetPrescribedFields(sol, t * dt, "R");
 
@@ -385,6 +413,11 @@ int main(int argc, char** args) {
     *(sol->_Sol[g_idx.Ei]) = *(sol->_Sol[g_idx.R]);
 
     if(world_rank == 0) wFile << std::setw(14) << t * dt;
+
+    if(withDisturbance){
+      lap_s.MGsolve();
+      lap_s1.MGsolve();
+    }
 
     for (unsigned j = 0; j < cascadeIterations; j++) {
 
@@ -408,6 +441,7 @@ int main(int argc, char** args) {
       for (unsigned p=0; p<nCtrl; ++p) {
         sol->_Sol[g_idx.Ztot]->add(w[j][p], *(sol->_Sol[g_idx.P[p]]));
       }
+      if(withDisturbance && j == 0) sol->_Sol[g_idx.Ztot]->add(+1.0, *(sol->_Sol[g_idx.S1]));
 
 
       *(sol->_Sol[g_idx.Z[j]]) = *(sol->_Sol[g_idx.Zi]);
@@ -417,6 +451,7 @@ int main(int argc, char** args) {
       for (unsigned p = 0; p < g_controlNodeDofs.size(); p++) {
         sol->_Sol[g_idx.E[j]]->add(-w[j][p], *(sol->_Sol[g_idx.P[p]]));
       }
+      if(withDisturbance && j == 0) sol->_Sol[g_idx.E[j]]->add(-1.0, *(sol->_Sol[g_idx.S1]));
 
       *(sol->_Sol[g_idx.Ei]) = *(sol->_Sol[g_idx.E[j]]);
 
@@ -564,8 +599,7 @@ bool CheckIfInside(const std::vector<double>& xv, const RegionBox& box) {
 
 void SetRegions(Solution* sol,
                 // const RegionBox& boxB,
-                const RegionBox& boxC,
-                const RegionBox* boxBd) {
+                const RegionBox& boxC) {
 
   Mesh* msh = sol->GetMesh();
   const unsigned dim = msh->GetDimension();
@@ -573,9 +607,6 @@ void SetRegions(Solution* sol,
 
   // unsigned IndexB = sol->GetIndex("B");
   unsigned IndexC = sol->GetIndex("C");
-  unsigned IndexBd = 0;
-  bool hasBd = (boxBd != nullptr);
-  if (hasBd) IndexBd = sol->GetIndex("Bd");
 
   std::vector<double> xv(dim);
   unsigned xType = 2;
@@ -586,7 +617,6 @@ void SetRegions(Solution* sol,
     unsigned nDofs = msh->GetElementDofNumber(iel, 1);
     // bool elementInB = true;
     bool elementInC = true;
-    bool elementInBd = true;
 
     for (unsigned i = 0; i < nDofs; ++i) {
       unsigned xDof = msh->GetSolutionDof(i, iel, xType);
@@ -595,17 +625,14 @@ void SetRegions(Solution* sol,
 
       // elementInB  = elementInB  && CheckIfInside(xv, boxB);
       elementInC  = elementInC  && CheckIfInside(xv, boxC);
-      if (hasBd) elementInBd = elementInBd && CheckIfInside(xv, *boxBd);
     }
 
     // sol->_Sol[IndexB]->set(iel, elementInB ? 1.0 : 0.0);
     sol->_Sol[IndexC]->set(iel, elementInC ? 1.0 : 0.0);
-    if (hasBd) sol->_Sol[IndexBd]->set(iel, elementInBd ? 1.0 : 0.0);
   }
 
   // sol->_Sol[IndexB]->close();
   sol->_Sol[IndexC]->close();
-  if (hasBd) sol->_Sol[IndexBd]->close();
 
 }
 
@@ -624,7 +651,7 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
   adept::Stack& s = FemusInit::_adeptStack;
 
   //  extract pointers to the several objects that we are going to use
-  TransientNonlinearImplicitSystem* mlPdeSys   = &ml_prob.get_system<TransientNonlinearImplicitSystem> ("LSAT");   // pointer to the linear implicit system named "Beam"
+  TransientNonlinearImplicitSystem* mlPdeSys   = &ml_prob.get_system<TransientNonlinearImplicitSystem> ("LSAT_reduced");   // pointer to the linear implicit system named "Beam"
   const unsigned level = mlPdeSys->GetLevelToAssemble();
 
   Mesh*          msh          = ml_prob._ml_msh->GetLevel(level);    // pointer to the mesh (level) object
@@ -656,7 +683,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
 
   // unsigned solIndexB = mlSol->GetIndex("B");
   unsigned solIndexC = mlSol->GetIndex("C");
-  unsigned solIndexBd;
   unsigned solIndexd;
 
 
@@ -676,7 +702,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
 
   std::vector < double > solE;
   std::vector<std::vector < double > > solP(g_controlNodeDofs.size());
-  std::vector < double > solBd;
 
   std::vector < std::vector < double > > coordX(dim);    // local coordinates
   unsigned coordXType = 2; // get the finite element type for "x", it is always 2 (LAGRANGE QUADRATIC)
@@ -786,8 +811,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
 
     // double BBs = (*sol->_Sol[solIndexB])(iel);
     double CsC = (*sol->_Sol[solIndexC])(iel);
-    double Bds = 0;
-    if(withDisturbance) Bds = (*sol->_Sol[solIndexBd])(iel);;
 
     unsigned nDofs = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
 
@@ -803,8 +826,6 @@ void AssembleResADReduced(MultiLevelProblem& ml_prob) {
     solE.resize(nDofs);
 
     for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) solP[j].resize(nDofs);
-
-    if(withDisturbance) solBd.resize(nDofs);
 
     for (unsigned  k = 0; k < dim; k++) {
       coordX[k].resize(nDofs);
@@ -977,10 +998,12 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
   // unsigned solIndexB = mlSol->GetIndex("B");
   unsigned solIndexC = mlSol->GetIndex("C");
-  unsigned solIndexBd;
+
+  unsigned solIndexS = mlSol->GetIndex("s");
+  unsigned solIndexS1 = mlSol->GetIndex("s1");
+
   unsigned solIndexd;
   if(withDisturbance) {
-    solIndexBd = mlSol->GetIndex("Bd");
     solIndexd = mlSol->GetIndex("d");
   }
 
@@ -1016,8 +1039,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
   // w[jTMP] = 0.;
 
   std::vector < double > solE;
+  std::vector < double > solS;
+  std::vector < double > solS1;
   std::vector<std::vector < double > > solP(g_controlNodeDofs.size());
-  std::vector < double > solBd;
 
   std::vector < std::vector < double > > coordX(dim);    // local coordinates
   unsigned coordXType = 2; // get the finite element type for "x", it is always 2 (LAGRANGE QUADRATIC)
@@ -1142,8 +1166,6 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
     // double BBs = (*sol->_Sol[solIndexB])(iel);
     double CsC = (*sol->_Sol[solIndexC])(iel);
-    double Bds = 0;
-    if(withDisturbance) Bds = (*sol->_Sol[solIndexBd])(iel);;
 
     unsigned nDofs = msh->GetElementDofNumber(iel, solType);    // number of solution element dofs
 
@@ -1158,10 +1180,10 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
     solX.resize(nDofs);
     solY.resize(nDofs);
     solE.resize(nDofs);
+    solS.resize(nDofs);
+    solS1.resize(nDofs);
 
     for(unsigned j = 0; j < g_controlNodeDofs.size(); j++) solP[j].resize(nDofs);
-
-    if(withDisturbance) solBd.resize(nDofs);
 
     for (unsigned  k = 0; k < dim; k++) {
       coordX[k].resize(nDofs);
@@ -1181,7 +1203,8 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       }
 
       solE[i] = (*sol->_Sol[solIndexE])(iDof);
-      if(withDisturbance) solBd[i] = (*sol->_Sol[solIndexd])(iDof);
+      solS[i] = (*sol->_Sol[solIndexS])(iDof);
+      solS1[i] = (*sol->_Sol[solIndexS1])(iDof);
 
       for (unsigned k = 0; k < nUnkn; k++) {
         unsigned solIndex = (k == 0) ? solIndexZ :
@@ -1215,6 +1238,8 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
 
       double r = 0.;
       double d = 0.;
+      double s = 0.;
+      double s1 = 0.;
 
       std::vector < adept::adouble > gradZg(dim, 0.);
       std::vector < adept::adouble > gradXg(dim, 0.);
@@ -1228,7 +1253,9 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
         Yg += solY[i] * phi[i];
 
         r += solE[i] * phi[i];
-        if(withDisturbance) d += solBd[i] * phi[i];
+
+        s += solS[i] * phi[i];
+        s1 += solS1[i] * phi[i];
 
         for (unsigned j = 0; j < dim; j++) {
           gradZg[j] += solZ[i] * gradPhi[i * dim + j];
@@ -1242,7 +1269,7 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
       for (unsigned i = 0; i < nDofs; i++) {
         unsigned coordXDof  = msh->GetSolutionDof(i, iel, coordXType);
 
-        adept::adouble aResZ = (Zg - ZOldg) / dt * phi[i];
+        adept::adouble aResZ = (Zg - ZOldg) / dt* phi[i];
         adept::adouble aResX = - (CsC > 0.5) * (r - (1. - beta) * Zg - beta * Yg) * phi[i];
         adept::adouble aResY = 0;
 
@@ -1257,6 +1284,12 @@ void AssembleResAD(MultiLevelProblem& ml_prob) {
           aResZ +=  mu * gradPhi[i * dim + d] * gradZg[d]; // diffusion
           aResX +=  mu * gradPhi[i * dim + d] * gradXg[d]; // diffusion
           aResY +=  mu * gradPhi[i * dim + d] * gradYg[d]; // diffusion
+        }
+
+        if(withDisturbance){
+          aResZ += - s * phi[i];
+          aResX += (CsC > 0.5) * s1 * phi[i];
+          aResY += - s * phi[i];
         }
 
 
@@ -1407,6 +1440,108 @@ void AssembleResP(MultiLevelProblem& ml_prob) {
   RES->close();
   KK->close();
 }
+
+void AssembleLaplacian_s(MultiLevelProblem& ml_prob) {
+  AssembleLaplacianCore(ml_prob, "Lap_s", "s");
+}
+
+void AssembleLaplacian_s1(MultiLevelProblem& ml_prob) {
+  AssembleLaplacianCore(ml_prob, "Lap_s1", "s1");
+}
+
+static void AssembleLaplacianCore(MultiLevelProblem& ml_prob,
+                                  const char* system_name,
+                                  const char* var_name) {
+  adept::Stack& s = FemusInit::_adeptStack;
+
+  auto* mlPdeSys = &ml_prob.get_system<LinearImplicitSystem>(system_name);
+  const unsigned level = mlPdeSys->GetLevelToAssemble();
+
+  Mesh* msh = ml_prob._ml_msh->GetLevel(level);
+  MultiLevelSolution* mlSol = ml_prob._ml_sol;
+  Solution* sol = mlSol->GetSolutionLevel(level);
+
+  LinearEquationSolver* pdeSys = mlPdeSys->_LinSolver[level];
+  SparseMatrix* KK = pdeSys->_KK;
+  NumericVector* RES = pdeSys->_RES;
+
+  RES->zero();
+  KK->zero();
+
+  const unsigned uIndex    = mlSol->GetIndex(var_name);
+  const unsigned uType     = mlSol->GetSolutionType(uIndex);
+  const unsigned uPdeIndex = mlPdeSys->GetSolPdeIndex(var_name);
+
+  const unsigned dim = msh->GetDimension();
+  const unsigned coordXType = 2;
+  const unsigned iproc = msh->processor_id();
+
+  for (unsigned iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; ++iel) {
+    const short unsigned ielGeom = msh->GetElementType(iel);
+    const unsigned nDofs = msh->GetElementDofNumber(iel, uType);
+
+    std::vector<std::vector<double>> X(dim, std::vector<double>(nDofs));
+    for (unsigned i = 0; i < nDofs; ++i) {
+      const unsigned xd = msh->GetSolutionDof(i, iel, coordXType);
+      for (unsigned k = 0; k < dim; ++k) X[k][i] = (*msh->_topology->_Sol[k])(xd);
+    }
+
+    std::vector<unsigned> sysDof(nDofs);
+    std::vector<adept::adouble> u(nDofs);
+    for (unsigned i = 0; i < nDofs; ++i) {
+      sysDof[i] = pdeSys->GetSystemDof(uIndex, uPdeIndex, i, iel);
+      const unsigned gd = msh->GetSolutionDof(i, iel, uType);
+      u[i] = (*sol->_Sol[uIndex])(gd);
+    }
+
+    s.new_recording();
+    std::vector<adept::adouble> aRes(nDofs, 0.0);
+
+    for (unsigned ig = 0; ig < msh->_finiteElement[ielGeom][uType]->GetGaussPointNumber(); ++ig) {
+      double wgt;
+      std::vector<double> phi, dphi;
+      msh->_finiteElement[ielGeom][uType]->Jacobian(X, ig, wgt, phi, dphi);
+
+      std::vector<adept::adouble> gradUg(dim, 0.0);
+      for (unsigned a = 0; a < nDofs; ++a)
+        for (unsigned k = 0; k < dim; ++k)
+          gradUg[k] += u[a] * dphi[a * dim + k];
+
+      for (unsigned i = 0; i < nDofs; ++i) {
+        adept::adouble gi = 0.0;
+        for (unsigned k = 0; k < dim; ++k) gi += dphi[i * dim + k] * gradUg[k];
+        aRes[i] += mu * gi * wgt;   // mu is your global diffusion coefficient
+      }
+    }
+
+    std::vector<double> Re(nDofs);
+    for (unsigned i = 0; i < nDofs; ++i) Re[i] = -aRes[i].value();
+
+    s.dependent(aRes.data(), nDofs);
+    s.independent(u.data(),  nDofs);
+
+    std::vector<double> Je(nDofs * nDofs, 0.0);
+    s.jacobian(Je.data(), true);
+
+    RES->add_vector_blocked(Re, sysDof);
+    KK->add_matrix_blocked(Je, sysDof, sysDof);
+
+    s.clear_independents();
+    s.clear_dependents();
+  }
+
+  RES->close();
+  KK->close();
+}
+
+
+
+
+
+
+
+
+
 
 
 
