@@ -45,7 +45,7 @@ const unsigned DIM = 2;
 
 double dt = 0.025;
 const unsigned n_timesteps = 400;
-unsigned cascadeIterations = 2;
+unsigned cascadeIterations = 3;
 
 unsigned jTMP = 0;
 
@@ -198,7 +198,7 @@ int main(int argc, char** args) {
   double lengthx = M_PI;
 
   std::vector<std::vector<double>> controlPoints = {
-    {M_PI / 1.5, 0.5},{M_PI / 2.5,0.5}
+    {M_PI / 4, 0.5},{3*M_PI / 4.,0.5}
   };
 
   if (DIM == 2) {
