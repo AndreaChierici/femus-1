@@ -69,7 +69,7 @@ namespace femus {
 
   class PetscMatrix : public SparseMatrix {
 
-    private:
+    protected:
       // data ------------------------------------
       Mat _mat;                 ///< Petsc matrix pointer
       bool _destroy_mat_on_exit;///< Boolean value (false)

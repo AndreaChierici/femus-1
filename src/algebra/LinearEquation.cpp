@@ -46,6 +46,7 @@ namespace femus {
     _KK = NULL;
     _KKamr = NULL;
     _numberOfGlobalVariables = 0u;
+    _matSolverPackage = LSOLVER;
   }
 
 //--------------------------------------------------------------------------------
@@ -220,10 +221,10 @@ namespace femus {
       }
     }
 
-    _KK = SparseMatrix::build().release();
+    _KK = SparseMatrix::build(_matSolverPackage).release();
     _KK->init(KK_size, KK_size, KK_local_size, KK_local_size, d_nnz, o_nnz);
 
-    _KKamr = SparseMatrix::build().release();
+    _KKamr = SparseMatrix::build(_matSolverPackage).release();
 
   }
 

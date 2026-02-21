@@ -20,6 +20,7 @@ algebra/LinearEquationSolverPetsc.cpp
 algebra/LinearEquationSolverPetscAsm.cpp
 algebra/LinearEquationSolverPetscFieldSplit.cpp
 algebra/PetscMatrix.cpp
+algebra/PetscHIPSparseMatrix.cpp
 algebra/PetscPreconditioner.cpp
 algebra/PetscVector.cpp
 algebra/Preconditioner.cpp

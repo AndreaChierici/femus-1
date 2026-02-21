@@ -3,6 +3,7 @@
 
 enum SolverPackage {
     PETSC_SOLVERS=0,
+    PETSC_SOLVERS_HIP,
     TRILINOS_SOLVERS,
     INVALID_SOLVER_PACKAGE
 };

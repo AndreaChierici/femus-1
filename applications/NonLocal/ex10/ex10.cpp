@@ -6,11 +6,16 @@
 #include "NonLinearImplicitSystem.hpp"
 
 #include "NumericVector.hpp"
+#include "SolverPackageEnum.hpp"
+#include "PrecondtypeEnum.hpp"
 //#include "adept.h"
 
 #include "petsc.h"
 #include "petscmat.h"
 #include "PetscMatrix.hpp"
+
+#include <cstdlib>
+#include <cstring>
 
 #include "slepceps.h"
 
@@ -197,6 +202,23 @@ int main(int argc, char** argv) {
   unsigned soluIndexFine = mlSolFine.GetIndex("u");
   mlSolFine.GenerateBdcOnVolumeConstraint(volumeConstraintFlags, soluIndexFine, 0);
 
+  bool useHIP = (std::getenv("FEMUS_USE_HIP") != nullptr &&
+                 std::strcmp(std::getenv("FEMUS_USE_HIP"), "1") == 0);
+
+  PreconditionerType pcType = ILU_PRECOND;
+  const char* pcEnv = std::getenv("FEMUS_PC_TYPE");
+  if (pcEnv) {
+    if      (!std::strcmp(pcEnv, "JACOBI"))       pcType = JACOBI_PRECOND;
+    else if (!std::strcmp(pcEnv, "BLOCK_JACOBI"))  pcType = BLOCK_JACOBI_PRECOND;
+    else if (!std::strcmp(pcEnv, "ASM"))           pcType = ASM_PRECOND;
+    else if (!std::strcmp(pcEnv, "SOR"))           pcType = SOR_PRECOND;
+    else if (!std::strcmp(pcEnv, "ILU"))           pcType = ILU_PRECOND;
+  }
+
+  if (useHIP) std::cout << ">>> Using HIPSPARSE matrices" << std::endl;
+  else        std::cout << ">>> Using CPU matrices" << std::endl;
+  std::cout << ">>> Preconditioner: " << (pcEnv ? pcEnv : "ILU") << std::endl;
+
   //BEGIN assemble and solve nonlocal problem
   MultiLevelProblem ml_prob(&mlSol);
 
@@ -223,13 +245,14 @@ int main(int argc, char** argv) {
 
   system.SetSparsityPatternMinimumSize(40000u);    //TODO tune
 
+  if (useHIP) system.SetMatSolverPackage(PETSC_SOLVERS_HIP);
   system.init();
 
   // ******* Set Smoother *******
   system.SetSolverFineGrids(RICHARDSON);
 //   system.SetRichardsonScaleFactor(0.7);
 
-  system.SetPreconditionerFineGrids(ILU_PRECOND);
+  system.SetPreconditionerFineGrids(pcType);
 
   system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 100);
 
@@ -259,12 +282,13 @@ int main(int argc, char** argv) {
 
   system2.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
+  if (useHIP) system2.SetMatSolverPackage(PETSC_SOLVERS_HIP);
   system2.init();
 
   // ******* Set Smoother *******
   system2.SetSolverFineGrids(RICHARDSON);
 
-  system2.SetPreconditionerFineGrids(ILU_PRECOND);
+  system2.SetPreconditionerFineGrids(pcType);
 
   system2.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
 
@@ -300,14 +324,14 @@ int main(int argc, char** argv) {
 
   //systemFine.SetSparsityPatternMinimumSize(5000u);    //TODO tune
 
-
+  if (useHIP) systemFine.SetMatSolverPackage(PETSC_SOLVERS_HIP);
   systemFine.init();
 
   // ******* Set Smoother *******
   systemFine.SetSolverFineGrids(RICHARDSON);
   // systemFine.SetRichardsonScaleFactor(0.7);
 
-  systemFine.SetPreconditionerFineGrids(ILU_PRECOND);
+  systemFine.SetPreconditionerFineGrids(pcType);
 
   systemFine.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
 

@@ -22,6 +22,7 @@
 #include "Mesh.hpp"
 #include "petscmat.h"
 #include "ParallelObject.hpp"
+#include "SolverPackageEnum.hpp"
 
 
 namespace femus {
@@ -97,6 +98,14 @@ public:
   void SetNumberOfGlobalVariables(const unsigned &numberOfGlobalVariables){
     _numberOfGlobalVariables = numberOfGlobalVariables;
   }
+
+  void SetMatSolverPackage(const SolverPackage &matSolverPackage) {
+    _matSolverPackage = matSolverPackage;
+  }
+
+  SolverPackage GetMatSolverPackage() const {
+    return _matSolverPackage;
+  }
   
   // member data
   Mesh *_msh;
@@ -130,6 +139,7 @@ protected:
   std::vector < unsigned > _sparsityPatternMinimumSize; 
   std::vector <unsigned> _sparsityPatternVariableIndex;
   unsigned _numberOfGlobalVariables;
+  SolverPackage _matSolverPackage;
 
 };
 

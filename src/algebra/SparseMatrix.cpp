@@ -22,6 +22,7 @@
 #include "FemusConfig.hpp"
 #include "NumericVector.hpp"
 #include "PetscMatrix.hpp"
+#include "PetscHIPSparseMatrix.hpp"
 
 
 #ifdef HAVE_HDF5
@@ -47,6 +48,10 @@ namespace femus {
 #ifdef HAVE_PETSC // ------------------------------
       case PETSC_SOLVERS: {
         std::unique_ptr<SparseMatrix > ap (new PetscMatrix);
+        return ap;
+      }
+      case PETSC_SOLVERS_HIP: {
+        std::unique_ptr<SparseMatrix > ap (new PetscHIPSparseMatrix);
         return ap;
       }
 #endif

@@ -83,6 +83,10 @@ namespace femus {
         _numberOfGlobalVariables = numberOfGlobalVariables;
       }
 
+      void SetMatSolverPackage (const SolverPackage &matSolverPackage) {
+        _matSolverPackage = matSolverPackage;
+      }
+
       /** Set the max number of linear iterationsfor solving Ax=b */
       void SetMaxNumberOfLinearIterations (unsigned int max_lin_it) {
         _n_max_linear_iterations = max_lin_it;
@@ -335,6 +339,8 @@ namespace femus {
       
       std::vector< std::string > _sparsityPatternSolName;
       std::vector < unsigned > _sparsityPatternMinimumSize;
+
+      SolverPackage _matSolverPackage;
 
   };
 
