@@ -155,6 +155,49 @@ namespace femus {
   }
 
 
+// -----------------------------------------------------------------------
+  void PetscHIPSparseMatrix::matrix_PtAP(const SparseMatrix &mat_P,
+                                          const SparseMatrix &mat_A,
+                                          const bool &mat_reuse) {
+    const PetscMatrix* A = static_cast<const PetscMatrix*>(&mat_A);
+    A->close();
+    const PetscMatrix* P = static_cast<const PetscMatrix*>(&mat_P);
+    P->close();
+
+    int ierr;
+
+    Mat Acpu, Pcpu;
+    ierr = MatConvert(const_cast<PetscMatrix*>(A)->mat(), MATAIJ, MAT_INITIAL_MATRIX, &Acpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatConvert(const_cast<PetscMatrix*>(P)->mat(), MATAIJ, MAT_INITIAL_MATRIX, &Pcpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    this->clear();
+
+    Mat resultCpu;
+    ierr = MatPtAP(Acpu, Pcpu, MAT_INITIAL_MATRIX, 1.0, &resultCpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    int numprocs;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    const char *hipType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
+
+    ierr = MatConvert(resultCpu, hipType, MAT_INITIAL_MATRIX, &_mat);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&resultCpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    this->_is_initialized = true;
+    MatGetSize(_mat, &_m, &_n);
+    MatGetLocalSize(_mat, &_m_l, &_n_l);
+    _destroy_mat_on_exit = true;
+
+    ierr = MatDestroy(&Acpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Pcpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+  }
+
 } //end namespace femus
 
 
