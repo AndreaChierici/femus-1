@@ -16,6 +16,10 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include "slepceps.h"
 
@@ -117,6 +121,20 @@ int main(int argc, char** argv) {
 
   // init Petsc-MPI communicator
   FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
+
+#ifdef _OPENMP
+  // Pin each MPI rank to its own GCD on MI300A via OpenMP (not
+  // ROCR_VISIBLE_DEVICES, which breaks XNACK page-table setup).
+  {
+    int localRank = 0;
+    MPI_Comm localComm;
+    MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED,
+                        0, MPI_INFO_NULL, &localComm);
+    MPI_Comm_rank(localComm, &localRank);
+    MPI_Comm_free(&localComm);
+    omp_set_default_device(localRank);
+  }
+#endif
 
   MultiLevelMesh mlMsh;
   MultiLevelMesh mlMshFine;
@@ -243,7 +261,75 @@ int main(int argc, char** argv) {
   // ******* Set Preconditioner *******
   system.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetSparsityPatternMinimumSize(40000u);    //TODO tune
+  // -----------------------------------------------------------------------
+  // Automatic sparsity-pattern estimate for the nonlocal operator.
+  //
+  // The nonlocal interaction radius is R = delta1 + eps.  A DOF can couple
+  // with every other DOF inside a ball of radius R, so
+  //
+  //     nnz_per_row  ≈  BallVolume(R) × (totalDOFs / domainVolume)
+  //
+  // Both totalDOFs and eps depend on numberOfUniformLevels (argv[1]):
+  //   - totalDOFs grows with mesh refinement
+  //   - eps = 0.0125 * (2/3)^numberOfUniformLevels  shrinks with refinement
+  //
+  // A 1.5× safety factor covers bounding-box overcount in the coarse
+  // intersection test and small non-uniformities in DOF distribution.
+  //
+  // The estimate is then clamped to prevent 32-bit PetscInt overflow:
+  //     local_rows × nnz_per_row  <  2^31
+  // -----------------------------------------------------------------------
+  {
+    unsigned finestLevel = mlMsh.GetNumberOfLevels() - 1;
+    Mesh* finestMsh = mlMsh.GetLevel(finestLevel);
+
+    unsigned dofType = static_cast<unsigned>(femType) - 1;
+    unsigned totalDOFs = finestMsh->GetTotalNumberOfDofs(dofType);
+
+    double domainVolume = 1.0;
+    for (unsigned k = 0; k < dim; ++k) {
+      double lo = finestMsh->_topology->_Sol[k]->min();
+      double hi = finestMsh->_topology->_Sol[k]->max();
+      domainVolume *= (hi - lo);
+    }
+
+    double dMax = 0.1 * pow(2.0 / 3.0, static_cast<double>(finestLevel) + 1.0);
+    double epsFinest = 0.125 * dMax;
+    double R = delta1 + epsFinest;
+
+    const double PI = acos(-1.0);
+    double ballVolume = (dim == 2)
+        ? PI * R * R
+        : (4.0 / 3.0) * PI * R * R * R;
+
+    double dofDensity  = static_cast<double>(totalDOFs) / domainVolume;
+    double nnzEstimate = ballVolume * dofDensity;
+
+    unsigned sparsitySize = static_cast<unsigned>(ceil(1.5 * nnzEstimate));
+
+    int nprocs;
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    unsigned localRows = (totalDOFs + static_cast<unsigned>(nprocs) - 1)
+                       / static_cast<unsigned>(nprocs);
+    unsigned maxSafe = static_cast<unsigned>(2147483647.0
+                     / static_cast<double>(localRows));
+
+    if (sparsitySize > maxSafe) {
+      std::cout << "WARNING: sparsity estimate " << sparsitySize
+                << " exceeds 32-bit PetscInt safe limit (" << maxSafe
+                << ").  Clamping. Consider --with-64-bit-indices "
+                << "or more MPI ranks." << std::endl;
+      sparsitySize = maxSafe;
+    }
+
+    std::cout << ">>> Sparsity estimate: totalDOFs=" << totalDOFs
+              << "  R=" << R << "  ballVol=" << ballVolume
+              << "  domainVol=" << domainVolume
+              << "  raw_nnz=" << static_cast<unsigned>(ceil(nnzEstimate))
+              << "  with_safety=" << sparsitySize << std::endl;
+
+    system.SetSparsityPatternMinimumSize(sparsitySize);
+  }
 
   if (useHIP) system.SetMatSolverPackage(PETSC_SOLVERS_HIP);
   system.init();

@@ -726,8 +726,8 @@ void PutADoubleNodeAtTheInterface (MultiLevelMesh & mlMsh, const double & meshSi
 //       procWhoFoundIt = iproc;
 //     }
 
-    bool iprocOwnsXmin = (leftDofsIproc <= xMinDof < rightDofsIproc) ? true : false;
-    bool iprocOwnsXmax = (leftDofsIproc <= xMaxDof < rightDofsIproc) ? true : false;
+    bool iprocOwnsXmin = (leftDofsIproc <= xMinDof && xMinDof < rightDofsIproc) ? true : false;
+    bool iprocOwnsXmax = (leftDofsIproc <= xMaxDof && xMaxDof < rightDofsIproc) ? true : false;
 
     if (nodeShiftFlags[xMinDof] == 0 && iprocOwnsXmin) {
 

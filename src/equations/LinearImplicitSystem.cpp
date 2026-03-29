@@ -833,7 +833,7 @@ namespace femus {
     }
 
     dirichletNodeIndex.resize(count);
-    std::vector < PetscInt > (dirichletNodeIndex).swap(dirichletNodeIndex);
+    std::vector < int > (dirichletNodeIndex).swap(dirichletNodeIndex);
     std::sort(dirichletNodeIndex.begin(), dirichletNodeIndex.end());
     _PP[level]->mat_zero_rows(dirichletNodeIndex, 0);
 
@@ -874,7 +874,7 @@ namespace femus {
     }
 
     dirichletNodeIndex.resize(count);
-    std::vector < PetscInt > (dirichletNodeIndex).swap(dirichletNodeIndex);
+    std::vector < int > (dirichletNodeIndex).swap(dirichletNodeIndex);
     std::sort(dirichletNodeIndex.begin(), dirichletNodeIndex.end());
 
     SparseMatrix *PPt;

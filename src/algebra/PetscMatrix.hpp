@@ -259,7 +259,8 @@ namespace femus {
 /// This function returns the row number
   inline int PetscMatrix::m() const {
     assert (this->initialized());
-    int petsc_m = 0, petsc_n = 0, ierr = 0;
+    PetscInt petsc_m = 0, petsc_n = 0;
+    int ierr = 0;
     ierr = MatGetSize (_mat, &petsc_m, &petsc_n);
     return static_cast<int> (petsc_m);
   }
@@ -268,7 +269,8 @@ namespace femus {
 /// This function returns the column number
   inline int PetscMatrix::n() const {
     assert (this->initialized());
-    int petsc_m = 0, petsc_n = 0, ierr = 0;
+    PetscInt petsc_m = 0, petsc_n = 0;
+    int ierr = 0;
     ierr = MatGetSize (_mat, &petsc_m, &petsc_n);
     return static_cast<int> (petsc_n);
   }
@@ -277,7 +279,8 @@ namespace femus {
 /// This function returns the start row location
   inline int PetscMatrix::row_start() const {
     assert (this->initialized());
-    int start = 0, stop = 0, ierr = 0;
+    PetscInt start = 0, stop = 0;
+    int ierr = 0;
     ierr = MatGetOwnershipRange (_mat, &start, &stop);
     CHKERRABORT (MPI_COMM_WORLD, ierr);
     return static_cast<int> (start);
@@ -287,7 +290,8 @@ namespace femus {
 /// This function returns the stop row location
   inline int PetscMatrix::row_stop() const {
     assert (this->initialized());
-    int start = 0, stop = 0, ierr = 0;
+    PetscInt start = 0, stop = 0;
+    int ierr = 0;
     ierr = MatGetOwnershipRange (_mat, &start, &stop);
     CHKERRABORT (MPI_COMM_WORLD, ierr);
 
@@ -300,7 +304,8 @@ namespace femus {
                                 const int j,
                                 const double value) {
     assert (this->initialized());
-    int ierr = 0, i_val = i, j_val = j;
+    int ierr = 0;
+    PetscInt i_val = i, j_val = j;
     PetscScalar petsc_value = static_cast<PetscScalar> (value);
     ierr = MatSetValues (_mat, 1, &i_val, 1, &j_val,
                          &petsc_value, INSERT_VALUES);
@@ -314,7 +319,8 @@ namespace femus {
                                 const double value      // value
                                ) {
     assert (this->initialized());
-    int ierr = 0, i_val = i, j_val = j;
+    int ierr = 0;
+    PetscInt i_val = i, j_val = j;
 
     PetscScalar petsc_value = static_cast<PetscScalar> (value);
     ierr = MatSetValues (_mat, 1, &i_val, 1, &j_val,
@@ -378,19 +384,19 @@ namespace femus {
 
     // If the entry is not in the sparse matrix, it is 0.
     double value = 0.;
-    int  ierr = 0, ncols = 0,  i_val = static_cast<int> (i),    j_val = static_cast<int> (j);
+    int ierr = 0;
+    PetscInt ncols = 0, i_val = static_cast<PetscInt> (i), j_val = static_cast<PetscInt> (j);
 
     assert (this->closed()); // the matrix needs to be closed for this to work
     ierr = MatGetRow (_mat, i_val, &ncols, &petsc_cols, &petsc_row);
     CHKERRABORT (MPI_COMM_WORLD, ierr);
     // Perform a binary search to find the contiguous index in
     // petsc_cols (resp. petsc_row) corresponding to global index j_val
-    std::pair<const int*, const int*> p =
+    std::pair<const PetscInt*, const PetscInt*> p =
       std::equal_range (&petsc_cols[0], &petsc_cols[0] + ncols, j_val);
     // Found an entry for j_val
     if (p.first != p.second)    {
-      // The entry in the contiguous row corresponding to the j_val column of interest
-      const int j = std::distance (const_cast<int*> (&petsc_cols[0]), const_cast<int*> (p.first));
+      const PetscInt j = std::distance (&petsc_cols[0], p.first);
 
       assert (j < ncols);
       assert (petsc_cols[j] == j_val);
@@ -412,7 +418,8 @@ namespace femus {
     assert (this->initialized());
     const PetscScalar *petsc_row;
     const PetscInt    *petsc_cols;
-    int  ierr = 0, ncols = 0;
+    int ierr = 0;
+    PetscInt ncols = 0;
     // Get row
     assert (this->closed()); // the matrix needs to be closed for this to work
     ierr = MatGetRow (_mat, i_val, &ncols, &petsc_cols, &petsc_row);
@@ -494,7 +501,10 @@ namespace femus {
     assert (this->initialized());
     int ierr = 0;
 
-    ierr = MatSetValues (_mat, 1, (PetscInt*) &row, (PetscInt) ncols, (PetscInt*) &cols[0],
+    PetscInt p_row = row;
+    std::vector<PetscInt> p_cols(cols.begin(), cols.end());
+
+    ierr = MatSetValues (_mat, 1, &p_row, (PetscInt) ncols, p_cols.data(),
                          values, INSERT_VALUES);
 
     CHKERRABORT (MPI_COMM_WORLD, ierr);

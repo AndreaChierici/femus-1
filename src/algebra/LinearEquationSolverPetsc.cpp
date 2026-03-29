@@ -125,7 +125,7 @@ namespace femus {
 
     //BEGIN PRINT Computational info
     if (_printSolverInfo) {
-      int its;
+      PetscInt its;
       KSPGetIterationNumber (_ksp, &its);
 
       KSPConvergedReason reason;
@@ -333,7 +333,7 @@ namespace femus {
     *_EPS += *_EPSC;
 
     if (_printSolverInfo) {
-      int its;
+      PetscInt its;
       KSPGetIterationNumber (_ksp, &its);
 
       KSPConvergedReason reason;
@@ -548,7 +548,7 @@ namespace femus {
     this->init (matrix);
 
     int ierr = 0;
-    int its = 0, max_its = static_cast<int> (m_its);
+    PetscInt its = 0, max_its = static_cast<PetscInt> (m_its);
     PetscReal final_resid = 0.;
     // Close the matrices and vectors in case this wasn't already done.
     matrix->close();

@@ -42,10 +42,10 @@ namespace femus {
 //------------------------------------------------------------------------------------------------------
   void MeshMetisPartitioning::DoPartition(std::vector <unsigned>& partition, const bool& AMR) {
 
-    int nnodes = _mesh.GetNumberOfNodes();
-    int nelem = _mesh.GetNumberOfElements();
+    idx_t nnodes = _mesh.GetNumberOfNodes();
+    idx_t nelem = _mesh.GetNumberOfElements();
 
-    std::vector <int> epart(nelem);
+    std::vector <idx_t> epart(nelem);
 
     if(_nprocs == 1) {
       //serial computation
@@ -77,7 +77,7 @@ namespace femus {
       vector < idx_t > eptr(nelem + 1);
       vector < idx_t > eind(eind_size);
 
-      vector < int > npart(nnodes);
+      vector < idx_t > npart(nnodes);
 
       idx_t objval;
       idx_t options[METIS_NOPTIONS];
@@ -106,10 +106,11 @@ namespace femus {
       }
 
 
-      int ncommon = (AMR || _mesh.GetDimension() == 1) ? 1 : _mesh.GetDimension() + 1;
+      idx_t ncommon = (AMR || _mesh.GetDimension() == 1) ? 1 : _mesh.GetDimension() + 1;
+      idx_t metis_nprocs = static_cast<idx_t>(_nprocs);
 
       //I call the Mesh partioning function of Metis library (output is epart(own elem) and npart (own nodes))
-      int err = METIS_PartMeshDual(&nelem, &nnodes, &eptr[0], &eind[0], NULL, NULL, &ncommon, &_nprocs, NULL, options, &objval, &epart[0], &npart[0]);
+      int err = METIS_PartMeshDual(&nelem, &nnodes, &eptr[0], &eind[0], NULL, NULL, &ncommon, &metis_nprocs, NULL, options, &objval, &epart[0], &npart[0]);
 
       if(err == METIS_OK) {
         std::cout << " METIS PARTITIONING IS OK " << std::endl;

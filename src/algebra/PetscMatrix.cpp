@@ -65,12 +65,12 @@ namespace femus {
     int numprocs;
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     int ierr     = 0;
-    int m_global = static_cast<int>(m);
-    int n_global = static_cast<int>(n);
-    int m_local  = static_cast<int>(m_l);
-    int n_local  = static_cast<int>(n_l);
-    int n_nz     = static_cast<int>(nnz);
-    int n_oz     = static_cast<int>(noz);
+    PetscInt m_global = static_cast<PetscInt>(m);
+    PetscInt n_global = static_cast<PetscInt>(n);
+    PetscInt m_local  = static_cast<PetscInt>(m_l);
+    PetscInt n_local  = static_cast<PetscInt>(n_l);
+    PetscInt n_nz     = static_cast<PetscInt>(nnz);
+    PetscInt n_oz     = static_cast<PetscInt>(noz);
 
 // create a sequential matrix on one processor
     if(numprocs == 1) {
@@ -90,13 +90,13 @@ namespace femus {
       ierr = MatCreate(MPI_COMM_WORLD, &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-      ierr = MatSetSizes(_mat, m_l, n_l, m, n);
+      ierr = MatSetSizes(_mat, m_local, n_local, m_global, n_global);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
       ierr = MatSetType(_mat, MATMPIAIJ);  // Automatically chooses seqaij or mpiaij
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-      ierr = MatMPIAIJSetPreallocation(_mat, nnz, PETSC_NULLPTR, noz, PETSC_NULLPTR);
+      ierr = MatMPIAIJSetPreallocation(_mat, n_nz, PETSC_NULLPTR, n_oz, PETSC_NULLPTR);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     }
@@ -155,8 +155,8 @@ namespace femus {
     }
 
     this->_is_initialized = true;
-    MatGetSize(_mat, &_m, &_n);
-    MatGetLocalSize(_mat, &_m_l, &_n_l);
+    { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+    { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
     _destroy_mat_on_exit = true;
 
   }
@@ -184,7 +184,8 @@ namespace femus {
 // create a sequential matrix on one processor
     if(n_procs == 1) {
       assert(n_nz.size() == _m_l);
-      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, &n_nz[0], &_mat);
+      std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, p_nnz.data(), &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetFromOptions(_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -192,13 +193,15 @@ namespace femus {
     else {
       parallel_only();
       assert((n_nz.size() == _m_l) && (n_oz.size() == _m_l));
+      std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+      std::vector<PetscInt> p_noz(n_oz.begin(), n_oz.end());
       ierr = MatCreate(MPI_COMM_WORLD, &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetSizes(_mat, _m_l, _n_l, _m, _n);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATMPIAIJ);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = MatMPIAIJSetPreallocation(_mat, 1, &n_nz[0], 100, &n_oz[0]);
+      ierr = MatMPIAIJSetPreallocation(_mat, 1, p_nnz.data(), 100, p_noz.data());
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
     this->zero();
@@ -225,15 +228,18 @@ namespace femus {
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     int ierr     = 0;
 
+    std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+    std::vector<PetscInt> p_noz(n_oz.begin(), n_oz.end());
+
     // create a sequential matrix on one processor -------------------
     if(numprocs == 1)    {
       assert((m_local == m_global) && (n_local == n_global));
       if(n_nz.empty())
         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global,
-                               PETSC_DEFAULT, (int*) PETSC_NULLPTR, &_mat);
+                               PETSC_DEFAULT, PETSC_NULLPTR, &_mat);
       else
         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global,
-                               PETSC_DEFAULT, (int*) &n_nz[0], &_mat);
+                               PETSC_DEFAULT, p_nnz.data(), &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
       ierr = MatSetFromOptions(_mat);
@@ -242,15 +248,6 @@ namespace femus {
     else    {   // multi processors ----------------------------
       parallel_only();             //TODO
       if(n_nz.empty()) {
-
-//old piece of code with Petsc lib version 3.1
-//       ierr = MatCreateMPIAIJ(MPI_COMM_WORLD,
-//                              m_local, n_local,
-//                              m_global, n_global,
-//                              PETSC_NULLPTR, (int*) PETSC_NULLPTR,
-//                              PETSC_NULLPTR, (int*) PETSC_NULLPTR,
-//                              &_mat
-//                             );
 
         ierr = MatCreate(MPI_COMM_WORLD, &_mat);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -268,15 +265,6 @@ namespace femus {
 
       else {
 
-//old piece of code with Petsc lib version 3.1
-//       ierr = MatCreateMPIAIJ(MPI_COMM_WORLD,
-//                              m_local, n_local,
-//                              m_global, n_global,
-//                              PETSC_NULLPTR, (int*) &n_nz[0],
-//                              PETSC_NULLPTR, (int*) &n_oz[0],
-//                              &_mat
-//                             );
-
         ierr = MatCreate(MPI_COMM_WORLD, &_mat);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
 
@@ -286,7 +274,7 @@ namespace femus {
         ierr = MatSetType(_mat, MATMPIAIJ);  // Automatically chooses seqaij or mpiaij
         CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-        ierr = MatMPIAIJSetPreallocation(_mat, 0, (int*) &n_nz[0], 0, (int*) &n_oz[0]);
+        ierr = MatMPIAIJSetPreallocation(_mat, 0, p_nnz.data(), 0, p_noz.data());
         CHKERRABORT(MPI_COMM_WORLD, ierr);
 
       }
@@ -362,10 +350,13 @@ namespace femus {
 //   //  return;
 //
     int ierr     = 0;
-    int m_global = static_cast<int>(m);
-    int n_global = static_cast<int>(n);
-    int m_local  = static_cast<int>(m_l);
-    int n_local  = static_cast<int>(n_l);
+    PetscInt m_global = static_cast<PetscInt>(m);
+    PetscInt n_global = static_cast<PetscInt>(n);
+    PetscInt m_local  = static_cast<PetscInt>(m_l);
+    PetscInt n_local  = static_cast<PetscInt>(n_l);
+
+    std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+    std::vector<PetscInt> p_noz(n_oz.begin(), n_oz.end());
 
     int numprocs;
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
@@ -373,13 +364,9 @@ namespace femus {
     if(numprocs == 1)    {
       assert((m_l == m) && (n_l == n));
       if(n_nz.empty())
-//         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, //TODO eugenio
-//                                PETSC_NULLPTR, (int*) PETSC_NULLPTR, &_mat);
-        ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, PETSC_DEFAULT, PETSC_NULLPTR, &_mat);  //TODO eugenio
+        ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, PETSC_DEFAULT, PETSC_NULLPTR, &_mat);
       else
-//         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, //TODO eugenio
-//                                PETSC_NULLPTR, (int*) &n_nz[0], &_mat);
-        ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, PETSC_DEFAULT, &n_nz[0], &_mat);  //TODO eugenio
+        ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global, PETSC_DEFAULT, p_nnz.data(), &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
       ierr = MatSetFromOptions(_mat);
@@ -388,29 +375,17 @@ namespace femus {
     else    {
       parallel_only();
       if(n_nz.empty())
-//         ierr = MatCreateAIJ(MPI_COMM_WORLD, //TODO eugenio
-//                             m_local, n_local,
-//                             m_global, n_global,
-//                             PETSC_NULLPTR, (int*) PETSC_NULLPTR,
-//                             PETSC_NULLPTR, (int*) PETSC_NULLPTR, &_mat);
-
-        ierr = MatCreateAIJ(MPI_COMM_WORLD,  //TODO eugenio
+        ierr = MatCreateAIJ(MPI_COMM_WORLD,
                             m_local, n_local,
                             m_global, n_global,
                             PETSC_DEFAULT, PETSC_NULLPTR,
                             PETSC_DEFAULT, PETSC_NULLPTR, &_mat);
       else
-//         ierr = MatCreateAIJ(MPI_COMM_WORLD, //TODO eugenio
-//                             m_local, n_local,
-//                             m_global, n_global,
-//                             PETSC_NULLPTR, (int*) &n_nz[0],
-//                             PETSC_NULLPTR, (int*) &n_oz[0], &_mat);
-
-        ierr = MatCreateAIJ(MPI_COMM_WORLD,  //TODO eugenio
+        ierr = MatCreateAIJ(MPI_COMM_WORLD,
                             m_local, n_local,
                             m_global, n_global,
-                            PETSC_DEFAULT, &n_nz[0],
-                            PETSC_DEFAULT, &n_oz[0], &_mat);
+                            PETSC_DEFAULT, p_nnz.data(),
+                            PETSC_DEFAULT, p_noz.data(), &_mat);
 
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetFromOptions(_mat);
@@ -442,8 +417,11 @@ namespace femus {
     assert(this->initialized());
     semiparallel_only();
     int ierr = 0;
-    if(!rows.empty()) ierr = MatZeroRows(_mat, rows.size(), &rows[0], diag_value, 0, 0);   // add,0,0,)    !!!!
-    else   ierr = MatZeroRows(_mat, 0, PETSC_NULLPTR, diag_value, 0, 0);                     // add,0,0,)    !!!!
+    if(!rows.empty()) {
+      std::vector<PetscInt> p_rows(rows.begin(), rows.end());
+      ierr = MatZeroRows(_mat, p_rows.size(), p_rows.data(), diag_value, 0, 0);
+    }
+    else   ierr = MatZeroRows(_mat, 0, PETSC_NULLPTR, diag_value, 0, 0);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
   }
 
@@ -699,10 +677,11 @@ namespace femus {
     assert((int) cols.size() == n);
 
     int ierr = 0;
-    // These casts are required for PETSc <= 2.1.5
+    std::vector<PetscInt> p_rows(rows.begin(), rows.end());
+    std::vector<PetscInt> p_cols(cols.begin(), cols.end());
     ierr = MatSetValues(_mat,
-                        m, (int*) &rows[0],
-                        n, (int*) &cols[0],
+                        m, p_rows.data(),
+                        n, p_cols.data(),
                         (PetscScalar*) &dm.get_values() [0],
                         ADD_VALUES);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -721,7 +700,9 @@ namespace femus {
     const int n = cols.size();
     assert(m * n == mat_values.size());
 
-    MatSetValuesBlocked(_mat, m, &rows[0], n, &cols[0], &mat_values[0], ADD_VALUES);
+    std::vector<PetscInt> p_rows(rows.begin(), rows.end());
+    std::vector<PetscInt> p_cols(cols.begin(), cols.end());
+    MatSetValuesBlocked(_mat, m, p_rows.data(), n, p_cols.data(), &mat_values[0], ADD_VALUES);
 
     return;
   }
@@ -737,7 +718,9 @@ namespace femus {
     const int n = cols.size();
     assert(m * n == mat_values.size());
 
-    MatSetValuesBlocked(_mat, m, (int*) &rows[0], n, (int*) &cols[0], &mat_values[0], ADD_VALUES);
+    std::vector<PetscInt> p_rows(rows.begin(), rows.end());
+    std::vector<PetscInt> p_cols(cols.begin(), cols.end());
+    MatSetValuesBlocked(_mat, m, p_rows.data(), n, p_cols.data(), &mat_values[0], ADD_VALUES);
 
     return;
   }
@@ -760,8 +743,8 @@ namespace femus {
       this->clear();
       ierr = MatPtAP(const_cast<PetscMatrix*>(A)->mat(), const_cast<PetscMatrix*>(P)->mat(), MAT_INITIAL_MATRIX , 1.0, &_mat);
       this->_is_initialized = true;
-      MatGetSize(_mat, &_m, &_n);
-      MatGetLocalSize(_mat, &_m_l, &_n_l);
+      { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+      { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
       _destroy_mat_on_exit = true;
     }
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -771,38 +754,39 @@ namespace femus {
 
   void PetscMatrix::RemoveZeroEntries(double & tolerance) {
 
-    int rowStart, rowEnd;
+    PetscInt rowStart, rowEnd;
     MatGetOwnershipRange(_mat, &rowStart, &rowEnd);
-    int colStart, colEnd;
+    PetscInt colStart, colEnd;
     MatGetOwnershipRangeColumn(_mat, &colStart, &colEnd);
 
-    std::vector < int > sizeDiag(rowEnd - rowStart, 0);
-    std::vector < int > sizeOff(rowEnd - rowStart, 0);
+    PetscInt localRows = rowEnd - rowStart;
+    std::vector < PetscInt > sizeDiag(localRows, 0);
+    std::vector < PetscInt > sizeOff(localRows, 0);
 
-    std::vector < std::vector < int > > nCols(rowEnd - rowStart);
-    std::vector < std::vector < double > > nVals(rowEnd - rowStart);
+    std::vector < std::vector < PetscInt > > nCols(localRows);
+    std::vector < std::vector < double > > nVals(localRows);
 
-    int n;
-    const int *cols;
+    PetscInt n;
+    const PetscInt *cols;
     const double *vals;
 
-    int nmax = 0;
+    PetscInt nmax = 0;
     
     
-    for(int i = 0; i < rowEnd - rowStart; i++) {
+    for(PetscInt i = 0; i < localRows; i++) {
 
-      int row = rowStart + i;
+      PetscInt row = rowStart + i;
 
-      int nDiag  = 0;
-      int nOff = 0;
+      PetscInt nDiag  = 0;
+      PetscInt nOff = 0;
       
       MatGetRow(_mat, row, &n, &cols, &vals);
 
       nCols[i].resize(n);
       nVals[i].resize(n);
 
-      int k = 0;
-      for(int j = 0; j < n; j++) {
+      PetscInt k = 0;
+      for(PetscInt j = 0; j < n; j++) {
         if(colStart <= cols[j] && cols[j] < colEnd) {  
           nDiag++; 
           if(fabs(vals[j]) >= tolerance) {
@@ -825,7 +809,7 @@ namespace femus {
       
       nmax = std::max(nmax, std::max(nDiag,nOff));
 
-      MatRestoreRow(_mat, i, &n, &cols, &vals);
+      MatRestoreRow(_mat, row, &n, &cols, &vals);
       nCols[i].resize(sizeDiag[i] + sizeOff[i]);
       nVals[i].resize(sizeDiag[i] + sizeOff[i]);
     }
@@ -842,19 +826,19 @@ namespace femus {
 
     // create a sequential matrix on one processor
     if(n_procs == 1) {
-      MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, &sizeDiag[0], &_mat);
+      MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, sizeDiag.data(), &_mat);
       MatSetFromOptions(_mat);
     }
     else {
       MatSetType(_mat, MATMPIAIJ);
-      MatMPIAIJSetPreallocation(_mat, 0, &sizeDiag[0], 0, &sizeOff[0]);
+      MatMPIAIJSetPreallocation(_mat, 0, sizeDiag.data(), 0, sizeOff.data());
       MatSetFromOptions(_mat);
     }
 
-    for(int i = 0; i < rowEnd - rowStart; i++) {
-      int row = rowStart + i;
-      int n = nCols[i].size();
-      MatSetValues(_mat, 1, &row, n, &nCols[i][0], &nVals[i][0], INSERT_VALUES);
+    for(PetscInt i = 0; i < localRows; i++) {
+      PetscInt row = rowStart + i;
+      PetscInt nc = nCols[i].size();
+      MatSetValues(_mat, 1, &row, nc, nCols[i].data(), nVals[i].data(), INSERT_VALUES);
     }
 
     MatAssemblyBegin(_mat, MAT_FINAL_ASSEMBLY);
@@ -885,8 +869,8 @@ namespace femus {
       ierr = MatMatMatMult(const_cast<PetscMatrix*>(A)->mat(), const_cast<PetscMatrix*>(B)->mat(),
                            const_cast<PetscMatrix*>(C)->mat(), MAT_INITIAL_MATRIX, 1.0, &_mat);
       this->_is_initialized = true;
-      MatGetSize(_mat, &_m, &_n);
-      MatGetLocalSize(_mat, &_m_l, &_n_l);
+      { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+      { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
       _destroy_mat_on_exit = true;
     }
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -909,8 +893,8 @@ namespace femus {
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     this->_is_initialized = true;
-    MatGetSize(_mat, &_m, &_n);
-    MatGetLocalSize(_mat, &_m_l, &_n_l);
+    { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+    { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
     _destroy_mat_on_exit = true;
 
   }
@@ -932,8 +916,8 @@ namespace femus {
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     this->_is_initialized = true;
-    MatGetSize(_mat, &_m, &_n);
-    MatGetLocalSize(_mat, &_m_l, &_n_l);
+    { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+    { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
     _destroy_mat_on_exit = true;
 
   }
@@ -944,7 +928,8 @@ namespace femus {
   void PetscMatrix::matrix_get_diagonal_values(const std::vector< int > &index, std::vector<double> &value) const {
     assert(index.size() == value.size());
     for(int i = 0; i < index.size(); i++) {
-      int ierr = MatGetValues(_mat, 1, &index[i], 1, &index[i], &value[i]);
+      PetscInt pi = static_cast<PetscInt>(index[i]);
+      int ierr = MatGetValues(_mat, 1, &pi, 1, &pi, &value[i]);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
   }
@@ -960,7 +945,8 @@ namespace femus {
 
   void PetscMatrix::matrix_set_diagonal_values(const std::vector< int > &index, const double &value) {
     for(int i = 0; i < index.size(); i++) {
-      int ierr = MatSetValuesBlocked(_mat, 1, &index[i], 1, &index[i], &value, INSERT_VALUES);
+      PetscInt pi = static_cast<PetscInt>(index[i]);
+      int ierr = MatSetValuesBlocked(_mat, 1, &pi, 1, &pi, &value, INSERT_VALUES);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
   }
@@ -970,7 +956,8 @@ namespace femus {
   void PetscMatrix::matrix_set_diagonal_values(const std::vector< int > &index, const std::vector<double> &value) {
     assert(index.size() == value.size());
     for(int i = 0; i < index.size(); i++) {
-      int ierr = MatSetValuesBlocked(_mat, 1, &index[i], 1, &index[i], &value[i], INSERT_VALUES);
+      PetscInt pi = static_cast<PetscInt>(index[i]);
+      int ierr = MatSetValuesBlocked(_mat, 1, &pi, 1, &pi, &value[i], INSERT_VALUES);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
   }
@@ -979,7 +966,9 @@ namespace femus {
   void PetscMatrix::matrix_set_off_diagonal_values_blocked(const std::vector< int > &index_rows, const std::vector< int > &index_cols, const double &value) {
     assert(index_rows.size() == index_cols.size());
     for(int i = 0; i < index_rows.size(); i++) {
-      int ierr = MatSetValuesBlocked(_mat, 1, &index_rows[i], 1, &index_cols[i], &value, INSERT_VALUES);
+      PetscInt pr = static_cast<PetscInt>(index_rows[i]);
+      PetscInt pc = static_cast<PetscInt>(index_cols[i]);
+      int ierr = MatSetValuesBlocked(_mat, 1, &pr, 1, &pc, &value, INSERT_VALUES);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
   }
@@ -989,7 +978,9 @@ namespace femus {
     assert(index_rows.size() == index_cols.size());
     assert(index_rows.size() == value.size());
     for(int i = 0; i < index_rows.size(); i++) {
-      int ierr = MatSetValuesBlocked(_mat, 1, &index_rows[i], 1, &index_cols[i], &value[i], INSERT_VALUES);
+      PetscInt pr = static_cast<PetscInt>(index_rows[i]);
+      PetscInt pc = static_cast<PetscInt>(index_cols[i]);
+      int ierr = MatSetValuesBlocked(_mat, 1, &pr, 1, &pc, &value[i], INSERT_VALUES);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
   }
@@ -1015,10 +1006,12 @@ namespace femus {
     int ierr = 0;
     IS isrow, iscol;
 
-    ierr = ISCreateGeneral(MPI_COMM_WORLD, rows.size(), (int*) &rows[0], PETSC_COPY_VALUES, &isrow);  // PETSC_COPY_VALUES is my first choice; see also PETSC_OWN_POINTER, PETSC_USE_POINTER
+    std::vector<PetscInt> p_rows(rows.begin(), rows.end());
+    std::vector<PetscInt> p_cols(cols.begin(), cols.end());
+    ierr = ISCreateGeneral(MPI_COMM_WORLD, p_rows.size(), p_rows.data(), PETSC_COPY_VALUES, &isrow);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-    ierr = ISCreateGeneral(MPI_COMM_WORLD, cols.size(), (int*) &cols[0], PETSC_COPY_VALUES, &iscol);
+    ierr = ISCreateGeneral(MPI_COMM_WORLD, p_cols.size(), p_cols.data(), PETSC_COPY_VALUES, &iscol);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
 //---
@@ -1116,7 +1109,8 @@ namespace femus {
   void PetscMatrix::mat_zero_rows(const std::vector <int> &index, const double &diagonal_value) const {
     MatSetOption(_mat, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
     MatSetOption(_mat, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
-    MatZeroRows(_mat, index.size(), &index[0], diagonal_value, 0, 0);
+    std::vector<PetscInt> p_index(index.begin(), index.end());
+    MatZeroRows(_mat, p_index.size(), p_index.data(), diagonal_value, 0, 0);
   }
 
 

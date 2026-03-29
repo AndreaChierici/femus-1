@@ -527,10 +527,39 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
     totalJelWork += _tasks[t].jelCount;
   }
 
-  const unsigned MIN_GPU_WORK = 10000;
-  if (totalJelWork < MIN_GPU_WORK) {
+  // Adaptive GPU/CPU threshold: estimate FLOPs per work item from the
+  // element type, then require enough total FLOPs to amortize GPU launch
+  // overhead (~30 μs ≈ 30 M FLOPs at ~1 TFLOP/s effective on MI300A).
+  unsigned nDof2_est   = (nElem > 0) ? region2.GetDofNumber(0) : 8;
+  unsigned nGauss2_est = (nElem > 0)
+      ? region2.GetFem(0)->GetGaussPointNumber() : 9;
+  unsigned flopsPerItem = nDof2_est * nGauss2_est
+      * (5 * dimSpace + 12 + 2 * nDof2_est);
+  unsigned minGPUWork = 30000000u / std::max(flopsPerItem, 1u);
+  minGPUWork = std::max(minGPUWork, 128u);
+
+  static bool thresholdPrinted = false;
+  static unsigned gpuCalls = 0, cpuFallbacks = 0;
+  if (!thresholdPrinted) {
+    std::cout << ">>> GPU/CPU threshold: minGPUWork=" << minGPUWork
+              << " (nDof2=" << nDof2_est << " nGauss2=" << nGauss2_est
+              << " dim=" << dimSpace << " flops/item=" << flopsPerItem
+              << ")" << std::endl;
+    thresholdPrinted = true;
+  }
+
+  if (totalJelWork < minGPUWork) {
+    ++cpuFallbacks;
     ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
     return;
+  }
+  ++gpuCalls;
+
+  static unsigned lastReported = 0;
+  if (gpuCalls + cpuFallbacks >= lastReported + 500) {
+    std::cout << ">>> Offload stats so far: GPU=" << gpuCalls
+              << " CPU=" << cpuFallbacks << std::endl;
+    lastReported = gpuCalls + cpuFallbacks;
   }
 
   // 1) Prepare flat matrix layout (for all jel in region2)

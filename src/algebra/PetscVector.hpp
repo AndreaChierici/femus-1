@@ -382,7 +382,7 @@ namespace femus {
     /* We need to ask PETSc about the (local to global) ghost value
        mapping and create the inverse mapping out of it.  */
     int ierr = 0;
-    int petsc_local_size = 0;
+    PetscInt petsc_local_size = 0;
     ierr = VecGetLocalSize(_vec, &petsc_local_size);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
@@ -434,8 +434,8 @@ namespace femus {
                                 const bool fast,
                                 const ParallelType type) {
     int ierr = 0;
-    int petsc_n = static_cast<int>(n);
-    int petsc_n_local = static_cast<int>(n_local);
+    PetscInt petsc_n = static_cast<PetscInt>(n);
+    PetscInt petsc_n_local = static_cast<PetscInt>(n_local);
     // Clear initialized vectors
     if(this->initialized())  this->clear();
     if(type == AUTOMATIC)    {
@@ -499,15 +499,15 @@ namespace femus {
     //
     // libmesh_assert(n_local == 0 || n_local == n || !ghost.empty());
 
-    assert(sizeof(PetscInt) == sizeof(int));
     // If the mesh is disjoint, the following assertion will fail.
     // If the mesh is not disjoint, every processor will either have
     // all the dofs, none of the dofs, or some non-zero dofs at the
     // boundary between processors.
     //assert(n_local == 0 || n_local == n || !ghost.empty());
 
-    PetscInt* petsc_ghost = ghost.empty() ? PETSC_NULLPTR :
-                            const_cast<int*>(reinterpret_cast<const PetscInt*>(&ghost[0]));
+    std::vector<PetscInt> petsc_ghost_vec(ghost.begin(), ghost.end());
+    PetscInt* petsc_ghost = petsc_ghost_vec.empty() ? PETSC_NULLPTR :
+                            petsc_ghost_vec.data();
 
     // Clear initialized vectors
     if(this->initialized())   this->clear();
@@ -685,7 +685,8 @@ namespace femus {
 
   inline int PetscVector::size() const {
     assert(this->initialized());
-    int ierr = 0, petsc_size = 0;
+    int ierr = 0;
+    PetscInt petsc_size = 0;
     if(!this->initialized())   return 0;
     ierr = VecGetSize(_vec, &petsc_size);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -696,7 +697,8 @@ namespace femus {
   inline
   int PetscVector::local_size() const {
     assert(this->initialized());
-    int ierr = 0, petsc_size = 0;
+    int ierr = 0;
+    PetscInt petsc_size = 0;
     ierr = VecGetLocalSize(_vec, &petsc_size);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
     return static_cast<int>(petsc_size);
@@ -705,7 +707,8 @@ namespace femus {
 
   inline int PetscVector::first_local_index() const {
     assert(this->initialized());
-    int ierr = 0, petsc_first = 0, petsc_last = 0;
+    int ierr = 0;
+    PetscInt petsc_first = 0, petsc_last = 0;
     ierr = VecGetOwnershipRange(_vec, &petsc_first, &petsc_last);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
     return static_cast<int>(petsc_first);
@@ -714,7 +717,8 @@ namespace femus {
 
   inline int PetscVector::last_local_index() const {
     assert(this->initialized());
-    int ierr = 0, petsc_first = 0, petsc_last = 0;
+    int ierr = 0;
+    PetscInt petsc_first = 0, petsc_last = 0;
     ierr = VecGetOwnershipRange(_vec, &petsc_first, &petsc_last);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
     return static_cast<int>(petsc_last);
@@ -724,7 +728,8 @@ namespace femus {
   inline int PetscVector::map_global_to_local_index(const int i) const {
     assert(this->initialized());
 
-    int ierr = 0, first = 0, last = 0;
+    int ierr = 0;
+    PetscInt first = 0, last = 0;
     ierr = VecGetOwnershipRange(_vec, &first, &last);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
     
@@ -764,7 +769,8 @@ namespace femus {
 
   inline double PetscVector::min() const {
     this->_restore_array();
-    int index = 0, ierr = 0;
+    PetscInt index = 0;
+    int ierr = 0;
     PetscReal min = 0.;
     ierr = VecMin(_vec, &index, &min);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -775,7 +781,8 @@ namespace femus {
 
   inline double PetscVector::max() const {
     this->_restore_array();
-    int index = 0, ierr = 0;
+    PetscInt index = 0;
+    int ierr = 0;
     PetscReal max = 0.;
     ierr = VecMax(_vec, &index, &max);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -810,7 +817,7 @@ namespace femus {
         ierr = VecGetArray(_local_form, &_values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
 #ifndef NDEBUG
-        int local_size = 0;
+        PetscInt local_size = 0;
         ierr = VecGetLocalSize(_local_form, &local_size);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
         _local_size = static_cast<int>(local_size);

@@ -107,7 +107,7 @@ namespace femus {
     this->_restore_array();
     assert(i < size());
     int ierr = 0;
-    int i_val = static_cast<int>(i);
+    PetscInt i_val = static_cast<PetscInt>(i);
     PetscScalar petsc_value = static_cast<PetscScalar>(value);
     ierr = VecSetValues(_vec, 1, &i_val, &petsc_value, INSERT_VALUES);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -119,7 +119,7 @@ namespace femus {
     this->_restore_array();
     assert(i < size());
     int ierr = 0;
-    int i_val = static_cast<int>(i);
+    PetscInt i_val = static_cast<PetscInt>(i);
     PetscScalar petsc_value = static_cast<PetscScalar>(value);
 
     ierr = VecSetValues(_vec, 1, &i_val, &petsc_value, ADD_VALUES);
@@ -135,7 +135,8 @@ namespace femus {
     int dof_size = dof_indices.size();
     assert(values.size() == dof_size);
 
-    int ierr = VecSetValues(_vec, dof_size, &dof_indices[0], &values[0], ADD_VALUES);
+    std::vector<PetscInt> petsc_dof_indices(dof_indices.begin(), dof_indices.end());
+    int ierr = VecSetValues(_vec, dof_size, &petsc_dof_indices[0], &values[0], ADD_VALUES);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
   }
@@ -147,7 +148,8 @@ namespace femus {
     int dof_size = dof_indices.size();
     assert(values.size() == dof_size);
 
-    int ierr = VecSetValues(_vec, dof_size, (int*)&dof_indices[0], &values[0], ADD_VALUES);
+    std::vector<PetscInt> petsc_dof_indices(dof_indices.begin(), dof_indices.end());
+    int ierr = VecSetValues(_vec, dof_size, &petsc_dof_indices[0], &values[0], ADD_VALUES);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
   }
@@ -158,7 +160,8 @@ namespace femus {
     int dof_size = dof_indices.size();
     assert(values.size() == dof_size);
 
-    int ierr = VecSetValues(_vec, dof_size, &dof_indices[0], &values[0], INSERT_VALUES);
+    std::vector<PetscInt> petsc_dof_indices(dof_indices.begin(), dof_indices.end());
+    int ierr = VecSetValues(_vec, dof_size, &petsc_dof_indices[0], &values[0], INSERT_VALUES);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
   }
@@ -260,7 +263,7 @@ namespace femus {
       for(int i = 0; i < n; i++) {
         ierr = VecGetArray(_vec, &values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
-        int ig = fli + i;
+        PetscInt ig = static_cast<PetscInt>(fli) + static_cast<PetscInt>(i);
         PetscScalar value = (values[i] + v);
         ierr = VecRestoreArray(_vec, &values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -275,11 +278,11 @@ namespace femus {
       ierr = VecGhostGetLocalForm(_vec, &loc_vec);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-      int n = 0;
+      PetscInt n = 0;
       ierr = VecGetSize(loc_vec, &n);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-      for(int i = 0; i < n; i++) {
+      for(PetscInt i = 0; i < n; i++) {
         ierr = VecGetArray(loc_vec, &values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
         PetscScalar value = (values[i] + v);
@@ -538,7 +541,7 @@ namespace femus {
     VecScatter scatter;
 
     // Create idx, idx[i] = i;
-    std::vector<int> idx(n);
+    std::vector<PetscInt> idx(n);
     std::iota(idx.begin(), idx.end(), 0);
 //   Utility::iota (idx.begin(), idx.end(), 0);
 
@@ -595,9 +598,9 @@ namespace femus {
     IS is;
     VecScatter scatter;
 
-    std::vector<int> idx(n_sl + this->local_size());
-    for(int i = 0; i < n_sl; i++)   idx[i] = static_cast<int>(send_list[i]);
-    for(int i = 0; i != this->local_size(); ++i)   idx[n_sl + i] = i + this->first_local_index();
+    std::vector<PetscInt> idx(n_sl + this->local_size());
+    for(int i = 0; i < n_sl; i++)   idx[i] = static_cast<PetscInt>(send_list[i]);
+    for(int i = 0; i != this->local_size(); ++i)   idx[n_sl + i] = static_cast<PetscInt>(i + this->first_local_index());
 
     // Create the index set & scatter object
     if(idx.empty())  ierr = ISCreateGeneral(MPI_COMM_WORLD, n_sl + this->local_size(),
@@ -653,7 +656,7 @@ namespace femus {
       // Copy part of *this into the parallel_vec -------------
       IS is;
       VecScatter scatter;
-      std::vector<int> idx(local_size);
+      std::vector<PetscInt> idx(local_size);
       std::iota(idx.begin(), idx.end(), first_local_idx);
 
       // Create the index set & scatter object
@@ -868,15 +871,16 @@ namespace femus {
     }
 
     // Use iota to fill an array with entries [0,1,2,3,4,...rows.size()]
-    std::vector<int> idx(rows.size());
+    std::vector<PetscInt> idx(rows.size());
     std::iota(idx.begin(), idx.end(), 0);
 //   Utility::iota (idx.begin(), idx.end(), 0);
+    std::vector<PetscInt> petsc_rows(rows.begin(), rows.end());
 
     // Construct index sets
-    ierr = ISCreateGeneral(MPI_COMM_WORLD, rows.size(), (int*) &rows[0],
+    ierr = ISCreateGeneral(MPI_COMM_WORLD, rows.size(), &petsc_rows[0],
                            PETSC_USE_POINTER, &parent_is);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
-    ierr = ISCreateGeneral(MPI_COMM_WORLD, rows.size(), (int*) &idx[0],
+    ierr = ISCreateGeneral(MPI_COMM_WORLD, rows.size(), &idx[0],
                            PETSC_USE_POINTER, &subvector_is);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
     // Construct the scatter object

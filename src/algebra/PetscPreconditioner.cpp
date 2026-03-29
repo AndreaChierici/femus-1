@@ -270,7 +270,7 @@ namespace femus {
 
     int ierr;
     KSP* subksps;
-    int nlocal;
+    PetscInt nlocal;
 
     ierr = PCASMGetSubKSP(pc, &nlocal, PETSC_NULLPTR, &subksps);
     CHKERRABORT(MPI_COMM_WORLD, ierr);

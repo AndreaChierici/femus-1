@@ -39,9 +39,13 @@ namespace femus {
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     int ierr = 0;
 
+    PetscInt pm = static_cast<PetscInt>(m), pn = static_cast<PetscInt>(n);
+    PetscInt pml = static_cast<PetscInt>(m_l), pnl = static_cast<PetscInt>(n_l);
+    PetscInt pnnz = static_cast<PetscInt>(nnz), pnoz = static_cast<PetscInt>(noz);
+
     if(numprocs == 1) {
       assert((m_l == m) && (n_l == n));
-      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m, n, nnz, PETSC_NULLPTR, &_mat);
+      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, pm, pn, pnnz, PETSC_NULLPTR, &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATSEQAIJHIPSPARSE);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -52,11 +56,11 @@ namespace femus {
       parallel_only();
       ierr = MatCreate(MPI_COMM_WORLD, &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = MatSetSizes(_mat, m_l, n_l, m, n);
+      ierr = MatSetSizes(_mat, pml, pnl, pm, pn);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATMPIAIJHIPSPARSE);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = MatMPIAIJSetPreallocation(_mat, nnz, PETSC_NULLPTR, noz, PETSC_NULLPTR);
+      ierr = MatMPIAIJSetPreallocation(_mat, pnnz, PETSC_NULLPTR, pnoz, PETSC_NULLPTR);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
 
@@ -82,7 +86,8 @@ namespace femus {
 
     if(n_procs == 1) {
       assert(static_cast<int>(n_nz.size()) == _m_l);
-      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, &n_nz[0], &_mat);
+      std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+      ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, _m, _n, 0, p_nnz.data(), &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATSEQAIJHIPSPARSE);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -92,13 +97,15 @@ namespace femus {
     else {
       parallel_only();
       assert(static_cast<int>(n_nz.size()) == _m_l && static_cast<int>(n_oz.size()) == _m_l);
+      std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+      std::vector<PetscInt> p_noz(n_oz.begin(), n_oz.end());
       ierr = MatCreate(MPI_COMM_WORLD, &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetSizes(_mat, _m_l, _n_l, _m, _n);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATMPIAIJHIPSPARSE);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = MatMPIAIJSetPreallocation(_mat, 1, &n_nz[0], 100, &n_oz[0]);
+      ierr = MatMPIAIJSetPreallocation(_mat, 1, p_nnz.data(), 100, p_noz.data());
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
     this->zero();
@@ -118,14 +125,17 @@ namespace femus {
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     int ierr = 0;
 
+    std::vector<PetscInt> p_nnz(n_nz.begin(), n_nz.end());
+    std::vector<PetscInt> p_noz(n_oz.begin(), n_oz.end());
+
     if(numprocs == 1) {
       assert((m_local == m_global) && (n_local == n_global));
       if(n_nz.empty())
         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global,
-                               PETSC_DEFAULT, (int*) PETSC_NULLPTR, &_mat);
+                               PETSC_DEFAULT, PETSC_NULLPTR, &_mat);
       else
         ierr = MatCreateSeqAIJ(MPI_COMM_WORLD, m_global, n_global,
-                               PETSC_DEFAULT, (int*) &n_nz[0], &_mat);
+                               PETSC_DEFAULT, p_nnz.data(), &_mat);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetType(_mat, MATSEQAIJHIPSPARSE);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -144,7 +154,7 @@ namespace femus {
         ierr = MatMPIAIJSetPreallocation(_mat, 0, 0, 0, 0);
       }
       else {
-        ierr = MatMPIAIJSetPreallocation(_mat, 0, (int*) &n_nz[0], 0, (int*) &n_oz[0]);
+        ierr = MatMPIAIJSetPreallocation(_mat, 0, p_nnz.data(), 0, p_noz.data());
       }
       CHKERRABORT(MPI_COMM_WORLD, ierr);
       ierr = MatSetFromOptions(_mat);
@@ -188,8 +198,8 @@ namespace femus {
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     this->_is_initialized = true;
-    MatGetSize(_mat, &_m, &_n);
-    MatGetLocalSize(_mat, &_m_l, &_n_l);
+    { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
+    { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
     _destroy_mat_on_exit = true;
 
     ierr = MatDestroy(&Acpu);
