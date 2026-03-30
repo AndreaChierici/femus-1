@@ -942,6 +942,7 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
 
   double pSearchTime = 0.;
   double pAssemblyTime = 0.;
+  double pGpuKernelTime = 0.;
 
   std::vector<unsigned > procOrder(nprocs);
 
@@ -1060,9 +1061,10 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
                               *refineElement[ielGeom][soluType], region2, jelIndex,
                               solu1, kappa1, delta1, printMesh);
 
-
+          double gpuStart = MPI_Wtime();
           nonlocal->ProcessTasks_GPU(*refineElement[ielGeom][soluType],
                              region2, solu1, delta1, printMesh);
+          pGpuKernelTime += MPI_Wtime() - gpuStart;
         }
         else {
           nonlocal->AssemblyCutFem1(0, lmin1, lmax1, 0,
@@ -1096,6 +1098,8 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
   std::cout << "Search Time = " << pSearchTime << " s" << std::endl;
   std::cout << "[" << iproc << "] ";
   std::cout << "Assembly Time = " << pAssemblyTime << " s" << std::endl;
+  std::cout << "[" << iproc << "] ";
+  std::cout << "  of which GPU/CPU kernel (ProcessTasks) = " << pGpuKernelTime << " s" << std::endl;
   std::cout << std::endl;
 
   double closingStart = MPI_Wtime();

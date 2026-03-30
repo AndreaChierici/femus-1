@@ -239,7 +239,7 @@ namespace femus {
 
     _bitFlipCounter = 0;
 
-    clock_t start_mg_time = clock();
+    double start_mg_time = MPI_Wtime();
 
     unsigned grid0;
 
@@ -266,14 +266,14 @@ namespace femus {
     restart:
       if(ThisIsAMR) _solution[igridn]->InitAMREps();
 
-      clock_t start_preparation_time = clock();
+      double start_preparation_time = MPI_Wtime();
 
       _levelToAssemble = igridn; //Be carefull!!!! this is needed in the _assemble_function
       _LinSolver[igridn]->SetResZero();
       _assembleMatrix = true;
-      clock_t start_assembly_time = clock();
+      double start_assembly_time = MPI_Wtime();
       _assemble_system_function(_equation_systems);
-      std::cout << std::endl << " ****** Level Max " << igridn + 1 << " ASSEMBLY TIME:\t" << static_cast<double>((clock() - start_assembly_time)) / CLOCKS_PER_SEC << std::endl;
+      std::cout << std::endl << " ****** Level Max " << igridn + 1 << " ASSEMBLY TIME:\t" << MPI_Wtime() - start_assembly_time << std::endl;
 
 
       if(!_ml_msh->GetLevel(igridn)->GetIfHomogeneous()) {
@@ -319,7 +319,7 @@ namespace femus {
         }
       }
 
-      std::cout << std::endl << " ****** Level Max " << igridn + 1 << " PREPARATION TIME:\t" << static_cast<double>((clock() - start_preparation_time)) / CLOCKS_PER_SEC << std::endl;
+      std::cout << std::endl << " ****** Level Max " << igridn + 1 << " PREPARATION TIME:\t" << MPI_Wtime() - start_preparation_time << std::endl;
 
       _LinSolver[igridn]->MGInit(mgSmootherType, igridn + 1, _mgOuterSolver);
 
@@ -332,7 +332,9 @@ namespace femus {
           _LinSolver[i]->MGSetLevel(_LinSolver[igridn], igridn, _VariablesToBeSolvedIndex, _PP[i], _PP[i], npre, npost);
       }
 
+      double start_vcycle_time = MPI_Wtime();
       Vcycle(igridn, mgSmootherType);
+      std::cout << std::endl << " ****** Level Max " << igridn + 1 << " KSP SOLVE TIME:\t" << MPI_Wtime() - start_vcycle_time << std::endl;
 
       _LinSolver[igridn]->MGClear();
 
@@ -354,10 +356,10 @@ namespace femus {
     }
 
     std::cout << std::endl << " *** Linear Solver TIME: " << std::setw(11) << std::setprecision(6) << std::fixed
-              << static_cast<double>((clock() - start_mg_time)) / CLOCKS_PER_SEC << std::endl;
+              << MPI_Wtime() - start_mg_time << std::endl;
 
     _totalAssemblyTime += 0.;
-    _totalSolverTime += static_cast<double>((clock() - start_mg_time)) / CLOCKS_PER_SEC;
+    _totalSolverTime += MPI_Wtime() - start_mg_time;
   }
 
   // ********************************************
@@ -417,7 +419,7 @@ namespace femus {
 
   bool LinearImplicitSystem::Vcycle(const unsigned & level, const MgSmootherType & mgSmootherType) {
 
-    clock_t start_mg_time = clock();
+    double start_mg_time = MPI_Wtime();
 
     _LinSolver[level]->SetEpsZero();
 
@@ -442,7 +444,7 @@ namespace femus {
       _solution[level]->UpdateSol(_SolSystemPdeIndex, _LinSolver[level]->_EPS, _LinSolver[level]->KKoffset);
     }
     std::cout << "       *************** Linear-Cycle TIME:\t" << std::setw(11) << std::setprecision(6) << std::fixed
-              << static_cast<double>((clock() - start_mg_time)) / CLOCKS_PER_SEC << std::endl;
+              << MPI_Wtime() - start_mg_time << std::endl;
     return linearIsConverged;
   }
 
