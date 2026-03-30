@@ -614,7 +614,7 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
 
   unsigned sizeAll = (offsetp1 - offset) * pow(3, dim);
 
-  time_t exchangeTime = clock();
+  double exchangeTime = MPI_Wtime();
 
   for (unsigned kproc = 0; kproc < nprocs; kproc++) {
     orElements[kproc].resize(offsetp1 - offset);
@@ -794,7 +794,7 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
     }
   }
   std::cout << "[" << iproc << "]  ";
-  std::cout << "Parallel Exchange Time and RHS evaluation = " << static_cast<double>(clock() - exchangeTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "Parallel Exchange Time and RHS evaluation = " << MPI_Wtime() - exchangeTime << std::endl;
   std::cout << std::endl;
 
   //END Search and Exchange of overlapping quantities
@@ -804,8 +804,8 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
     //BEGIN corrective moment Constant evaluation
     std::cout << "Corrective moment constant evaluation\n";
 
-    time_t pSearchTime = 0.;
-    time_t pAssemblyTime = 0.;
+    double pSearchTime = 0.;
+    double pAssemblyTime = 0.;
 
     for (unsigned kproc = 0; kproc < nprocs; kproc++) {
       unsigned cnt1 = 0;
@@ -836,7 +836,7 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
         }
 
         cnt1 += nDof1;
-        time_t start = clock();
+        double start = MPI_Wtime();
 
         region2.Reset();
 
@@ -881,8 +881,8 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
           cnt2 += nDof2;
         }
 
-        pSearchTime += clock() - start;
-        start = clock();
+        pSearchTime += MPI_Wtime() - start;
+        start = MPI_Wtime();
 
         if (region2.size() > 0) {
           nonlocal->ZeroLocalQuantities(nDof1, region2, lmax1);
@@ -904,16 +904,16 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
             }
           }
         }
-        pAssemblyTime += clock() - start;
+        pAssemblyTime += MPI_Wtime() - start;
       }//end iel loop
       std::cout << std::endl;
 
     }
 
     std::cout << "[" << iproc << "] ";
-    std::cout << "I2 Search Time = " << static_cast<double>(pSearchTime) / CLOCKS_PER_SEC << std::endl;
+    std::cout << "I2 Search Time = " << pSearchTime << " s" << std::endl;
     std::cout << "[" << iproc << "] ";
-    std::cout << "I2 Assembly Time = " << static_cast<double>(pAssemblyTime) / CLOCKS_PER_SEC << std::endl;
+    std::cout << "I2 Assembly Time = " << pAssemblyTime << " s" << std::endl;
     std::cout << std::endl;
 
     double I2real = (dim == 2) ? 0.5 * M_PI * pow(delta1, 4) : 4. / 5. * M_PI * pow(delta1, 5);
@@ -940,8 +940,8 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
   KK->zero(); // Set to zero all the entries of the Global Matrix
   //BEGIN nonlocal assembly
 
-  time_t pSearchTime = 0.;
-  time_t pAssemblyTime = 0.;
+  double pSearchTime = 0.;
+  double pAssemblyTime = 0.;
 
   std::vector<unsigned > procOrder(nprocs);
 
@@ -993,7 +993,7 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
       }
 
       cnt1 += nDof1;
-      time_t start = clock();
+      double start = MPI_Wtime();
 
       region2.Reset();
 
@@ -1042,8 +1042,8 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
         cnt2 += nDof2;
       }
 
-      pSearchTime += clock() - start;
-      start = clock();
+      pSearchTime += MPI_Wtime() - start;
+      start = MPI_Wtime();
 
       if (region2.size() > 0) {
         nonlocal->ZeroLocalQuantities(nDof1, region2, lmax1);
@@ -1086,23 +1086,24 @@ double dMax = 0.1 * pow(2./3., level + 1); //marta4Fine
           RES->add_vector_blocked(nonlocal->GetRes2(jel), region2.GetMapping(jel));
         }
       }
-      pAssemblyTime += clock() - start;
+      pAssemblyTime += MPI_Wtime() - start;
     }//end iel loop
     std::cout << std::endl;
     KK->flush();
   }
 
   std::cout << "[" << iproc << "] ";
-  std::cout << "Search Time = " << static_cast<double>(pSearchTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "Search Time = " << pSearchTime << " s" << std::endl;
   std::cout << "[" << iproc << "] ";
-  std::cout << "Assembly Time = " << static_cast<double>(pAssemblyTime) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "Assembly Time = " << pAssemblyTime << " s" << std::endl;
   std::cout << std::endl;
 
-  time_t start = clock();
+  double closingStart = MPI_Wtime();
   RES->close();
   KK->close();
+  double closingTime = MPI_Wtime() - closingStart;
   std::cout << "[" << iproc << "] ";
-  std::cout << "Closing Time = " << static_cast<double>(clock() - start) / CLOCKS_PER_SEC << std::endl;
+  std::cout << "Closing Time = " << closingTime << " s" << std::endl;
   std::cout << std::endl;
 
   //END nonlocal assembly

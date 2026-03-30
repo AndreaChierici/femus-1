@@ -4,11 +4,21 @@
 #include "GetNormal.hpp"
 #include "RefineElement.hpp"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 // #pragma omp requires unified_shared_memory
 
 std::ofstream fout;
 
 class NonLocalBall;
+
+namespace {
+  unsigned g_offloadGpuCalls = 0;
+  unsigned g_offloadCpuFallbacks = 0;
+  bool     g_offloadThresholdPrinted = false;
+}
 
 struct NonlocalMatrixView {
     std::vector<unsigned> offsetJac21;
@@ -27,6 +37,25 @@ class NonLocal {
     };
     ~NonLocal() {
       delete _ballAprx;
+      unsigned totalCalls = g_offloadGpuCalls + g_offloadCpuFallbacks;
+      if (totalCalls > 0) {
+        if (g_offloadGpuCalls > 0) {
+          double cpuPct = 100.0 * g_offloadCpuFallbacks / totalCalls;
+          char buf[256];
+          snprintf(buf, sizeof(buf),
+                   ">>> Offload summary: GPU=%u  CPU(fallback)=%u  total=%u"
+                   "  (%.1f%% fell back to CPU)",
+                   g_offloadGpuCalls, g_offloadCpuFallbacks, totalCalls, cpuPct);
+          std::cout << buf << std::endl;
+        } else {
+          std::cout << ">>> Offload summary: all " << totalCalls
+                    << " calls ran on CPU (no GPU offload targets)."
+                    << std::endl;
+        }
+      }
+      g_offloadGpuCalls = 0;
+      g_offloadCpuFallbacks = 0;
+      g_offloadThresholdPrinted = false;
     };
     double GetDistance(const std::vector < double>  &x1, const std::vector < double>  &x2) const {
       double distance  = 0.;
@@ -521,6 +550,19 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
   const unsigned totalTasks = _tasks.size();
   const unsigned nElem     = region2.size();
 
+  static int numGpuDevices = omp_get_num_devices();
+
+  if (numGpuDevices == 0) {
+    if (!g_offloadThresholdPrinted) {
+      std::cout << ">>> No GPU offload targets available: all assembly on CPU."
+                << std::endl;
+      g_offloadThresholdPrinted = true;
+    }
+    ++g_offloadCpuFallbacks;
+    ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
+    return;
+  }
+
   // Estimate total GPU work
   unsigned totalJelWork = 0;
   for (unsigned t = 0; t < totalTasks; ++t) {
@@ -538,29 +580,21 @@ void NonLocal::ProcessTasks_GPU(const RefineElement&        element1,
   unsigned minGPUWork = 30000000u / std::max(flopsPerItem, 1u);
   minGPUWork = std::max(minGPUWork, 128u);
 
-  static bool thresholdPrinted = false;
-  static unsigned gpuCalls = 0, cpuFallbacks = 0;
-  if (!thresholdPrinted) {
-    std::cout << ">>> GPU/CPU threshold: minGPUWork=" << minGPUWork
+  if (!g_offloadThresholdPrinted) {
+    std::cout << ">>> GPU offload enabled (devices=" << numGpuDevices
+              << "). GPU/CPU threshold: minGPUWork=" << minGPUWork
               << " (nDof2=" << nDof2_est << " nGauss2=" << nGauss2_est
               << " dim=" << dimSpace << " flops/item=" << flopsPerItem
               << ")" << std::endl;
-    thresholdPrinted = true;
+    g_offloadThresholdPrinted = true;
   }
 
   if (totalJelWork < minGPUWork) {
-    ++cpuFallbacks;
+    ++g_offloadCpuFallbacks;
     ProcessTasks_CPU(element1, region2, solu1, delta, /*printMesh*/ false);
     return;
   }
-  ++gpuCalls;
-
-  static unsigned lastReported = 0;
-  if (gpuCalls + cpuFallbacks >= lastReported + 500) {
-    std::cout << ">>> Offload stats so far: GPU=" << gpuCalls
-              << " CPU=" << cpuFallbacks << std::endl;
-    lastReported = gpuCalls + cpuFallbacks;
-  }
+  ++g_offloadGpuCalls;
 
   // 1) Prepare flat matrix layout (for all jel in region2)
   BuildMatrixView(region2, nDof1);

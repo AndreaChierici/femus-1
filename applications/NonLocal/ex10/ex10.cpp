@@ -117,10 +117,10 @@ int main(int argc, char** argv) {
 
   std::cout << "USING VARIABLES " << numberOfUniformLevels << "  " << lmax1 << std::endl;
 
-  clock_t total_time = clock();
-
   // init Petsc-MPI communicator
   FemusInit mpinit(argc, argv, MPI_COMM_WORLD);
+
+  double total_time = MPI_Wtime();
 
 #ifdef _OPENMP
   // Pin each MPI rank to its own GCD on MI300A via OpenMP (not
@@ -135,6 +135,8 @@ int main(int argc, char** argv) {
     omp_set_default_device(localRank);
   }
 #endif
+
+  double t_mesh_start = MPI_Wtime();
 
   MultiLevelMesh mlMsh;
   MultiLevelMesh mlMshFine;
@@ -237,7 +239,10 @@ int main(int argc, char** argv) {
   else        std::cout << ">>> Using CPU matrices" << std::endl;
   std::cout << ">>> Preconditioner: " << (pcEnv ? pcEnv : "ILU") << std::endl;
 
+  double t_mesh = MPI_Wtime() - t_mesh_start;
+
   //BEGIN assemble and solve nonlocal problem
+  double t_init_start = MPI_Wtime();
   MultiLevelProblem ml_prob(&mlSol);
 
   // ******* Add FEM system to the MultiLevel problem *******
@@ -264,17 +269,17 @@ int main(int argc, char** argv) {
   // -----------------------------------------------------------------------
   // Automatic sparsity-pattern estimate for the nonlocal operator.
   //
-  // The nonlocal interaction radius is R = delta1 + eps.  A DOF can couple
-  // with every other DOF inside a ball of radius R, so
+  // The nonlocal interaction radius is R = delta1 + eps.  The assembly
+  // uses a bounding-box intersection test, so an element is included if
+  // any part of its bounding box is within R of the source element.
+  // The effective coupling radius is therefore R_eff = R + h, where h
+  // is the estimated element diameter.  On fine meshes h << R and this
+  // barely changes the estimate; on coarse meshes h is significant.
   //
-  //     nnz_per_row  ≈  BallVolume(R) × (totalDOFs / domainVolume)
+  //     nnz_per_row  ≈  BallVolume(R_eff) × (totalDOFs / domainVolume)
   //
-  // Both totalDOFs and eps depend on numberOfUniformLevels (argv[1]):
-  //   - totalDOFs grows with mesh refinement
-  //   - eps = 0.0125 * (2/3)^numberOfUniformLevels  shrinks with refinement
-  //
-  // A 1.5× safety factor covers bounding-box overcount in the coarse
-  // intersection test and small non-uniformities in DOF distribution.
+  // A 1.25× safety factor covers DOF distribution non-uniformity and
+  // residual bounding-box shape mismatch.
   //
   // The estimate is then clamped to prevent 32-bit PetscInt overflow:
   //     local_rows × nnz_per_row  <  2^31
@@ -285,6 +290,7 @@ int main(int argc, char** argv) {
 
     unsigned dofType = static_cast<unsigned>(femType) - 1;
     unsigned totalDOFs = finestMsh->GetTotalNumberOfDofs(dofType);
+    unsigned nElements = finestMsh->GetNumberOfElements();
 
     double domainVolume = 1.0;
     for (unsigned k = 0; k < dim; ++k) {
@@ -297,15 +303,21 @@ int main(int argc, char** argv) {
     double epsFinest = 0.125 * dMax;
     double R = delta1 + epsFinest;
 
+    double elemVolume = domainVolume / static_cast<double>(nElements);
+    double h = pow(elemVolume, 1.0 / dim);
+    double Reff = R + h;
+
     const double PI = acos(-1.0);
     double ballVolume = (dim == 2)
-        ? PI * R * R
-        : (4.0 / 3.0) * PI * R * R * R;
+        ? PI * Reff * Reff
+        : (4.0 / 3.0) * PI * Reff * Reff * Reff;
 
     double dofDensity  = static_cast<double>(totalDOFs) / domainVolume;
     double nnzEstimate = ballVolume * dofDensity;
 
-    unsigned sparsitySize = static_cast<unsigned>(ceil(1.5 * nnzEstimate));
+    unsigned sparsitySize = static_cast<unsigned>(ceil(1.25 * nnzEstimate));
+
+    if (sparsitySize > totalDOFs) sparsitySize = totalDOFs;
 
     int nprocs;
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
@@ -323,7 +335,9 @@ int main(int argc, char** argv) {
     }
 
     std::cout << ">>> Sparsity estimate: totalDOFs=" << totalDOFs
-              << "  R=" << R << "  ballVol=" << ballVolume
+              << "  nElem=" << nElements
+              << "  R=" << R << "  h=" << h << "  Reff=" << Reff
+              << "  ballVol=" << ballVolume
               << "  domainVol=" << domainVolume
               << "  raw_nnz=" << static_cast<unsigned>(ceil(nnzEstimate))
               << "  with_safety=" << sparsitySize << std::endl;
@@ -333,6 +347,7 @@ int main(int argc, char** argv) {
 
   if (useHIP) system.SetMatSolverPackage(PETSC_SOLVERS_HIP);
   system.init();
+  double t_init = MPI_Wtime() - t_init_start;
 
   // ******* Set Smoother *******
   system.SetSolverFineGrids(RICHARDSON);
@@ -344,7 +359,10 @@ int main(int argc, char** argv) {
 
 // ******* Solution *******
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  double t_solve_start = MPI_Wtime();
   system.MGsolve();
+  double t_nonlocal_solve = MPI_Wtime() - t_solve_start;
 
   //END assemble and solve nonlocal problem
 
@@ -380,7 +398,10 @@ int main(int argc, char** argv) {
 
 // ******* Solution *******
 
+  MPI_Barrier(MPI_COMM_WORLD);
+  double t_local_start = MPI_Wtime();
   system2.MGsolve();
+  double t_local_solve = MPI_Wtime() - t_local_start;
 
   //END assemble and solve local problem
 
@@ -429,6 +450,7 @@ int main(int argc, char** argv) {
 
 
   //BEGIN compute errors
+  double t_post_start = MPI_Wtime();
   GetL2Norm(mlSol, mlSolFine);
   //END compute errors
 
@@ -438,6 +460,7 @@ int main(int argc, char** argv) {
   print_vars.push_back("All");
   mlSol.GetWriter()->SetDebugOutput(true);
   mlSol.GetWriter()->Write(DEFAULT_OUTPUTDIR, femTypeName[femType].c_str(), print_vars, 0);
+  double t_post = MPI_Wtime() - t_post_start;
 
 //   mlSolFine.SetWriter(VTK);
 //   std::vector<std::string> print_vars2;
@@ -445,8 +468,20 @@ int main(int argc, char** argv) {
 //   mlSolFine.GetWriter()->SetDebugOutput(true);
 //   mlSolFine.GetWriter()->Write(DEFAULT_OUTPUTDIR, femTypeName[femType].c_str(), print_vars2, 1);
 
-  std::cout << std::endl << " total CPU time : " << std::setw(11) << std::setprecision(6) << std::fixed
-            << static_cast<double>((clock() - total_time)) / CLOCKS_PER_SEC << " s" << std::endl;
+  double t_total = MPI_Wtime() - total_time;
+
+  int iproc;
+  MPI_Comm_rank(MPI_COMM_WORLD, &iproc);
+
+  std::cout << std::endl;
+  std::cout << "[" << iproc << "] ===== Timing Summary (wall-clock, seconds) =====" << std::endl;
+  std::cout << "[" << iproc << "]   Mesh setup        : " << t_mesh << std::endl;
+  std::cout << "[" << iproc << "]   System init       : " << t_init << std::endl;
+  std::cout << "[" << iproc << "]   Nonlocal solve    : " << t_nonlocal_solve << std::endl;
+  std::cout << "[" << iproc << "]   Local solve       : " << t_local_solve << std::endl;
+  std::cout << "[" << iproc << "]   Post (errors+VTK) : " << t_post << std::endl;
+  std::cout << "[" << iproc << "]   Total             : " << t_total << std::endl;
+  std::cout << "[" << iproc << "] ================================================" << std::endl;
 
   return 0;
 
