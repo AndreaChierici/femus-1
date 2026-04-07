@@ -271,6 +271,7 @@ namespace femus {
 
     if (level > 0) {
       PCMGSetR (pcMG, level, (static_cast<PetscVector*> (_RESC))->vec());
+
       PCMGSetInterpolation (pcMG, level, (static_cast< PetscMatrix* > (PP))->mat());
       PCMGSetRestriction (pcMG, level, (static_cast< PetscMatrix* > (RR))->mat());
 
@@ -435,7 +436,7 @@ namespace femus {
   void LinearEquationSolverPetsc::SetPreconditioner (KSP& subksp, PC& subpc) {
 
     int parallelOverlapping = (_msh->GetIfHomogeneous()) ? 0 : 0;
-    PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, subpc, parallelOverlapping);
+    PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, subpc, parallelOverlapping, this->GetMatSolverPackage());
     PetscReal zero = 1.e-16;
     PCFactorSetZeroPivot (subpc, zero);
     PCFactorSetShiftType (subpc, MAT_SHIFT_NONZERO);
@@ -703,7 +704,7 @@ namespace femus {
                                     PETSC_TRUE);  // Whether or not to reset the history for each solve.
       CHKERRABORT (MPI_COMM_WORLD, ierr);
 
-      PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, _pc);
+      PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, _pc, 0, this->GetMatSolverPackage());
 
       if (this->_preconditioner) {
         this->_preconditioner->set_matrix (*matrix);

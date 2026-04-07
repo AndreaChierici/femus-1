@@ -26,6 +26,7 @@
 // Local includes
 #include "Preconditioner.hpp"
 #include "PrecondtypeEnum.hpp"
+#include "SolverPackageEnum.hpp"
 
 // Petsc includes
 #include "petscpc.h"
@@ -75,7 +76,7 @@ public:
     virtual void apply(const NumericVector & x, NumericVector & y);
 
     /** Tells PETSC to use the user-specified preconditioner */
-    static void set_petsc_preconditioner_type  (const PreconditionerType & preconditioner_type, PC & pc, const int &parallelOverlapping = 0);
+    static void set_petsc_preconditioner_type  (const PreconditionerType & preconditioner_type, PC & pc, const int &parallelOverlapping = 0, const SolverPackage &matSolverPackage = PETSC_SOLVERS);
 
 private:
 

@@ -54,10 +54,6 @@ namespace femus {
       PCCreate(MPI_COMM_WORLD, &_pc);
       //Set the PCType
       set_petsc_preconditioner_type(this->_preconditioner_type, _pc);
-// #ifdef LIBMESH_HAVE_PETSC_HYPRE
-//     if(this->_preconditioner_type == AMG_PRECOND)
-//       PCHYPRESetType(this->_pc, "boomerang");
-// #endif
       PetscMatrix * pmatrix = libmeshM_cast_ptr<PetscMatrix*, SparseMatrix >(this->_matrix);
       _mat = pmatrix->mat();
     }
@@ -68,7 +64,7 @@ namespace femus {
 
 // =====================================================
   void PetscPreconditioner::set_petsc_preconditioner_type
-  (const PreconditionerType & preconditioner_type, PC & pc,  const int &parallelOverlapping) {
+  (const PreconditionerType & preconditioner_type, PC & pc,  const int &parallelOverlapping, const SolverPackage &matSolverPackage) {
     int ierr = 0;
     switch(preconditioner_type)  {
 
@@ -107,8 +103,6 @@ namespace femus {
           set_petsc_preconditioner_type(ASM_PRECOND, pc);
           PCASMSetOverlap(pc, parallelOverlapping);
           PCSetUp(pc);
-
-          // Set ILU as the sub preconditioner type
           set_petsc_subpreconditioner_type(PCILU, pc);
         }
         break;
@@ -228,6 +222,8 @@ namespace femus {
 
       case AMG_PRECOND:
         ierr = PCSetType(pc, (char*) PCHYPRE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = PCHYPRESetType(pc, "boomeramg");
         CHKERRABORT(MPI_COMM_WORLD, ierr);
         break;
 

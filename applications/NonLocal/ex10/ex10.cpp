@@ -132,7 +132,8 @@ int main(int argc, char** argv) {
                         0, MPI_INFO_NULL, &localComm);
     MPI_Comm_rank(localComm, &localRank);
     MPI_Comm_free(&localComm);
-    omp_set_default_device(localRank);
+    int numDevices = omp_get_num_devices();
+    if(numDevices > 0) omp_set_default_device(localRank % numDevices);
   }
 #endif
 
@@ -233,6 +234,7 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(pcEnv, "ASM"))           pcType = ASM_PRECOND;
     else if (!std::strcmp(pcEnv, "SOR"))           pcType = SOR_PRECOND;
     else if (!std::strcmp(pcEnv, "ILU"))           pcType = ILU_PRECOND;
+    else if (!std::strcmp(pcEnv, "AMG"))           pcType = AMG_PRECOND;
   }
 
   if (useHIP) std::cout << ">>> Using HIPSPARSE matrices" << std::endl;
@@ -241,212 +243,235 @@ int main(int argc, char** argv) {
 
   double t_mesh = MPI_Wtime() - t_mesh_start;
 
-  //BEGIN assemble and solve nonlocal problem
-  double t_init_start = MPI_Wtime();
-  MultiLevelProblem ml_prob(&mlSol);
+  // Timing variables — declared here so they survive the scoped blocks below.
+  double t_init = 0.0;
+  double t_nonlocal_solve = 0.0;
+  double t_local_solve = 0.0;
 
-  // ******* Add FEM system to the MultiLevel problem *******
-  LinearImplicitSystem& system = ml_prob.add_system < LinearImplicitSystem > ("NonLocal");
-  system.AddSolutionToSystemPDE("u");
-
-  // ******* System FEM Assembly *******
-  system.SetAssembleFunction(AssembleNonLocalRefined);
-  //system.SetAssembleFunction(AssembleNonLocalSys);
-  system.SetMaxNumberOfLinearIterations(1);
-  // ******* set MG-Solver *******
-  system.SetMgType(V_CYCLE);
-
-  system.SetAbsoluteLinearConvergenceTolerance(1.e-50);
-  //   system.SetNonLinearConvergenceTolerance(1.e-9);
-//   system.SetMaxNumberOfNonLinearIterations(20);
-
-  system.SetNumberPreSmoothingStep(1);
-  system.SetNumberPostSmoothingStep(1);
-
-  // ******* Set Preconditioner *******
-  system.SetLinearEquationSolverType(FEMuS_DEFAULT);
-
-  // -----------------------------------------------------------------------
-  // Automatic sparsity-pattern estimate for the nonlocal operator.
-  //
-  // The nonlocal interaction radius is R = delta1 + eps.  The assembly
-  // uses a bounding-box intersection test, so an element is included if
-  // any part of its bounding box is within R of the source element.
-  // The effective coupling radius is therefore R_eff = R + h, where h
-  // is the estimated element diameter.  On fine meshes h << R and this
-  // barely changes the estimate; on coarse meshes h is significant.
-  //
-  //     nnz_per_row  ≈  BallVolume(R_eff) × (totalDOFs / domainVolume)
-  //
-  // A 1.25× safety factor covers DOF distribution non-uniformity and
-  // residual bounding-box shape mismatch.
-  //
-  // The estimate is then clamped to prevent 32-bit PetscInt overflow:
-  //     local_rows × nnz_per_row  <  2^31
-  // -----------------------------------------------------------------------
+  // =========================================================================
+  // BEGIN nonlocal solve (scoped so GPU resources are freed before local solve)
+  // =========================================================================
   {
-    unsigned finestLevel = mlMsh.GetNumberOfLevels() - 1;
-    Mesh* finestMsh = mlMsh.GetLevel(finestLevel);
+    double t_init_start = MPI_Wtime();
+    MultiLevelProblem ml_prob(&mlSol);
 
-    unsigned dofType = static_cast<unsigned>(femType) - 1;
-    unsigned totalDOFs = finestMsh->GetTotalNumberOfDofs(dofType);
-    unsigned nElements = finestMsh->GetNumberOfElements();
+    // ******* Add FEM system to the MultiLevel problem *******
+    LinearImplicitSystem& system = ml_prob.add_system < LinearImplicitSystem > ("NonLocal");
+    system.AddSolutionToSystemPDE("u");
 
-    double domainVolume = 1.0;
-    for (unsigned k = 0; k < dim; ++k) {
-      double lo = finestMsh->_topology->_Sol[k]->min();
-      double hi = finestMsh->_topology->_Sol[k]->max();
-      domainVolume *= (hi - lo);
+    // ******* System FEM Assembly *******
+    system.SetAssembleFunction(AssembleNonLocalRefined);
+    //system.SetAssembleFunction(AssembleNonLocalSys);
+    system.SetMaxNumberOfLinearIterations(1);
+    // ******* set MG-Solver *******
+    system.SetMgType(V_CYCLE);
+
+    system.SetAbsoluteLinearConvergenceTolerance(1.e-50);
+    //   system.SetNonLinearConvergenceTolerance(1.e-9);
+  //   system.SetMaxNumberOfNonLinearIterations(20);
+
+    system.SetNumberPreSmoothingStep(1);
+    system.SetNumberPostSmoothingStep(1);
+
+    // ******* Set Preconditioner *******
+    system.SetLinearEquationSolverType(FEMuS_DEFAULT);
+
+    // -----------------------------------------------------------------------
+    // Automatic sparsity-pattern estimate for the nonlocal operator.
+    //
+    // The nonlocal interaction radius is R = delta1 + eps.  The assembly
+    // uses a bounding-box intersection test, so an element is included if
+    // any part of its bounding box is within R of the source element.
+    // The effective coupling radius is therefore R_eff = R + h, where h
+    // is the estimated element diameter.  On fine meshes h << R and this
+    // barely changes the estimate; on coarse meshes h is significant.
+    //
+    //     nnz_per_row  ≈  BallVolume(R_eff) × (totalDOFs / domainVolume)
+    //
+    // A 1.25× safety factor covers DOF distribution non-uniformity and
+    // residual bounding-box shape mismatch.
+    //
+    // The estimate is then clamped to prevent 32-bit PetscInt overflow:
+    //     local_rows × nnz_per_row  <  2^31
+    // -----------------------------------------------------------------------
+    {
+      unsigned finestLevel = mlMsh.GetNumberOfLevels() - 1;
+      Mesh* finestMsh = mlMsh.GetLevel(finestLevel);
+
+      unsigned dofType = static_cast<unsigned>(femType) - 1;
+      unsigned totalDOFs = finestMsh->GetTotalNumberOfDofs(dofType);
+      unsigned nElements = finestMsh->GetNumberOfElements();
+
+      double domainVolume = 1.0;
+      for (unsigned k = 0; k < dim; ++k) {
+        double lo = finestMsh->_topology->_Sol[k]->min();
+        double hi = finestMsh->_topology->_Sol[k]->max();
+        domainVolume *= (hi - lo);
+      }
+
+      double dMax = 0.1 * pow(2.0 / 3.0, static_cast<double>(finestLevel) + 1.0);
+      double epsFinest = 0.125 * dMax;
+      double R = delta1 + epsFinest;
+
+      double elemVolume = domainVolume / static_cast<double>(nElements);
+      double h = pow(elemVolume, 1.0 / dim);
+      double Reff = R + h;
+
+      const double PI = acos(-1.0);
+      double ballVolume = (dim == 2)
+          ? PI * Reff * Reff
+          : (4.0 / 3.0) * PI * Reff * Reff * Reff;
+
+      double dofDensity  = static_cast<double>(totalDOFs) / domainVolume;
+      double nnzEstimate = ballVolume * dofDensity;
+
+      unsigned sparsitySize = static_cast<unsigned>(ceil(1.25 * nnzEstimate));
+
+      if (sparsitySize > totalDOFs) sparsitySize = totalDOFs;
+
+      int nprocs;
+      MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+      unsigned localRows = (totalDOFs + static_cast<unsigned>(nprocs) - 1)
+                         / static_cast<unsigned>(nprocs);
+      unsigned maxSafe = static_cast<unsigned>(2147483647.0
+                       / static_cast<double>(localRows));
+
+      if (sparsitySize > maxSafe) {
+        std::cout << "WARNING: sparsity estimate " << sparsitySize
+                  << " exceeds 32-bit PetscInt safe limit (" << maxSafe
+                  << ").  Clamping. Consider --with-64-bit-indices "
+                  << "or more MPI ranks." << std::endl;
+        sparsitySize = maxSafe;
+      }
+
+      std::cout << ">>> Sparsity estimate: totalDOFs=" << totalDOFs
+                << "  nElem=" << nElements
+                << "  R=" << R << "  h=" << h << "  Reff=" << Reff
+                << "  ballVol=" << ballVolume
+                << "  domainVol=" << domainVolume
+                << "  raw_nnz=" << static_cast<unsigned>(ceil(nnzEstimate))
+                << "  with_safety=" << sparsitySize << std::endl;
+
+      system.SetSparsityPatternMinimumSize(sparsitySize);
     }
 
-    double dMax = 0.1 * pow(2.0 / 3.0, static_cast<double>(finestLevel) + 1.0);
-    double epsFinest = 0.125 * dMax;
-    double R = delta1 + epsFinest;
+    if (useHIP) system.SetMatSolverPackage(PETSC_SOLVERS_HIP);
+    system.init();
+    t_init = MPI_Wtime() - t_init_start;
 
-    double elemVolume = domainVolume / static_cast<double>(nElements);
-    double h = pow(elemVolume, 1.0 / dim);
-    double Reff = R + h;
+    // ******* Set Smoother *******
+    system.SetSolverFineGrids(RICHARDSON);
+  //   system.SetRichardsonScaleFactor(0.7);
 
-    const double PI = acos(-1.0);
-    double ballVolume = (dim == 2)
-        ? PI * Reff * Reff
-        : (4.0 / 3.0) * PI * Reff * Reff * Reff;
+    system.SetPreconditionerFineGrids(pcType);
 
-    double dofDensity  = static_cast<double>(totalDOFs) / domainVolume;
-    double nnzEstimate = ballVolume * dofDensity;
+    system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 100);
 
-    unsigned sparsitySize = static_cast<unsigned>(ceil(1.25 * nnzEstimate));
+  // ******* Solution *******
 
-    if (sparsitySize > totalDOFs) sparsitySize = totalDOFs;
+    MPI_Barrier(MPI_COMM_WORLD);
+    double t_solve_start = MPI_Wtime();
+    system.MGsolve();
+    t_nonlocal_solve = MPI_Wtime() - t_solve_start;
 
-    int nprocs;
-    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-    unsigned localRows = (totalDOFs + static_cast<unsigned>(nprocs) - 1)
-                       / static_cast<unsigned>(nprocs);
-    unsigned maxSafe = static_cast<unsigned>(2147483647.0
-                     / static_cast<double>(localRows));
+  } // ml_prob destructor frees KSP/PC/Mat/Vec GPU memory
+  // =========================================================================
+  // END nonlocal solve
+  // =========================================================================
 
-    if (sparsitySize > maxSafe) {
-      std::cout << "WARNING: sparsity estimate " << sparsitySize
-                << " exceeds 32-bit PetscInt safe limit (" << maxSafe
-                << ").  Clamping. Consider --with-64-bit-indices "
-                << "or more MPI ranks." << std::endl;
-      sparsitySize = maxSafe;
-    }
+  // =========================================================================
+  // BEGIN local solve (scoped so GPU resources are freed before fine solve)
+  // =========================================================================
+  {
+    MultiLevelProblem ml_prob2(&mlSol);
 
-    std::cout << ">>> Sparsity estimate: totalDOFs=" << totalDOFs
-              << "  nElem=" << nElements
-              << "  R=" << R << "  h=" << h << "  Reff=" << Reff
-              << "  ballVol=" << ballVolume
-              << "  domainVol=" << domainVolume
-              << "  raw_nnz=" << static_cast<unsigned>(ceil(nnzEstimate))
-              << "  with_safety=" << sparsitySize << std::endl;
+    // ******* Add FEM system to the MultiLevel problem *******
+    LinearImplicitSystem& system2 = ml_prob2.add_system < LinearImplicitSystem > ("Local");
+    system2.AddSolutionToSystemPDE("u_local");
 
-    system.SetSparsityPatternMinimumSize(sparsitySize);
-  }
+    // ******* System FEM Assembly *******
+    system2.SetAssembleFunction(AssembleLocalSys);
+    system2.SetMaxNumberOfLinearIterations(1);
+    // ******* set MG-Solver *******
+    system2.SetMgType(V_CYCLE);
 
-  if (useHIP) system.SetMatSolverPackage(PETSC_SOLVERS_HIP);
-  system.init();
-  double t_init = MPI_Wtime() - t_init_start;
+    system2.SetAbsoluteLinearConvergenceTolerance(1.e-50);
 
-  // ******* Set Smoother *******
-  system.SetSolverFineGrids(RICHARDSON);
-//   system.SetRichardsonScaleFactor(0.7);
+    system2.SetNumberPreSmoothingStep(1);
+    system2.SetNumberPostSmoothingStep(1);
 
-  system.SetPreconditionerFineGrids(pcType);
+    system2.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 100);
+    if (useHIP) system2.SetMatSolverPackage(PETSC_SOLVERS_HIP);
+    system2.init();
 
-// ******* Solution *******
+    // ******* Set Smoother *******
+    system2.SetSolverFineGrids(RICHARDSON);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  double t_solve_start = MPI_Wtime();
-  system.MGsolve();
-  double t_nonlocal_solve = MPI_Wtime() - t_solve_start;
+    system2.SetPreconditionerFineGrids(pcType);
 
-  //END assemble and solve nonlocal problem
+    system2.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
 
-  //BEGIN assemble and solve local problem
-  MultiLevelProblem ml_prob2(&mlSol);
+  // ******* Solution *******
 
-  // ******* Add FEM system to the MultiLevel problem *******
-  LinearImplicitSystem& system2 = ml_prob2.add_system < LinearImplicitSystem > ("Local");
-  system2.AddSolutionToSystemPDE("u_local");
+    MPI_Barrier(MPI_COMM_WORLD);
+    double t_local_start = MPI_Wtime();
+    system2.MGsolve();
+    t_local_solve = MPI_Wtime() - t_local_start;
 
-  // ******* System FEM Assembly *******
-  system2.SetAssembleFunction(AssembleLocalSys);
-  system2.SetMaxNumberOfLinearIterations(1);
-  // ******* set MG-Solver *******
-  system2.SetMgType(V_CYCLE);
+  } // ml_prob2 destructor frees GPU memory
+  // =========================================================================
+  // END local solve
+  // =========================================================================
 
-  system2.SetAbsoluteLinearConvergenceTolerance(1.e-50);
+  // =========================================================================
+  // BEGIN fine nonlocal solve (scoped for consistency)
+  // =========================================================================
+  {
+    MultiLevelProblem ml_probFine(&mlSolFine);
 
-  system2.SetNumberPreSmoothingStep(1);
-  system2.SetNumberPostSmoothingStep(1);
+    // ******* Add FEM system to the MultiLevel problem *******
+    LinearImplicitSystem& systemFine = ml_probFine.add_system < LinearImplicitSystem > ("NonLocal");
+    systemFine.AddSolutionToSystemPDE("u");
 
-  system2.SetLinearEquationSolverType(FEMuS_DEFAULT);
+    // ******* System FEM Assembly *******
+    //systemFine.SetAssembleFunction(AssembleNonLocalSys);
+    systemFine.SetAssembleFunction(AssembleNonLocalRefined);
+    systemFine.SetMaxNumberOfLinearIterations(1);
+    // ******* set MG-Solver *******
+    systemFine.SetMgType(V_CYCLE);
 
-  if (useHIP) system2.SetMatSolverPackage(PETSC_SOLVERS_HIP);
-  system2.init();
+    systemFine.SetAbsoluteLinearConvergenceTolerance(1.e-50);
+    //   systemFine.SetNonLinearConvergenceTolerance(1.e-9);
+    //   systemFine.SetMaxNumberOfNonLinearIterations(20);
 
-  // ******* Set Smoother *******
-  system2.SetSolverFineGrids(RICHARDSON);
+    systemFine.SetNumberPreSmoothingStep(1);
+    systemFine.SetNumberPostSmoothingStep(1);
 
-  system2.SetPreconditionerFineGrids(pcType);
+    // ******* Set Preconditioner *******
+    systemFine.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system2.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
+    //systemFine.SetSparsityPatternMinimumSize(5000u);    //TODO tune
 
-// ******* Solution *******
+    if (useHIP) systemFine.SetMatSolverPackage(PETSC_SOLVERS_HIP);
+    systemFine.init();
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  double t_local_start = MPI_Wtime();
-  system2.MGsolve();
-  double t_local_solve = MPI_Wtime() - t_local_start;
+    // ******* Set Smoother *******
+    systemFine.SetSolverFineGrids(RICHARDSON);
+    // systemFine.SetRichardsonScaleFactor(0.7);
 
-  //END assemble and solve local problem
+    systemFine.SetPreconditionerFineGrids(pcType);
 
-  //BEGIN assemble and solve fine nonlocal problem
-  MultiLevelProblem ml_probFine(&mlSolFine);
+    systemFine.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
 
-  // ******* Add FEM system to the MultiLevel problem *******
-  LinearImplicitSystem& systemFine = ml_probFine.add_system < LinearImplicitSystem > ("NonLocal");
-  systemFine.AddSolutionToSystemPDE("u");
+  // ******* Solution *******
 
-  // ******* System FEM Assembly *******
-  //systemFine.SetAssembleFunction(AssembleNonLocalSys);
-  systemFine.SetAssembleFunction(AssembleNonLocalRefined);
-  systemFine.SetMaxNumberOfLinearIterations(1);
-  // ******* set MG-Solver *******
-  systemFine.SetMgType(V_CYCLE);
+    //systemFine.MGsolve(); //TODO
 
-  systemFine.SetAbsoluteLinearConvergenceTolerance(1.e-50);
-  //   systemFine.SetNonLinearConvergenceTolerance(1.e-9);
-  //   systemFine.SetMaxNumberOfNonLinearIterations(20);
-
-  systemFine.SetNumberPreSmoothingStep(1);
-  systemFine.SetNumberPostSmoothingStep(1);
-
-  // ******* Set Preconditioner *******
-  systemFine.SetLinearEquationSolverType(FEMuS_DEFAULT);
-
-  //systemFine.SetSparsityPatternMinimumSize(5000u);    //TODO tune
-
-  if (useHIP) systemFine.SetMatSolverPackage(PETSC_SOLVERS_HIP);
-  systemFine.init();
-
-  // ******* Set Smoother *******
-  systemFine.SetSolverFineGrids(RICHARDSON);
-  // systemFine.SetRichardsonScaleFactor(0.7);
-
-  systemFine.SetPreconditionerFineGrids(pcType);
-
-  systemFine.SetTolerances(1.e-20, 1.e-20, 1.e+50, 100);
-
-// ******* Solution *******
-
-  //systemFine.MGsolve(); //TODO
-
-  //END assemble and solve nonlocal problem
+  } // ml_probFine destructor frees GPU memory
+  // =========================================================================
+  // END fine nonlocal solve
+  // =========================================================================
 
 
   //BEGIN compute errors

@@ -94,6 +94,10 @@ namespace femus {
       /// This function returns the \p PetscVector to a pristine state.
       void clear();
 
+      /// Enable HIP ghost mode: use VECMPIHIP + explicit VecScatter instead of VecCreateGhost
+      void setHipGhostMode(bool enabled) { _hip_ghost_mode = enabled; }
+      bool isHipGhostMode() const { return _hip_ghost_mode; }
+
 
       /// Change the dimension of the vector to \p N. doublehe reserved memory for
       /// this vector remains unchanged if possible, to make things faster, but
@@ -314,6 +318,17 @@ namespace femus {
       /// for the constructor which takes a PETSc Vec object.
       bool _destroy_vec_on_exit;
 
+      /// HIP ghost mode: replaces PETSc ghost vectors with VECMPIHIP + explicit scatter.
+      /// The scatter and local vec are mutable because forward/reverse scatter
+      /// operations are logically const (they update a communication cache).
+      bool _hip_ghost_mode;
+      mutable VecScatter _hip_ghost_scatter;
+      mutable Vec _hip_ghost_local_vec;
+      int _hip_ghost_n_owned;
+
+      void _hipGhostScatterForward() const;
+      void _hipGhostSyncOwnedFromLocal() const;
+
 #ifndef NDEBUG
       ///Size of the local form, for being used in assertations.  doublehe
       /// contents of this field are only valid if the vector is ghosted
@@ -333,7 +348,11 @@ namespace femus {
       _local_form(NULL),
       _values(NULL),
       _global_to_local_map(),
-      _destroy_vec_on_exit(true) {
+      _destroy_vec_on_exit(true),
+      _hip_ghost_mode(false),
+      _hip_ghost_scatter(NULL),
+      _hip_ghost_local_vec(NULL),
+      _hip_ghost_n_owned(0) {
     this->_type = type;
   }
 
@@ -342,7 +361,11 @@ namespace femus {
       _local_form(NULL),
       _values(NULL),
       _global_to_local_map(),
-      _destroy_vec_on_exit(true) {
+      _destroy_vec_on_exit(true),
+      _hip_ghost_mode(false),
+      _hip_ghost_scatter(NULL),
+      _hip_ghost_local_vec(NULL),
+      _hip_ghost_n_owned(0) {
     this->init(n, n, false, type);
   }
 
@@ -353,7 +376,11 @@ namespace femus {
       _local_form(NULL),
       _values(NULL),
       _global_to_local_map(),
-      _destroy_vec_on_exit(true) {
+      _destroy_vec_on_exit(true),
+      _hip_ghost_mode(false),
+      _hip_ghost_scatter(NULL),
+      _hip_ghost_local_vec(NULL),
+      _hip_ghost_n_owned(0) {
     this->init(n, n_local, false, type);
   }
 
@@ -365,7 +392,11 @@ namespace femus {
       _local_form(NULL),
       _values(NULL),
       _global_to_local_map(),
-      _destroy_vec_on_exit(true) {
+      _destroy_vec_on_exit(true),
+      _hip_ghost_mode(false),
+      _hip_ghost_scatter(NULL),
+      _hip_ghost_local_vec(NULL),
+      _hip_ghost_n_owned(0) {
     this->init(n, n_local, ghost, false, type);
   }
 
@@ -374,7 +405,11 @@ namespace femus {
       _local_form(NULL),
       _values(NULL),
       _global_to_local_map(),
-      _destroy_vec_on_exit(false) {
+      _destroy_vec_on_exit(false),
+      _hip_ghost_mode(false),
+      _hip_ghost_scatter(NULL),
+      _hip_ghost_local_vec(NULL),
+      _hip_ghost_n_owned(0) {
     this->_vec = v;
     this->_is_closed = true;
     this->_is_initialized = true;
@@ -520,13 +555,51 @@ namespace femus {
       _global_to_local_map[ghost[i]] = i;
     }
 
-    /* Create vector.  */
-    ierr = VecCreateGhost(MPI_COMM_WORLD, petsc_n_local, petsc_n,
-                          petsc_n_ghost, petsc_ghost, &_vec);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    if (_hip_ghost_mode) {
+      ierr = VecCreate(MPI_COMM_WORLD, &_vec);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = VecSetSizes(_vec, petsc_n_local, petsc_n);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = VecSetType(_vec, VECMPIHIP);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-    ierr = VecSetFromOptions(_vec);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
+      PetscInt total_local = petsc_n_local + petsc_n_ghost;
+      ierr = VecCreateSeq(PETSC_COMM_SELF, total_local, &_hip_ghost_local_vec);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+      _hip_ghost_n_owned = static_cast<int>(petsc_n_local);
+
+      PetscInt first_owned;
+      ierr = VecGetOwnershipRange(_vec, &first_owned, NULL);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+      std::vector<PetscInt> from_indices(total_local);
+      for (PetscInt i = 0; i < petsc_n_local; i++) from_indices[i] = first_owned + i;
+      for (PetscInt i = 0; i < petsc_n_ghost; i++) from_indices[petsc_n_local + i] = petsc_ghost[i];
+
+      IS from_is, to_is;
+      ierr = ISCreateGeneral(MPI_COMM_WORLD, total_local, from_indices.data(),
+                             PETSC_COPY_VALUES, &from_is);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = ISCreateStride(PETSC_COMM_SELF, total_local, 0, 1, &to_is);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+      ierr = VecScatterCreate(_vec, from_is, _hip_ghost_local_vec, to_is,
+                               &_hip_ghost_scatter);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+      ierr = ISDestroy(&from_is); CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = ISDestroy(&to_is); CHKERRABORT(MPI_COMM_WORLD, ierr);
+    }
+    else {
+      /* Create vector.  */
+      ierr = VecCreateGhost(MPI_COMM_WORLD, petsc_n_local, petsc_n,
+                            petsc_n_ghost, petsc_ghost, &_vec);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+      ierr = VecSetFromOptions(_vec);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+    }
 
     this->_is_initialized = true;
     this->_is_closed = true;
@@ -554,6 +627,17 @@ namespace femus {
       ierr = VecDuplicate(v._vec, &this->_vec);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
+
+    if (v._hip_ghost_mode) {
+      this->_hip_ghost_mode = true;
+      this->_hip_ghost_n_owned = v._hip_ghost_n_owned;
+      int ierr = 0;
+      ierr = VecDuplicate(v._hip_ghost_local_vec, &this->_hip_ghost_local_vec);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = VecScatterCopy(v._hip_ghost_scatter, &this->_hip_ghost_scatter);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+    }
+
     if(fast == false)   this->zero();
   }
 
@@ -568,11 +652,15 @@ namespace femus {
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     if(this->type() == GHOSTED) {
-      ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-
+      if (_hip_ghost_mode) {
+        _hipGhostScatterForward();
+      }
+      else {
+        ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+      }
     }
     this->_is_closed = true;
   }
@@ -591,17 +679,26 @@ namespace femus {
     else {
       int ierr = 0;
 
-      ierr = VecGhostUpdateBegin (_vec, MIN_VALUES, SCATTER_REVERSE);
-//      ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_REVERSE);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = VecGhostUpdateEnd (_vec, MIN_VALUES, SCATTER_REVERSE);
-  //    ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_REVERSE);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      if (_hip_ghost_mode) {
+        ierr = VecScatterBegin(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                               MIN_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecScatterEnd(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                             MIN_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        _hipGhostScatterForward();
+      }
+      else {
+        ierr = VecGhostUpdateBegin(_vec, MIN_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateEnd(_vec, MIN_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-      ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+      }
 
       this->_is_closed = true;
     }
@@ -622,17 +719,26 @@ namespace femus {
     else {
       int ierr = 0;
       
-      ierr = VecGhostUpdateBegin (_vec, MAX_VALUES, SCATTER_REVERSE);
-      //      ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_REVERSE);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = VecGhostUpdateEnd (_vec, MAX_VALUES, SCATTER_REVERSE);
-      //    ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_REVERSE);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      if (_hip_ghost_mode) {
+        ierr = VecScatterBegin(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                               MAX_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecScatterEnd(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                             MAX_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        _hipGhostScatterForward();
+      }
+      else {
+        ierr = VecGhostUpdateBegin(_vec, MAX_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateEnd(_vec, MAX_VALUES, SCATTER_REVERSE);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
       
-      ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
-      ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
-      CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateBegin(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        ierr = VecGhostUpdateEnd(_vec, INSERT_VALUES, SCATTER_FORWARD);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+      }
       
       this->_is_closed = true;
     }
@@ -646,6 +752,12 @@ namespace femus {
       int ierr = 0;
       ierr = VecDestroy(&_vec);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
+    }
+    if (_hip_ghost_mode) {
+      VecScatterDestroy(&_hip_ghost_scatter);
+      VecDestroy(&_hip_ghost_local_vec);
+      _hip_ghost_mode = false;
+      _hip_ghost_n_owned = 0;
     }
     this->_is_closed = this->_is_initialized = false;
     _global_to_local_map.clear();
@@ -661,9 +773,13 @@ namespace femus {
       ierr = VecSet(_vec, z);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
     }
+    else if (_hip_ghost_mode) {
+      ierr = VecSet(_vec, z);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      ierr = VecSet(_hip_ghost_local_vec, z);
+      CHKERRABORT(MPI_COMM_WORLD, ierr);
+    }
     else {
-      /* Vectors that include ghost values require a special
-      handling.  */
       Vec loc_vec;
       ierr = VecGhostGetLocalForm(_vec, &loc_vec);
       CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -800,6 +916,10 @@ namespace femus {
     std::swap(_array_is_present, v._array_is_present);
     std::swap(_local_form, v._local_form);
     std::swap(_values, v._values);
+    std::swap(_hip_ghost_mode, v._hip_ghost_mode);
+    std::swap(_hip_ghost_scatter, v._hip_ghost_scatter);
+    std::swap(_hip_ghost_local_vec, v._hip_ghost_local_vec);
+    std::swap(_hip_ghost_n_owned, v._hip_ghost_n_owned);
   }
 
 
@@ -810,6 +930,16 @@ namespace femus {
       if(this->type() != GHOSTED) {
         ierr = VecGetArray(_vec, &_values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
+      }
+      else if (_hip_ghost_mode) {
+        ierr = VecGetArray(_hip_ghost_local_vec, &_values);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+#ifndef NDEBUG
+        PetscInt local_size = 0;
+        ierr = VecGetLocalSize(_hip_ghost_local_vec, &local_size);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        _local_size = static_cast<int>(local_size);
+#endif
       }
       else {
         ierr = VecGhostGetLocalForm(_vec, &_local_form);
@@ -837,6 +967,14 @@ namespace femus {
         CHKERRABORT(MPI_COMM_WORLD, ierr);
         _values = NULL;
       }
+      else if (_hip_ghost_mode) {
+        ierr = VecRestoreArray(_hip_ghost_local_vec, &_values);
+        CHKERRABORT(MPI_COMM_WORLD, ierr);
+        _values = NULL;
+#ifndef NDEBUG
+        _local_size = 0;
+#endif
+      }
       else  {
         ierr = VecRestoreArray(_local_form, &_values);
         CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -850,6 +988,26 @@ namespace femus {
       }
       _array_is_present = false;
     }
+  }
+
+  inline void PetscVector::_hipGhostScatterForward() const {
+    int ierr = 0;
+    ierr = VecScatterBegin(_hip_ghost_scatter, _vec, _hip_ghost_local_vec,
+                           INSERT_VALUES, SCATTER_FORWARD);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = VecScatterEnd(_hip_ghost_scatter, _vec, _hip_ghost_local_vec,
+                         INSERT_VALUES, SCATTER_FORWARD);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+  }
+
+  inline void PetscVector::_hipGhostSyncOwnedFromLocal() const {
+    int ierr = 0;
+    ierr = VecScatterBegin(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                           INSERT_VALUES, SCATTER_REVERSE);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = VecScatterEnd(_hip_ghost_scatter, _hip_ghost_local_vec, _vec,
+                         INSERT_VALUES, SCATTER_REVERSE);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
   }
 
 } //end namespace femus

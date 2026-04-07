@@ -208,13 +208,19 @@ namespace femus {
   }
 
 // =====================================0
+  // NOTE: the 5th and 6th parameters were historically named n_nz/n_oz
+  // in this definition, swapped relative to the declaration (n_oz, n_nz).
+  // Since C++ matches by position, the 5th positional arg is the
+  // off-diagonal count and the 6th is the diagonal count — matching the
+  // declaration in SparseMatrix.hpp / PetscMatrix.hpp.  The names here
+  // are now corrected to match.
   void PetscMatrix::update_sparsity_pattern(
     int m_global,                          // # global rows
     int n_global,                          // # global columns
     int m_local,                           // # local rows (local proc)
     int n_local,                           // # local columns (local proc)
-    const std::vector< int>  n_nz, // # diagoanl entries
-    const std::vector< int>  n_oz  // # offset entries
+    const std::vector< int>  n_oz, // # off-diagonal entries (5th positional)
+    const std::vector< int>  n_nz  // # diagonal entries     (6th positional)
   ) {
 
     // Clear initialized matrices

@@ -112,11 +112,17 @@ namespace femus {
   }
 
 // -----------------------------------------------------------------------
+  // NOTE: parameter names corrected to match the declaration in
+  // PetscHIPSparseMatrix.hpp / SparseMatrix.hpp.  The 5th positional
+  // arg is the off-diagonal count (n_oz) and the 6th is the diagonal
+  // count (n_nz).  Previously these names were swapped, which caused
+  // MatMPIAIJSetPreallocation to receive diagonal/off-diagonal hints
+  // in the wrong order.
   void PetscHIPSparseMatrix::update_sparsity_pattern(
     int m_global, int n_global,
     int m_local, int n_local,
-    const std::vector<int> n_nz,
-    const std::vector<int> n_oz) {
+    const std::vector<int> n_oz,
+    const std::vector<int> n_nz) {
 
     if(this->initialized()) this->clear();
     this->_is_initialized = true;
@@ -175,37 +181,37 @@ namespace femus {
     P->close();
 
     int ierr;
+    this->clear();
+
+    int numprocs;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    const MatType cpuType = (numprocs == 1) ? MATSEQAIJ : MATAIJ;
+    const MatType gpuType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
 
     Mat Acpu, Pcpu;
-    ierr = MatConvert(const_cast<PetscMatrix*>(A)->mat(), MATAIJ, MAT_INITIAL_MATRIX, &Acpu);
+    ierr = MatConvert(const_cast<PetscMatrix*>(A)->mat(), cpuType, MAT_INITIAL_MATRIX, &Acpu);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
-    ierr = MatConvert(const_cast<PetscMatrix*>(P)->mat(), MATAIJ, MAT_INITIAL_MATRIX, &Pcpu);
+    ierr = MatConvert(const_cast<PetscMatrix*>(P)->mat(), cpuType, MAT_INITIAL_MATRIX, &Pcpu);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
-
-    this->clear();
 
     Mat resultCpu;
     ierr = MatPtAP(Acpu, Pcpu, MAT_INITIAL_MATRIX, 1.0, &resultCpu);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-    int numprocs;
-    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-    const char *hipType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
-
-    ierr = MatConvert(resultCpu, hipType, MAT_INITIAL_MATRIX, &_mat);
+    ierr = MatConvert(resultCpu, gpuType, MAT_INITIAL_MATRIX, &_mat);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
+
     ierr = MatDestroy(&resultCpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Acpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Pcpu);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
     this->_is_initialized = true;
     { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
     { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
     _destroy_mat_on_exit = true;
-
-    ierr = MatDestroy(&Acpu);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
-    ierr = MatDestroy(&Pcpu);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
   }
 
 } //end namespace femus
