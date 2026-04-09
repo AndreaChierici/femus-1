@@ -119,6 +119,8 @@ namespace femus {
 
       double _richardsonScaleFactor;
 
+      bool _useHIP;
+
   };
 
   // =============================================
@@ -145,6 +147,8 @@ namespace femus {
     _bdcIndexIsInitialized = 0;
 
     _printSolverInfo = false;
+
+    _useHIP = false;
 
   }
 

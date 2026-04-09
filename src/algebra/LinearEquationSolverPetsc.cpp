@@ -100,9 +100,17 @@ namespace femus {
     Mat KK = (static_cast<PetscMatrix*> (_KK))->mat();
     if (ksp_clean) {
       this->Clear();
+      // Detect HIP before SetPenalty so the flag is valid when
+      // SetPenalty decides whether to flush to device
+      PetscBool isHIP = PETSC_FALSE;
+      PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
+                                MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
+      _useHIP = (isHIP == PETSC_TRUE);
       SetPenalty();
       RemoveNullSpace();
       this->Init (KK, KK);
+      // Note: Init also sets _useHIP via the same detection,
+      // so it stays consistent if Init is ever called independently
     }
     //END ASSEMBLE
 
@@ -159,6 +167,12 @@ namespace femus {
       this->SetSolver (_ksp, _levelSolverType);
 
       KSPSetOperators (_ksp, Amat, Pmat);
+
+      PetscBool isHIP = PETSC_FALSE;
+      PetscObjectTypeCompareAny((PetscObject)Amat, &isHIP,
+                                MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
+      _useHIP = (isHIP == PETSC_TRUE);
+
       KSPSetTolerances (_ksp, _rtol, _abstol, _dtol, _maxits);
 
       if (_levelSolverType != PREONLY) {
@@ -299,8 +313,13 @@ namespace femus {
     if (ksp_clean) {
       Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
 
-      KSPSetOperators (_ksp, KK, KK);
+      // Detect HIP matrix type for this solve
+      PetscBool isHIP = PETSC_FALSE;
+      PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
+                                MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
+      _useHIP = (isHIP == PETSC_TRUE);
 
+      KSPSetOperators (_ksp, KK, KK);
       KSPSetTolerances (_ksp, _rtol, _abstol, _dtol, _maxits);
 
       if (_mgSolverType != PREONLY) {
@@ -313,17 +332,23 @@ namespace femus {
 
       KSPSetFromOptions (_ksp);
       KSPGMRESSetRestart (_ksp, _restart);
-      KSPSetUp (_ksp);
 
-//       PetscViewer    viewer;
-//       PetscViewerDrawOpen(PETSC_COMM_WORLD,NULL,NULL,0,0,1800,1800,&viewer);
-//       PetscObjectSetName((PetscObject)viewer,"FSI matrix");
-//       PetscViewerPushFormat(viewer,PETSC_VIEWER_DRAW_LG);
-//       MatView(KK,viewer);
-//
-//       VecView((static_cast< PetscVector* >(_RES))->vec(),viewer);
-//       double a;
-//       std::cin>>a;
+      if (!_useHIP) {
+        // CPU path: explicit KSPSetUp triggers ILU factorization here,
+        // which is correct and efficient on CPU.
+        // On HIPSparse matrices this would force a CPU fallback + sync,
+        // so we defer setup to the first KSPSolve call instead.
+        KSPSetUp (_ksp);
+      }
+      //       PetscViewer    viewer;
+      //       PetscViewerDrawOpen(PETSC_COMM_WORLD,NULL,NULL,0,0,1800,1800,&viewer);
+      //       PetscObjectSetName((PetscObject)viewer,"FSI matrix");
+      //       PetscViewerPushFormat(viewer,PETSC_VIEWER_DRAW_LG);
+      //       MatView(KK,viewer);
+      //
+      //       VecView((static_cast< PetscVector* >(_RES))->vec(),viewer);
+      //       double a;
+      //       std::cin>>a;
     }
 
     ZerosBoundaryResiduals();
@@ -422,13 +447,18 @@ namespace femus {
   // =================================================
 
   void LinearEquationSolverPetsc::SetPenalty() {
-
     Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
-
     MatSetOption (KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
     MatSetOption (KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
     MatZeroRows (KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
 
+    if (_useHIP) {
+      // On HIPSparse matrices, MatZeroRows leaves the device copy stale.
+      // Force a single host->device flush here so the zeroed rows are
+      // committed before KSPSolve touches the matrix on the GPU.
+      MatAssemblyBegin (KK, MAT_FINAL_ASSEMBLY);
+      MatAssemblyEnd   (KK, MAT_FINAL_ASSEMBLY);
+    }
   }
 
   // =================================================
