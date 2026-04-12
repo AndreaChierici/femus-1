@@ -149,6 +149,7 @@ namespace femus {
     _printSolverInfo = false;
 
     _useHIP = false;
+    _useHIP = (std::getenv("FEMUS_USE_HIP") != nullptr && std::strcmp(std::getenv("FEMUS_USE_HIP"), "1") == 0);
 
   }
 

@@ -82,26 +82,26 @@ namespace femus {
       PetscMatrix (Mat m);
 
       /// Initialize a Petsc matrix
-      void init (const int m, const int n, const int m_l, const int n_l,
+      virtual void init (const int m, const int n, const int m_l, const int n_l,
                  const int nnz = 0, const int noz = 0);
-      void init (const  int m, const  int n, const  int m_l, const  int n_l,
+      virtual void init (const  int m, const  int n, const  int m_l, const  int n_l,
                  const std::vector< int > & n_nz, const std::vector< int > & n_oz);
 
-      void init (const int nr, const int nc, const std::vector < SparseMatrix*> &P);
+      virtual void init (const int nr, const int nc, const std::vector < SparseMatrix*> &P);
             
-      void init (const int m,  const int n) {
+      virtual void init (const int m,  const int n) {
         _m = m;
         _n = n;
       }
-      void init () {};
+      virtual void init () {};
       // Destructors ----------------------------
       /// Destructor
       ~PetscMatrix();
 
       void clear(); /// Release all memory
-      void zero();///< set to zero
+      virtual void zero();///< set to zero
       void zero_rows (std::vector<int> & rows, double diag_value = 0.0); ///< set  rows to zero
-      void close() const;///< close
+      virtual void close() const;///< close
       void flush() const;///< close
 
 
@@ -125,11 +125,11 @@ namespace femus {
 
       // Setting -------------------------------------
       /** @deprecated */
-      void update_sparsity_pattern_old (const Graph & sparsity_pattern);
+      virtual void update_sparsity_pattern_old (const Graph & sparsity_pattern);
 
-      void update_sparsity_pattern (const Graph &sparsity_pattern); ///<   sparsity patter update (Graph)
+      virtual void update_sparsity_pattern (const Graph &sparsity_pattern); ///<   sparsity patter update (Graph)
 
-      void update_sparsity_pattern (int m, int n, int m_l, int n_l, ///<   sparsity patter update (petsc)
+      virtual void update_sparsity_pattern (int m, int n, int m_l, int n_l, ///<   sparsity patter update (petsc)
                                     const std::vector<int>  n_oz, const std::vector<int>  n_nz);
       // set values
       void set (const int i, const int j, const double value); ///< Set the value.
@@ -159,8 +159,8 @@ namespace femus {
 
       void matrix_add (const double a_in, SparseMatrix &X_in, const char pattern []);
 
-      void matrix_PtAP (const SparseMatrix &mat_P, const SparseMatrix &mat_A, const bool &reuse);
-      void matrix_ABC (const SparseMatrix &mat_A, const SparseMatrix &mat_B, const SparseMatrix &mat_C, const bool &reuse);
+      virtual void matrix_PtAP (const SparseMatrix &mat_P, const SparseMatrix &mat_A, const bool &reuse);
+      virtual void matrix_ABC (const SparseMatrix &mat_A, const SparseMatrix &mat_B, const SparseMatrix &mat_C, const bool &reuse);
 
       void matrix_RightMatMult (const SparseMatrix &mat_A);
       void matrix_LeftMatMult (const SparseMatrix &mat_A);

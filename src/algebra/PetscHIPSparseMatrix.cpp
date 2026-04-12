@@ -171,6 +171,43 @@ namespace femus {
   }
 
 
+void PetscHIPSparseMatrix::close() const {
+    parallel_only();
+    int ierr = 0;
+    ierr = MatAssemblyBegin(_mat, MAT_FINAL_ASSEMBLY);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatAssemblyEnd(_mat, MAT_FINAL_ASSEMBLY);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    const char* t;
+      MatGetType(_mat, &t);
+      if (std::string(t) != MATMPIAIJHIPSPARSE && std::string(t) != MATSEQAIJHIPSPARSE) {
+	      int numprocs;
+	      MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+	      const MatType gpuType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
+	      Mat& matRef = const_cast<Mat&>(_mat);
+	      ierr = MatConvert(matRef, gpuType, MAT_INPLACE_MATRIX, &matRef);
+	      CHKERRABORT(MPI_COMM_WORLD, ierr);
+      }
+}
+
+
+void PetscHIPSparseMatrix::zero() {
+    assert(this->initialized());
+    int ierr = MatZeroEntries(_mat);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+       const char* t; MatGetType(_mat, &t);
+
+    ierr = MatAssemblyBegin(_mat, MAT_FLUSH_ASSEMBLY);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatAssemblyEnd(_mat, MAT_FLUSH_ASSEMBLY);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+       MatGetType(_mat, &t);
+}
+
+
 // -----------------------------------------------------------------------
   void PetscHIPSparseMatrix::matrix_PtAP(const SparseMatrix &mat_P,
                                           const SparseMatrix &mat_A,
@@ -211,6 +248,60 @@ namespace femus {
     this->_is_initialized = true;
     { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = static_cast<int>(pm); _n = static_cast<int>(pn); }
     { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = static_cast<int>(pml); _n_l = static_cast<int>(pnl); }
+    _destroy_mat_on_exit = true;
+  }
+
+  void PetscHIPSparseMatrix::matrix_ABC(const SparseMatrix &mat_A,
+                                        const SparseMatrix &mat_B,
+                                        const SparseMatrix &mat_C,
+                                        const bool &mat_reuse) {
+
+    const PetscMatrix* A = static_cast<const PetscMatrix*>(&mat_A);
+    A->close();
+    const PetscMatrix* B = static_cast<const PetscMatrix*>(&mat_B);
+    B->close();
+    const PetscMatrix* C = static_cast<const PetscMatrix*>(&mat_C);
+    C->close();
+
+    int ierr;
+    this->clear();
+
+    int numprocs;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    const MatType cpuType = (numprocs == 1) ? MATSEQAIJ : MATAIJ;
+    const MatType gpuType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
+
+    // Convert inputs to CPU AIJ for MatMatMatMult
+    // (MatMatMatMult does not support HIPSparse operands)
+    Mat Acpu, Bcpu, Ccpu;
+    ierr = MatConvert(const_cast<PetscMatrix*>(A)->mat(), cpuType, MAT_INITIAL_MATRIX, &Acpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatConvert(const_cast<PetscMatrix*>(B)->mat(), cpuType, MAT_INITIAL_MATRIX, &Bcpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatConvert(const_cast<PetscMatrix*>(C)->mat(), cpuType, MAT_INITIAL_MATRIX, &Ccpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    // Compute R*K*P on CPU
+    Mat resultCpu;
+    ierr = MatMatMatMult(Acpu, Bcpu, Ccpu, MAT_INITIAL_MATRIX, 1.0, &resultCpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    // Convert result to HIPSparse
+    ierr = MatConvert(resultCpu, gpuType, MAT_INITIAL_MATRIX, &_mat);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    ierr = MatDestroy(&resultCpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Acpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Bcpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+    ierr = MatDestroy(&Ccpu);
+    CHKERRABORT(MPI_COMM_WORLD, ierr);
+
+    this->_is_initialized = true;
+    { PetscInt pm, pn; MatGetSize(_mat, &pm, &pn); _m = pm; _n = pn; }
+    { PetscInt pml, pnl; MatGetLocalSize(_mat, &pml, &pnl); _m_l = pml; _n_l = pnl; }
     _destroy_mat_on_exit = true;
   }
 

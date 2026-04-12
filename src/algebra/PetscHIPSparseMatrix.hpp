@@ -45,7 +45,10 @@ namespace femus {
       void update_sparsity_pattern (int m, int n, int m_l, int n_l,
                                     const std::vector<int>  n_oz, const std::vector<int>  n_nz);
 
+      void zero();
+      void close() const;
       void matrix_PtAP (const SparseMatrix &mat_P, const SparseMatrix &mat_A, const bool &reuse);
+      void matrix_ABC (const SparseMatrix &mat_A, const SparseMatrix &mat_B, const SparseMatrix &mat_C, const bool &mat_reuse);
   };
 
 

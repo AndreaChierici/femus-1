@@ -23,7 +23,7 @@
 
 #include "slepceps.h"
 
-unsigned lmax1 = 3; // consistency form 3 -> 7
+unsigned lmax1 = 2; // consistency form 3 -> 7
 bool correctConstant = true;
 bool cutFem = !true;
 

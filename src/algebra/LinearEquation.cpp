@@ -222,6 +222,8 @@ namespace femus {
     }
 
     _KK = SparseMatrix::build(_matSolverPackage).release();
+
+
     _KK->init(KK_size, KK_size, KK_local_size, KK_local_size, d_nnz, o_nnz);
 
     _KKamr = SparseMatrix::build(_matSolverPackage).release();

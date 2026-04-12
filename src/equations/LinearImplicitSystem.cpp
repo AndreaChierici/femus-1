@@ -297,7 +297,9 @@ namespace femus {
       for(unsigned i = igridn; i > 0; i--) {
         if(_RR[i]) {
           if(i == igridn)
-            _LinSolver[i - 1u]->_KK->matrix_ABC(*_RR[i], *_LinSolver[i]->_KK, *_PP[i], _MGmatrixFineReuse);
+
+	     _LinSolver[i - 1u]->_KK->matrix_ABC(*_RR[i], *_LinSolver[i]->_KK, *_PP[i], _MGmatrixFineReuse);
+
           else {
             _LinSolver[i - 1u]->_KK->matrix_ABC(*_RR[i], *_LinSolver[i]->_KK, *_PP[i], _MGmatrixCoarseReuse);
             if(_LinSolver[i - 1u]->_KKamr) {

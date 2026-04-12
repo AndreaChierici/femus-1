@@ -313,11 +313,17 @@ namespace femus {
     if (ksp_clean) {
       Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
 
+      const char* matType;
+      MatGetType(KK, &matType);
+
+
+
       // Detect HIP matrix type for this solve
       PetscBool isHIP = PETSC_FALSE;
       PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
                                 MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
       _useHIP = (isHIP == PETSC_TRUE);
+     
 
       KSPSetOperators (_ksp, KK, KK);
       KSPSetTolerances (_ksp, _rtol, _abstol, _dtol, _maxits);
@@ -352,6 +358,7 @@ namespace femus {
     }
 
     ZerosBoundaryResiduals();
+
     KSPSolve (_ksp, (static_cast< PetscVector* > (_RES))->vec(), (static_cast< PetscVector* > (_EPSC))->vec());
 
     _RESC->matrix_mult (*_EPSC, *_KK);
@@ -447,30 +454,64 @@ namespace femus {
   // =================================================
 
   void LinearEquationSolverPetsc::SetPenalty() {
-    Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
-    MatSetOption (KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
-    MatSetOption (KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
-    MatZeroRows (KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
+    Mat KK = (static_cast<PetscMatrix*>(_KK))->mat();
 
-    if (_useHIP) {
-      // On HIPSparse matrices, MatZeroRows leaves the device copy stale.
-      // Force a single host->device flush here so the zeroed rows are
-      // committed before KSPSolve touches the matrix on the GPU.
-      MatAssemblyBegin (KK, MAT_FINAL_ASSEMBLY);
-      MatAssemblyEnd   (KK, MAT_FINAL_ASSEMBLY);
+    const char* matTypeBefore;
+    MatGetType(KK, &matTypeBefore);
+
+    MatSetOption(KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
+    MatSetOption(KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+
+    PetscBool isHIP = PETSC_FALSE;
+    PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
+    MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
+    if (isHIP) {
+      IS boundaryIS;
+      ISCreateGeneral(MPI_COMM_WORLD, _bdcIndex.size(),
+                      _bdcIndex.data(), PETSC_COPY_VALUES, &boundaryIS);
+      MatZeroRowsIS(KK, boundaryIS, 1.0, nullptr, nullptr);
+      ISDestroy(&boundaryIS);
+
+      MatAssemblyBegin(KK, MAT_FINAL_ASSEMBLY);
+      MatAssemblyEnd(KK, MAT_FINAL_ASSEMBLY);
+    }
+    else {
+      MatZeroRows(KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
     }
   }
+
+//  void LinearEquationSolverPetsc::SetPenalty() {
+//    Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
+//
+//    const char* matTypeBefore;
+//    MatGetType(KK, &matTypeBefore);
+//
+//    MatSetOption (KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
+//    MatSetOption (KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+//    MatZeroRows (KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
+//
+//    if (_useHIP) {
+//      // On HIPSparse matrices, MatZeroRows leaves the device copy stale.
+//      // Force a single host->device flush here so the zeroed rows are
+//      // committed before KSPSolve touches the matrix on the GPU.
+//      MatAssemblyBegin (KK, MAT_FINAL_ASSEMBLY);
+//      MatAssemblyEnd   (KK, MAT_FINAL_ASSEMBLY);
+//    }
+//  }
 
   // =================================================
 
   void LinearEquationSolverPetsc::SetPreconditioner (KSP& subksp, PC& subpc) {
 
     int parallelOverlapping = (_msh->GetIfHomogeneous()) ? 0 : 0;
-    PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, subpc, parallelOverlapping, this->GetMatSolverPackage());
-    PetscReal zero = 1.e-16;
-    PCFactorSetZeroPivot (subpc, zero);
-    PCFactorSetShiftType (subpc, MAT_SHIFT_NONZERO);
 
+    if (_useHIP) { PCSetType(subpc, PCJACOBI);}
+    else{
+      PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, subpc, parallelOverlapping, this->GetMatSolverPackage());
+      PetscReal zero = 1.e-16;
+      PCFactorSetZeroPivot (subpc, zero);
+      PCFactorSetShiftType (subpc, MAT_SHIFT_NONZERO);
+    }
   }
 
   // ================================================
