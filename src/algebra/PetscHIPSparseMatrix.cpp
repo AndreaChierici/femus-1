@@ -179,12 +179,13 @@ void PetscHIPSparseMatrix::close() const {
     ierr = MatAssemblyEnd(_mat, MAT_FINAL_ASSEMBLY);
     CHKERRABORT(MPI_COMM_WORLD, ierr);
 
-    const char* t;
+      const char* t;
       MatGetType(_mat, &t);
       if (std::string(t) != MATMPIAIJHIPSPARSE && std::string(t) != MATSEQAIJHIPSPARSE) {
 	      int numprocs;
 	      MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	      const MatType gpuType = (numprocs == 1) ? MATSEQAIJHIPSPARSE : MATMPIAIJHIPSPARSE;
+	      
 	      Mat& matRef = const_cast<Mat&>(_mat);
 	      ierr = MatConvert(matRef, gpuType, MAT_INPLACE_MATRIX, &matRef);
 	      CHKERRABORT(MPI_COMM_WORLD, ierr);
@@ -193,18 +194,12 @@ void PetscHIPSparseMatrix::close() const {
 
 
 void PetscHIPSparseMatrix::zero() {
-    assert(this->initialized());
-    int ierr = MatZeroEntries(_mat);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
-
-       const char* t; MatGetType(_mat, &t);
-
-    ierr = MatAssemblyBegin(_mat, MAT_FLUSH_ASSEMBLY);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
-    ierr = MatAssemblyEnd(_mat, MAT_FLUSH_ASSEMBLY);
-    CHKERRABORT(MPI_COMM_WORLD, ierr);
-
-       MatGetType(_mat, &t);
+ assert(this->initialized());
+  MatSetOption(_mat, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+  MatSetOption(_mat, MAT_NEW_NONZERO_ALLOCATION_ERR, PETSC_FALSE);
+  int ierr = MatZeroEntries(_mat);
+  CHKERRABORT(MPI_COMM_WORLD, ierr);
+  // No assembly call - just zero the entries
 }
 
 

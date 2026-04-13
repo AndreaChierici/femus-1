@@ -25,7 +25,7 @@
 #include "ParalleltypeEnum.hpp"
 #include "NumericVector.hpp"
 #include "SparseMatrix.hpp"
-
+#include "PetscVector.hpp"
 
 namespace femus {
 
@@ -170,6 +170,7 @@ namespace femus {
 
     //-----------------------------------------------------------------------------------------------
     int EPSsize = KKIndex[KKIndex.size() - 1];
+
     _EPS = NumericVector::build().release();
     if(n_processors() == 1) {  // IF SERIAL
       _EPS->init(EPSsize, EPSsize, false, SERIAL);
@@ -187,7 +188,6 @@ namespace femus {
 
     _RESC = NumericVector::build().release();
     _RESC->init(*_EPS);
-
 
     GetSparsityPatternSize();
 

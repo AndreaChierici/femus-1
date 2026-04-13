@@ -313,11 +313,6 @@ namespace femus {
     if (ksp_clean) {
       Mat KK = (static_cast< PetscMatrix* > (_KK))->mat();
 
-      const char* matType;
-      MatGetType(KK, &matType);
-
-
-
       // Detect HIP matrix type for this solve
       PetscBool isHIP = PETSC_FALSE;
       PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
@@ -359,7 +354,23 @@ namespace femus {
 
     ZerosBoundaryResiduals();
 
-    KSPSolve (_ksp, (static_cast< PetscVector* > (_RES))->vec(), (static_cast< PetscVector* > (_EPSC))->vec());
+if (_useHIP) {
+  // HIPSparse SpMV with CPU vectors gives wrong results in PETSc 3.24 + ROCm 7.2.
+  // Convert matrix to CPU for the solve, keeping GPU assembly benefits.
+  Mat KK_cpu;
+  Mat KK_gpu = (static_cast<PetscMatrix*>(_KK))->mat();
+  MatConvert(KK_gpu, MATAIJ, MAT_INITIAL_MATRIX, &KK_cpu);
+  KSPSetOperators(_ksp, KK_cpu, KK_cpu);
+  KSPSolve(_ksp, (static_cast<PetscVector*>(_RES))->vec(), 
+                 (static_cast<PetscVector*>(_EPSC))->vec());
+  MatDestroy(&KK_cpu);
+  KSPSetOperators(_ksp, KK_gpu, KK_gpu);
+}
+else {
+  KSPSolve(_ksp, (static_cast<PetscVector*>(_RES))->vec(), 
+                 (static_cast<PetscVector*>(_EPSC))->vec());
+}
+
 
     _RESC->matrix_mult (*_EPSC, *_KK);
     *_RES -= *_RESC;
@@ -454,30 +465,10 @@ namespace femus {
   // =================================================
 
   void LinearEquationSolverPetsc::SetPenalty() {
-    Mat KK = (static_cast<PetscMatrix*>(_KK))->mat();
-
-    const char* matTypeBefore;
-    MatGetType(KK, &matTypeBefore);
-
-    MatSetOption(KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
-    MatSetOption(KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
-
-    PetscBool isHIP = PETSC_FALSE;
-    PetscObjectTypeCompareAny((PetscObject)KK, &isHIP,
-    MATSEQAIJHIPSPARSE, MATMPIAIJHIPSPARSE, "");
-    if (isHIP) {
-      IS boundaryIS;
-      ISCreateGeneral(MPI_COMM_WORLD, _bdcIndex.size(),
-                      _bdcIndex.data(), PETSC_COPY_VALUES, &boundaryIS);
-      MatZeroRowsIS(KK, boundaryIS, 1.0, nullptr, nullptr);
-      ISDestroy(&boundaryIS);
-
-      MatAssemblyBegin(KK, MAT_FINAL_ASSEMBLY);
-      MatAssemblyEnd(KK, MAT_FINAL_ASSEMBLY);
-    }
-    else {
-      MatZeroRows(KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
-    }
+	  Mat KK = (static_cast<PetscMatrix*>(_KK))->mat();
+  MatSetOption(KK, MAT_NO_OFF_PROC_ZERO_ROWS, PETSC_TRUE);
+  MatSetOption(KK, MAT_KEEP_NONZERO_PATTERN, PETSC_TRUE);
+  MatZeroRows(KK, _bdcIndex.size(), &_bdcIndex[0], 1., 0, 0);
   }
 
 //  void LinearEquationSolverPetsc::SetPenalty() {
@@ -505,7 +496,14 @@ namespace femus {
 
     int parallelOverlapping = (_msh->GetIfHomogeneous()) ? 0 : 0;
 
-    if (_useHIP) { PCSetType(subpc, PCJACOBI);}
+    if(_useHIP){
+      PreconditionerType hipSafePrecond = _preconditioner_type;
+      if (_preconditioner_type == ILU_PRECOND || _preconditioner_type == MLU_PRECOND || _preconditioner_type == LU_PRECOND  || _preconditioner_type == CHOLESKY_PRECOND) {
+        hipSafePrecond = BLOCK_JACOBI_PRECOND;
+      }
+      PetscPreconditioner::set_petsc_preconditioner_type(hipSafePrecond, subpc, parallelOverlapping, this->GetMatSolverPackage());
+    }    
+//  if (_useHIP) { PCSetType(subpc, PCJACOBI);}
     else{
       PetscPreconditioner::set_petsc_preconditioner_type (this->_preconditioner_type, subpc, parallelOverlapping, this->GetMatSolverPackage());
       PetscReal zero = 1.e-16;
