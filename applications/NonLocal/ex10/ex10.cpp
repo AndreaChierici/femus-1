@@ -14,10 +14,11 @@
 
 #include "slepceps.h"
 
-unsigned lmax1 = 1; // consistency form 3 -> 7
+unsigned lmax1 = 3; // consistency form 3 -> 7
 const bool correctConstant = false;
 
 #include "./include/nonlocal_assembly_adaptive.hpp"
+#include "./include/GetW1infNorm.hpp"
 #include "CDWeights.hpp"
 
 //2D NONLOCAL EX : nonlocal diffusion for a body with different material properties
@@ -28,9 +29,10 @@ double InitalValueU(const std::vector < double >& x) {
   double value = 0.;
 
   for(unsigned k = 0; k < x.size(); k++) {
-    value +=  x[k] * x[k]; //consistency
+    // value +=  x[k] * x[k]; //consistency
     // value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
+    value += 0; // adjoint test
   }
 
 
@@ -39,6 +41,8 @@ double InitalValueU(const std::vector < double >& x) {
 
 void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine);
 
+void GetW1infNorm(MultiLevelSolution & mlSol, const char solName[]);
+
 bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[], double& value, const int facename, const double time) {
 
   bool dirichlet = true;
@@ -46,15 +50,17 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
   value = 0.;
 
   for(unsigned k = 0; k < x.size(); k++) {
-    value +=  x[k] * x[k]; //consistency
+    // value +=  x[k] * x[k]; //consistency
     // value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
+    value += 0; // ajoint test
+
   }
 
   return dirichlet;
 }
 
-unsigned numberOfUniformLevels = 1; //consistency
+unsigned numberOfUniformLevels = 4; //consistency
 //unsigned numberOfUniformLevels = 1; //cubic-quartic 2->6 //cubic Marta4Quad Tri Mix
 //unsigned numberOfUniformLevels = 2; //cubic-quartic 2->4 mappa a 4->6 //cubic Marta4Fine
 
@@ -105,14 +111,14 @@ int main(int argc, char** argv) {
 
 
 
-//  char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
+ char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
 //   char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
 //   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
   // char fileName[100] = "../input/martaTest4Tri.neu";
  // char fileName[100] = "../input/martaTest4Unstr.neu"; // works till 144 nprocs
    // // char fileName[100] = "../input/salome/martaTest4QuadUnstr.med";
    // char fileName[100] = "../input/martaTest4Unstr2.neu";
-  char fileName[100] = "../input/martaTest4-3D-tet.neu"; // works till 288 nprocs 0.2
+  // char fileName[100] = "../input/martaTest4-3D-tet.neu"; // works till 288 nprocs 0.2
   //char fileName[100] = "../input/martaTest4-3D.neu"; // works till 288 nprocs 0.2
   //char fileName[100] = "../input/martaTest4-3Dfine.neu"; // works till 576 and more nprocs +1 0.1
 
@@ -134,8 +140,8 @@ int main(int argc, char** argv) {
   MultiLevelSolution mlSolFine(&mlMshFine);
 
   // add variables to mlSol
-  FEOrder femType = SERENDIPITY;
-//   FEOrder femType = FIRST;
+  // FEOrder femType = SERENDIPITY;
+  FEOrder femType = FIRST;
 
   std::vector < std::string > femTypeName = {"zero", "linear", "quadratic", "biquadratic"};
 
@@ -201,7 +207,7 @@ int main(int argc, char** argv) {
   // ******* Set Preconditioner *******
   system.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetSparsityPatternMinimumSize(60000u);    //TODO tune
+  system.SetSparsityPatternMinimumSize(6000u);    //TODO tune
 
   system.init();
 
@@ -216,6 +222,9 @@ int main(int argc, char** argv) {
 // ******* Solution *******
 
   system.MGsolve();
+
+    // GetW1infNorm(mlSol, "u");
+    GetW1infNorm(mlSol, "u", 0.2 * pow(0.5, numberOfUniformLevels - 1));
 
   //END assemble and solve nonlocal problem
 

@@ -27,7 +27,7 @@ using namespace femus;
 
 #define N_UNIFORM_LEVELS  4
 #define N_ERASED_LEVELS   3
-#define S_FRAC 0.25
+#define S_FRAC 0.5
 
 #define OP_L2       0
 #define OP_H1       0
@@ -39,10 +39,10 @@ using namespace femus;
 #define USE_Cns     1
 
 
-#define EX_1       -1.
-#define EX_2        1.
-#define EY_1       -1.
-#define EY_2        1.
+#define EX_1       -0.6
+#define EX_2        0.6
+#define EY_1       -0.4
+#define EY_2        0.4
 
 
 #include "../fractional_functions.hpp"
@@ -83,10 +83,10 @@ int main(int argc, char** argv)
 
 
   //quadr rule order
-//   const std::string fe_quad_rule_1 = "fifth";
-//   const std::string fe_quad_rule_2 = "sixth";
-  const std::string fe_quad_rule_1 = "seventh";
-  const std::string fe_quad_rule_2 = "eighth";
+  const std::string fe_quad_rule_1 = "fifth";
+  const std::string fe_quad_rule_2 = "sixth";
+  // const std::string fe_quad_rule_1 = "seventh";
+  // const std::string fe_quad_rule_2 = "eighth";
 
 
 
