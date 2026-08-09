@@ -248,9 +248,14 @@ public:
              elem_all_in[g].resize(femus::fe_fams.size());
              const std::string quad_order = this->GetQuadratureRule(g).GetGaussOrderString();  ///@todo what if you choose different quadrature orders on different geom elems?
 
-         for (unsigned int fe = 0; fe < femus::fe_fams.size(); fe++) {
-            elem_all_in[g][fe] = elem_type_templ_base<type, type_mov>::build(femus::geom_elems[g], femus::fe_fams[fe], quad_order.c_str(), 3);          
-           }
+             for (unsigned int fe = 0; fe < femus::fe_fams.size(); fe++) {
+               if(femus::geom_elems[g].compare("point") == 0) { elem_all_in[g][fe] = nullptr; continue; }
+               elem_all_in[g][fe] = elem_type_templ_base<type, type_mov>::build(femus::geom_elems[g], femus::fe_fams[fe], quad_order.c_str(), 3);
+             }
+
+         // for (unsigned int fe = 0; fe < femus::fe_fams.size(); fe++) {
+            // elem_all_in[g][fe] = elem_type_templ_base<type, type_mov>::build(femus::geom_elems[g], femus::fe_fams[fe], quad_order.c_str(), 3);
+           // }
        }
        
 //   clock_t end_evals = clock();
