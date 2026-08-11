@@ -538,7 +538,9 @@ int main(int argc, char** argv) {
 
   for(unsigned n = 0; n < nSteps; n++) {
 
-    *solLev->_Sol[iTh0] = *solLev->_Sol[iTh];          // save theta^n
+    std::cout << "[STEP] " << n + 1 << " / " << nSteps << "   t = " << (n + 1) * dt << std::endl << std::flush;
+
+    *solLev->_Sol[iTh0] = *solLev->_Sol[iTh];
 
     for(unsigned stage = 0; stage < 3; stage++) {
 
