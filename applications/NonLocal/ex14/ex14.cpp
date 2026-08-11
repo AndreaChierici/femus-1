@@ -413,6 +413,8 @@ int main(int argc, char** argv) {
 
   mlSol.AddSolution("theta0", LAGRANGE, femType, 0, false);
 
+  mlSol.AddSolution("disTheta", LAGRANGE, femType, 0, false);
+
   mlSol.Initialize("All");
   mlSolFine.Initialize("All");
 
@@ -493,10 +495,35 @@ int main(int argc, char** argv) {
   const unsigned iTh0 = mlSol.GetIndex("theta0");
   const unsigned iAdv = mlSol.GetIndex("advTheta");
   const unsigned iM   = mlSol.GetIndex("mlump");
+  const unsigned iDis = mlSol.GetIndex("disTheta");
+
+  const double   kappa = 0.001;
+
+  if(getenv("KK_CHECK")) {
+    for(unsigned i = solLev->_Sol[iTh0]->first_local_index();
+        i < solLev->_Sol[iTh0]->last_local_index(); i++) {
+      solLev->_Sol[iTh0]->set(i, 1.);
+        }
+        solLev->_Sol[iTh0]->close();
+        solLev->_Sol[iDis]->matrix_mult(*solLev->_Sol[iTh0],
+                                        *system._LinSolver[lev]->_KK);
+        unsigned cnt = 0;
+        for(unsigned i = solLev->_Sol[iDis]->first_local_index();
+            i < solLev->_Sol[iDis]->last_local_index() && cnt < 6; i++) {
+          if((*solLev->_Bdc[iU])(i) > 0.5) {
+            std::cout.precision(8);
+            std::cout << "[KKCHECK] dof " << i << "  (KK*1) = "
+            << (*solLev->_Sol[iDis])(i) << std::endl;
+            cnt++;
+          }
+            }
+            solLev->_Sol[iTh0]->zero();
+            solLev->_Sol[iTh0]->close();
+  }
 
   const double   dt      = 0.04;
   const unsigned nSteps  = 600;
-  const unsigned nPrint  = 10;
+  const unsigned nPrint  = 20;
 
   double K, H, maxVel;
   Diagnostics(mlSol, K, H, maxVel);
@@ -519,10 +546,15 @@ int main(int argc, char** argv) {
       system.MGsolve();                                 // psi from the current theta
       ComputeAdvection(mlSol);                          // advTheta = C, mlump = lumped mass
 
+      if(kappa > 0.) {
+        solLev->_Sol[iDis]->matrix_mult(*solLev->_Sol[iTh], *system._LinSolver[lev]->_KK);
+      }
+
       for(unsigned i = solLev->_Sol[iTh]->first_local_index();
           i < solLev->_Sol[iTh]->last_local_index(); i++) {
         double m  = (*solLev->_Sol[iM])(i);
-      double L  = (fabs(m) > 1e-14) ? -(*solLev->_Sol[iAdv])(i) / m : 0.;
+      double Ai = (kappa > 0.) ? -(*solLev->_Sol[iDis])(i) : 0.;   // (A theta)_i
+      double L  = (fabs(m) > 1e-14) ? -((*solLev->_Sol[iAdv])(i) + kappa * Ai) / m : 0.;
       double t0 = (*solLev->_Sol[iTh0])(i);
       double ts = (*solLev->_Sol[iTh])(i);
       double v;

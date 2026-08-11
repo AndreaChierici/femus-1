@@ -522,9 +522,10 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
         for(unsigned k = 0; k < dim; k++) {
           // res1[i] -= -2 * phi1[i] * weight1; // consistency
-         res1[i] -= -6.* x1g[k] * phi1[i] * weight1; //cubic
+         // res1[i] -= -6.* x1g[k] * phi1[i] * weight1; //cubic
 //         res1[i] -= ( -12.* x1g[k] * x1g[k] - delta1 * delta1 ) * phi1[i] * weight1; //quartic
         }
+        res1[i] -= -2. * x1g[1] * phi1[i] * weight1;   // comment 4 reviewer
         // res1[i] -= 1. * phi1[i] * weight1; // adjoint test
          // res1[i] -= psig * phi1[i] * weight1;  // adjoint test 2
       }
@@ -1603,8 +1604,9 @@ void AssembleLocalSys(MultiLevelProblem & ml_prob) {
 
         for(unsigned k = 0; k < dim; k++) {
           // srcTerm +=  -2. ; // so f = - 2 //consistency
-          srcTerm +=  -6. * x_gss[k] ; // cubic
+          // srcTerm +=  -6. * x_gss[k] ; // cubic
 //         srcTerm +=  -12.* x_gss[k] * x_gss[k]; //quartic
+          srcTerm = -2. * x_gss[1];              // comment 4 reviewer
         }
         aRes[i] += (-srcTerm * phi[i] + laplace) * weight;
 
