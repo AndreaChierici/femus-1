@@ -30,9 +30,9 @@ double InitalValueU(const std::vector < double >& x) {
 
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    value += 0; // adjoint test
+    // value += 0; // adjoint test
   }
 
 
@@ -51,9 +51,9 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    value += 0; // ajoint test
+    // value += 0; // adjoint test
 
   }
 
@@ -140,8 +140,8 @@ int main(int argc, char** argv) {
   MultiLevelSolution mlSolFine(&mlMshFine);
 
   // add variables to mlSol
-  // FEOrder femType = SERENDIPITY;
-  FEOrder femType = FIRST;
+  FEOrder femType = SERENDIPITY;
+  // FEOrder femType = FIRST;
 
   std::vector < std::string > femTypeName = {"zero", "linear", "quadratic", "biquadratic"};
 
@@ -418,8 +418,8 @@ void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine) {
 
       double soluExact_gss = 0.;
       for(unsigned k = 0; k < dim; k++) {
-        soluExact_gss += xg[k] * xg[k];//consistency
-        // soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
+        // soluExact_gss += xg[k] * xg[k];//consistency
+        soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
 //        soluExact_gss += xg[k] * xg[k] * xg[k] * xg[k];// quartic
       }
 
