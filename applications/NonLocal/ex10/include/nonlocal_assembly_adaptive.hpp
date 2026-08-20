@@ -209,8 +209,8 @@ bool nonLocalAssembly = true;
 //DELTA sizes: martaTest1: 0.4, martaTest2: 0.01, martaTest3: 0.53, martaTest4: 0.2, maxTest1: both 0.4, maxTest2: both 0.01, maxTest3: both 0.53, maxTest4: both 0.2, maxTest5: both 0.1, maxTest6: both 0.8,  maxTest7: both 0.05, maxTest8: both 0.025, maxTest9: both 0.0125, maxTest10: both 0.00625
 
 //double delta1 = 0.2; //cubic, quartic, consistency
-double delta1 = 0.2; //parallel
-double delta2 = 0.2;
+double delta1 = 0.20; //parallel
+double delta2 = 0.20;
 // double epsilon = ( delta1 > delta2 ) ? delta1 : delta2;
 double kappa1 = 1.;
 double kappa2 = 1.;
@@ -522,10 +522,10 @@ void AssembleNonLocalRefined(MultiLevelProblem& ml_prob) {
 
         for(unsigned k = 0; k < dim; k++) {
           // res1[i] -= -2 * phi1[i] * weight1; // consistency
-         // res1[i] -= -6.* x1g[k] * phi1[i] * weight1; //cubic
+         res1[i] -= -6.* x1g[k] * phi1[i] * weight1; //cubic
 //         res1[i] -= ( -12.* x1g[k] * x1g[k] - delta1 * delta1 ) * phi1[i] * weight1; //quartic
         }
-        res1[i] -= -2. * x1g[1] * phi1[i] * weight1;   // comment 4 reviewer
+        // res1[i] -= -2. * x1g[1] * phi1[i] * weight1;   // comment 4 reviewer
         // res1[i] -= 1. * phi1[i] * weight1; // adjoint test
          // res1[i] -= psig * phi1[i] * weight1;  // adjoint test 2
       }
@@ -1604,9 +1604,9 @@ void AssembleLocalSys(MultiLevelProblem & ml_prob) {
 
         for(unsigned k = 0; k < dim; k++) {
           // srcTerm +=  -2. ; // so f = - 2 //consistency
-          // srcTerm +=  -6. * x_gss[k] ; // cubic
+          srcTerm +=  -6. * x_gss[k] ; // cubic
 //         srcTerm +=  -12.* x_gss[k] * x_gss[k]; //quartic
-          srcTerm = -2. * x_gss[1];              // comment 4 reviewer
+          // srcTerm = -2. * x_gss[1];              // comment 4 reviewer
         }
         aRes[i] += (-srcTerm * phi[i] + laplace) * weight;
 

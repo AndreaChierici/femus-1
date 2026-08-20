@@ -30,10 +30,10 @@ double InitalValueU(const std::vector < double >& x) {
 
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
     // value += 0; // adjoint test
-      return x[0] * x[0] * x[1];          // comment 4 reviewer
+      // return x[0] * x[0] * x[1];          // comment 4 reviewer
   }
 
 
@@ -50,10 +50,10 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
 
   value = 0.;
 
-    value = x[0] * x[0] * x[1];          // comment 4 reviewer
+    // value = x[0] * x[0] * x[1];          // comment 4 reviewer
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
     // value += 0; // adjoint test
 
@@ -114,6 +114,8 @@ int main(int argc, char** argv) {
 
 
  char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
+ // char fileName[100] = "../input/martaTest4_collar1p0.neu";
+
 //   char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
 //   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
   // char fileName[100] = "../input/martaTest4Tri.neu";
@@ -369,6 +371,9 @@ void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine) {
 
   for(int iel = msh->_elementOffset[iproc]; iel < msh->_elementOffset[iproc + 1]; iel++) {
 
+    short unsigned ielGroup = msh->GetElementGroup(iel);
+    if(ielGroup == 5 || ielGroup == 6 || ielGroup == 9) continue;   // Gamma: integrate over Omega only
+
     short unsigned ielGeom = msh->GetElementType(iel);
     unsigned nDofu  = msh->GetElementDofNumber(iel, soluType);
     unsigned nDofx = msh->GetElementDofNumber(iel, xType);
@@ -421,10 +426,10 @@ void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine) {
       double soluExact_gss = 0.;
       for(unsigned k = 0; k < dim; k++) {
         // soluExact_gss += xg[k] * xg[k];//consistency
-        // soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
+        soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
 //        soluExact_gss += xg[k] * xg[k] * xg[k] * xg[k];// quartic
       }
-      soluExact_gss = xg[0] * xg[0] * xg[1]; // comment 4 reviewer
+      // soluExact_gss = xg[0] * xg[0] * xg[1]; // comment 4 reviewer
 
       error_solExact_norm2 += (soluNonLoc_gss - soluExact_gss) * (soluNonLoc_gss - soluExact_gss) * weight;
 
