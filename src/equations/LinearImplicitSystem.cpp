@@ -51,6 +51,8 @@ namespace femus {
     _MGmatrixCoarseReuse(false),
     _printSolverInfo(false),
     _assembleMatrix(true),
+    _reuseKspFactorization(false),
+    _kspBuilt(false),
     _numberOfGlobalVariables(0u) {
     _SparsityPattern.resize(0);
     _mgOuterSolver = GMRES;
@@ -319,21 +321,23 @@ namespace femus {
 
       std::cout << std::endl << " ****** Level Max " << igridn + 1 << " PREPARATION TIME:\t" << static_cast<double>((clock() - start_preparation_time)) / CLOCKS_PER_SEC << std::endl;
 
-      _LinSolver[igridn]->MGInit(mgSmootherType, igridn + 1, _mgOuterSolver);
+      if(!_kspBuilt) {
+        _LinSolver[igridn]->MGInit(mgSmootherType, igridn + 1, _mgOuterSolver);
 
-      for(unsigned i = 0; i < igridn + 1; i++) {
-        unsigned npre = (i == 0) ? _npre0 : _npre;
-        unsigned npost = (i == 0) ? 0 : _npost;
-        if(_RR[i])
-          _LinSolver[i]->MGSetLevel(_LinSolver[igridn], igridn, _VariablesToBeSolvedIndex, _PP[i], _RR[i], npre, npost);
-        else
-          _LinSolver[i]->MGSetLevel(_LinSolver[igridn], igridn, _VariablesToBeSolvedIndex, _PP[i], _PP[i], npre, npost);
+        for(unsigned i = 0; i < igridn + 1; i++) {
+          unsigned npre = (i == 0) ? _npre0 : _npre;
+          unsigned npost = (i == 0) ? 0 : _npost;
+          if(_RR[i])
+            _LinSolver[i]->MGSetLevel(_LinSolver[igridn], igridn, _VariablesToBeSolvedIndex, _PP[i], _RR[i], npre, npost);
+          else
+            _LinSolver[i]->MGSetLevel(_LinSolver[igridn], igridn, _VariablesToBeSolvedIndex, _PP[i], _PP[i], npre, npost);
+        }
       }
 
       Vcycle(igridn, mgSmootherType);
 
-      _LinSolver[igridn]->MGClear();
-
+      if(_reuseKspFactorization) _kspBuilt = true;
+      else _LinSolver[igridn]->MGClear();
 
       if(!_ml_msh->GetLevel(igridn)->GetIfHomogeneous()) {
         _LinSolver[igridn]->SwapMatrices();
@@ -424,7 +428,9 @@ namespace femus {
     for(unsigned linearIterator = 0; linearIterator < _n_max_linear_iterations; linearIterator++) {   //linear cycle
 
       std::cout << "       *************** Linear iteration " << linearIterator + 1 << " ***********" << std::endl;
-      bool ksp_clean = !linearIterator * _assembleMatrix;
+      // bool ksp_clean = !linearIterator * _assembleMatrix;
+      // bool ksp_clean = !linearIterator * _assembleMatrix && !_reuseKspFactorization;
+      bool ksp_clean = !linearIterator * _assembleMatrix && !_kspBuilt;
       _LinSolver[level]->MGSolve(ksp_clean);
       _solution[level]->UpdateRes(_SolSystemPdeIndex, _LinSolver[level]->_RES, _LinSolver[level]->KKoffset);
       linearIsConverged = IsLinearConverged(level);

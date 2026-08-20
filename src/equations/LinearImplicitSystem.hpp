@@ -228,6 +228,8 @@ namespace femus {
         return _assembleMatrix;
       }
 
+      void SetReuseKspFactorization(const bool &b) { _reuseKspFactorization = b; }
+
       vector < SparseMatrix* > &GetProjectionMatrix() {
         return _PP;
       }
@@ -245,6 +247,8 @@ namespace femus {
 
       bool _printSolverInfo;
       bool _assembleMatrix;
+      bool _reuseKspFactorization;
+      bool _kspBuilt;
       void AddAMRLevel (unsigned &AMRCounter);
 
       bool Vcycle (const unsigned & gridn, const MgSmootherType& mgSmootherType);

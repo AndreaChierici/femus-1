@@ -4,6 +4,7 @@
 #include "GetNormal.hpp"
 #include "TetDepthEval.hpp"
 #include "QuadDepthEval.hpp"
+#include "FracDepthEval.hpp"
 
 std::ofstream fout;
 
@@ -33,6 +34,7 @@ class NonLocal {
     virtual double GetGamma(const std::vector < double>  &x1, const std::vector < double>  &x2) const = 0;
 
     virtual bool KernelIsConstant() const { return true; }
+    virtual double GetD0() const { return 0.; }
 
 
     void ZeroLocalQuantities(const unsigned &nDof1, const Region &region2, const unsigned &levelMax1);
@@ -674,13 +676,6 @@ void NonLocal::AssemblyCutFem1Gated(const unsigned &level, const unsigned &level
   static const double gateEps    = [](){ const char *s = getenv("GATE_EPS");    return s ? atof(s) : 1e-3; }();
   static const double gateMargin = [](){ const char *s = getenv("GATE_MARGIN"); return s ? atof(s) : 0.3;  }();
 
-  if(gateOn != 0 && !KernelIsConstant()) {
-    std::cerr << "[FRAC] ERROR: the ML gate is not supported with a non-constant kernel yet "
-    "(intermediate-level resolutions bypass the gamma weighting). Run with GATE=0."
-    << std::endl;
-    abort();
-  }
-
   static long _gateDrop[16] = {0}, _gateInt[16] = {0}, _gateCut[16] = {0}, _gateProp[16] = {0};
   static long _gateLeafPairs = 0;
   static struct _GateRep { ~_GateRep() {
@@ -1070,6 +1065,9 @@ void NonLocal::AssemblyCutFem1Gated(const unsigned &level, const unsigned &level
         const std::vector<double>& I2 = region2.GetI2(jel);
         const unsigned nDof2 = region2.GetDofNumber(jel);
 
+        FracDepthElem fdCache;
+        if(gateOn != 0 && !KernelIsConstant()) FracDepthElemInit(xv1, delta, GetD0(), fdCache);
+
         jgKeep.resize(0);
         const std::vector <unsigned> &jgList = jgIndexF[j];
         for(unsigned jgi = 0; jgi < jgList.size(); jgi++) {
@@ -1093,21 +1091,61 @@ void NonLocal::AssemblyCutFem1Gated(const unsigned &level, const unsigned &level
             if(s < delta * delta) n_in++;
           }
 
-          if(n_in == 4) {       // sub-element fully inside this ball: exact early resolution
+          int lstar = 5;
+          if(n_in > 0 && !(KernelIsConstant() && n_in == 4)) {
+            lstar = KernelIsConstant()
+            ? PredictQuadDepth(xv1, xg2[jg], delta, gateEps, gateMargin)
+            : PredictFracDepthCached(fdCache, xv1, xg2[jg], delta, GetD0(), gateEps, gateMargin);
+          }
+
+          if(n_in == 4 && (KernelIsConstant() || lstar == 0)) {
             EnsureFem1();
             double W2 = 2. * weight2[jg] * _kernel * I2[jg];
-            double W1W2 = W1 * W2;
-            AssemblyCutFem2(_phi1W1, solu1W1 * W2,  W1W2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1W2, W2);
+            if(KernelIsConstant()) {
+              double W1W2 = W1 * W2;
+              AssemblyCutFem2(_phi1W1, solu1W1 * W2, W1W2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1W2, W2);
+            }
+            else {              // gamma-weighted, mirrors the leaf branch at ~843
+              double W1g = 0.;
+              _phi1W1g.assign(nDof1, 0.);
+              for(unsigned ig = 0; ig < ng1; ig++) {
+                const double wg = _weight1[ig] * GetGamma(_xg1[ig], xg2[jg]);
+                W1g += wg;
+                for(unsigned i = 0; i < nDof1; i++) _phi1W1g[i] += phi1[ig][i] * wg;
+              }
+              double solu1W1g = 0.;
+              for(unsigned i = 0; i < nDof1; i++) solu1W1g += solu1[i] * _phi1W1g[i];
+              double W1gW2 = W1g * W2;
+              AssemblyCutFem2(_phi1W1g, solu1W1g * W2, W1gW2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1gW2, W2);
+            }
             _gateInt[level]++;
           }
-          else if(n_in > 0 && PredictQuadDepth(xv1, xg2[jg], delta, gateEps, gateMargin) == 0) {
-            // cut pair predicted resolvable at the current sub-element: leaf machinery NOW
+
+          else if(n_in > 0 && lstar == 0) {
+
             _ballAprx->GetNormal(element1.GetElementType(), xv1, xg2[jg], delta, _a, _d, _cut);
             if(_cut == 0) {
               EnsureFem1();
               double W2 = 2. * weight2[jg] * _kernel * I2[jg];
-              double W1W2 = W1 * W2;
-              AssemblyCutFem2(_phi1W1, solu1W1 * W2,  W1W2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1W2, W2);
+              // double W1W2 = W1 * W2;
+              // AssemblyCutFem2(_phi1W1, solu1W1 * W2,  W1W2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1W2, W2);
+              if(KernelIsConstant()) {
+                double W1W2 = W1 * W2;
+                AssemblyCutFem2(_phi1W1, solu1W1 * W2, W1W2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1W2, W2);
+              }
+              else {              // gamma-weighted, mirrors the leaf branch at ~843
+                double W1g = 0.;
+                _phi1W1g.assign(nDof1, 0.);
+                for(unsigned ig = 0; ig < ng1; ig++) {
+                  const double wg = _weight1[ig] * GetGamma(_xg1[ig], xg2[jg]);
+                  W1g += wg;
+                  for(unsigned i = 0; i < nDof1; i++) _phi1W1g[i] += phi1[ig][i] * wg;
+                }
+                double solu1W1g = 0.;
+                for(unsigned i = 0; i < nDof1; i++) solu1W1g += solu1[i] * _phi1W1g[i];
+                double W1gW2 = W1g * W2;
+                AssemblyCutFem2(_phi1W1g, solu1W1g * W2, W1gW2, jel, nDof2, fem2->GetPhi(jg), solu2g[jg] * W1gW2, W2);
+              }
             }
             else if(_cut == 1) {
               EnsureFem1CF();
@@ -1118,6 +1156,7 @@ void NonLocal::AssemblyCutFem1Gated(const unsigned &level, const unsigned &level
               _phi1W1CF.assign(nDof1, 0.);
               for(unsigned ig = 0; ig != ng1CF; ++ig) {
                 double weightigjg = _weight1CF[ig] * _eqPolyWeight[ig];
+                if(!KernelIsConstant()) weightigjg *= GetGamma(_xg1CF[ig], xg2[jg]);
                 W1CF += weightigjg;
                 for(unsigned i = 0; i != nDof1; ++i) {
                   _phi1W1CF[i] += phi1CF[ig][i] * weightigjg;
@@ -1278,6 +1317,8 @@ public:
     _kernel = kappa / (4. * M_PI);
   }
   bool KernelIsConstant() const { return false; }
+
+  double GetD0() const { return _d0; }
 
   // // regularized fractional kernel: 1/max(d,d0)^3
   // double GetGamma(const double &d) const {

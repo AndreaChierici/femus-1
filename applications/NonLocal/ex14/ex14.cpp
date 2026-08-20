@@ -14,7 +14,7 @@
 
 #include "slepceps.h"
 
-unsigned lmax1 = 1; // consistency form 3 -> 7
+unsigned lmax1 = 3; // consistency form 3 -> 7
 const bool correctConstant = false;
 
 #include "./include/nonlocal_assembly_adaptive.hpp"
@@ -357,7 +357,8 @@ int main(int argc, char** argv) {
   // char fileName[100] = "../input/martaTest4.neu";
  // char fileName[100] = "../input/martaTest4_collar0p6.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
  // char fileName[100] = "../input/martaTest4_collar1p0.neu";
- char fileName[100] = "../input/sqgBox.neu";
+ // char fileName[100] = "../input/sqgBox.neu";
+ char fileName[100] = "../input/sqgGraded.neu";
  // char fileName[100] = "../input/martaTest4_stretchX2.neu";
 //   char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
 //   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
@@ -475,12 +476,17 @@ int main(int argc, char** argv) {
   system.init();
 
   // ******* Set Smoother *******
-  system.SetSolverFineGrids(RICHARDSON);
-//   system.SetRichardsonScaleFactor(0.7);
+//   system.SetSolverFineGrids(RICHARDSON);
+// //   system.SetRichardsonScaleFactor(0.7);
+//
+//   system.SetPreconditionerFineGrids(ILU_PRECOND);
 
-  system.SetPreconditionerFineGrids(ILU_PRECOND);
+  system.SetSolverFineGrids(PREONLY);
 
-  system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 100);
+  system.SetPreconditionerFineGrids(LU_PRECOND);
+
+  // system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 100);
+  system.SetTolerances(1.e-40, 1.e-40, 1.e+50, 1);
 
   // ******* Solution *******
 
@@ -522,8 +528,8 @@ int main(int argc, char** argv) {
   }
 
   const double   dt      = 0.04;
-  const unsigned nSteps  = 600;
-  const unsigned nPrint  = 20;
+  const unsigned nSteps  = 625;
+  const unsigned nPrint  = 5;
 
   double K, H, maxVel;
   Diagnostics(mlSol, K, H, maxVel);
@@ -536,6 +542,8 @@ int main(int argc, char** argv) {
   print_vars.push_back("All");
   mlSol.GetWriter()->SetDebugOutput(true);
 
+  unsigned nSolve = 1;
+
   for(unsigned n = 0; n < nSteps; n++) {
 
     std::cout << "[STEP] " << n + 1 << " / " << nSteps << "   t = " << (n + 1) * dt << std::endl << std::flush;
@@ -546,6 +554,10 @@ int main(int argc, char** argv) {
 
       solLev->_Sol[iU]->zero();
       system.MGsolve();                                 // psi from the current theta
+
+
+      if(++nSolve == 2) system.SetReuseKspFactorization(true);
+
       ComputeAdvection(mlSol);                          // advTheta = C, mlump = lumped mass
 
       if(kappa > 0.) {
