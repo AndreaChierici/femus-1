@@ -30,9 +30,9 @@ double InitalValueU(const std::vector < double >& x) {
 
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    value +=  x[k] * x[k] * x[k]; //cubic
+    // value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    // value += 0; // adjoint test
+    value += 0; // adjoint test
       // return x[0] * x[0] * x[1];          // comment 4 reviewer
   }
 
@@ -53,9 +53,9 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
     // value = x[0] * x[0] * x[1];          // comment 4 reviewer
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    value +=  x[k] * x[k] * x[k]; //cubic
+    // value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    // value += 0; // adjoint test
+    value += 0; // adjoint test
 
   }
 
@@ -113,10 +113,10 @@ int main(int argc, char** argv) {
 
 
 
- char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
+ // char fileName[100] = "../input/martaTest4.neu"; // good form 2->6 in serial but in parallel use martaTest4Fine
  // char fileName[100] = "../input/martaTest4_collar1p0.neu";
 
-//   char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
+  char fileName[100] = "../input/martaTest4Fine.neu"; // works till 144 nprocs +2
 //   char fileName[100] = "../input/martaTest4Finer.neu"; // works till 144 nprocs +4
   // char fileName[100] = "../input/martaTest4Tri.neu";
  // char fileName[100] = "../input/martaTest4Unstr.neu"; // works till 144 nprocs
@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
   // ******* Set Preconditioner *******
   system.SetLinearEquationSolverType(FEMuS_DEFAULT);
 
-  system.SetSparsityPatternMinimumSize(6000u);    //TODO tune
+  system.SetSparsityPatternMinimumSize(4000u);    //TODO tune
 
   system.init();
 
@@ -228,7 +228,13 @@ int main(int argc, char** argv) {
   system.MGsolve();
 
     // GetW1infNorm(mlSol, "u");
-    GetW1infNorm(mlSol, "u", 0.2 * pow(0.5, numberOfUniformLevels - 1));
+    // GetW1infNorm(mlSol, "u", 0.2 * pow(0.5, numberOfUniformLevels - 1));
+
+
+  // martaTest4.neu: coarse h = 0.2, ml = nUL
+  // martaTest4Fine.neu: coarse h = 0.05, ml = nUL + 2
+    double hCoarse = 0.05;              // set per mesh file
+    GetW1infNorm(mlSol, "u", hCoarse * pow(0.5, numberOfUniformLevels - 1));
 
   //END assemble and solve nonlocal problem
 
@@ -425,8 +431,8 @@ void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine) {
 
       double soluExact_gss = 0.;
       for(unsigned k = 0; k < dim; k++) {
-        // soluExact_gss += xg[k] * xg[k];//consistency
-        soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
+        soluExact_gss += xg[k] * xg[k];//consistency
+        // soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
 //        soluExact_gss += xg[k] * xg[k] * xg[k] * xg[k];// quartic
       }
       // soluExact_gss = xg[0] * xg[0] * xg[1]; // comment 4 reviewer
