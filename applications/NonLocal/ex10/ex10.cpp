@@ -30,9 +30,9 @@ double InitalValueU(const std::vector < double >& x) {
 
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    value += 0; // adjoint test
+    // value += 0; // adjoint test
       // return x[0] * x[0] * x[1];          // comment 4 reviewer
   }
 
@@ -53,9 +53,9 @@ bool SetBoundaryCondition(const std::vector < double >& x, const char SolName[],
     // value = x[0] * x[0] * x[1];          // comment 4 reviewer
   for(unsigned k = 0; k < x.size(); k++) {
     // value +=  x[k] * x[k]; //consistency
-    // value +=  x[k] * x[k] * x[k]; //cubic
+    value +=  x[k] * x[k] * x[k]; //cubic
 //   value +=  x[k] * x[k] * x[k] * x[k];//quartic
-    value += 0; // adjoint test
+    // value += 0; // adjoint test
 
   }
 
@@ -431,8 +431,8 @@ void GetL2Norm(MultiLevelSolution & mlSol, MultiLevelSolution & mlSolFine) {
 
       double soluExact_gss = 0.;
       for(unsigned k = 0; k < dim; k++) {
-        soluExact_gss += xg[k] * xg[k];//consistency
-        // soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
+        // soluExact_gss += xg[k] * xg[k];//consistency
+        soluExact_gss += xg[k] * xg[k] * xg[k]; // cubic
 //        soluExact_gss += xg[k] * xg[k] * xg[k] * xg[k];// quartic
       }
       // soluExact_gss = xg[0] * xg[0] * xg[1]; // comment 4 reviewer
